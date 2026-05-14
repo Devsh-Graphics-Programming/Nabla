@@ -387,13 +387,13 @@ core::smart_refctd_ptr<IGPUImage> ILogicalDevice::createImage(IGPUImage::SCreati
               .flags = creationParams.flags
             }, handleType);
 
-            if (!core::bitflag(props.compatibleTypes).hasFlags(creationParams.externalHandleTypes))
+            if (!core::bitflag(props.externalMemoryProperties.compatibleTypes).hasFlags(creationParams.externalHandleTypes))
             {
               m_logger.log("Failed to create Buffer, Incompatible external handle type", system::ILogger::ELL_ERROR);
               return nullptr;
             }
 
-            dedicatedOnly |= (props.features & IPhysicalDevice::EEMF_DEDICATED_ONLY_BIT);
+            dedicatedOnly |= (props.externalMemoryProperties.features & IPhysicalDevice::EEMF_DEDICATED_ONLY_BIT);
         }
     }
 

@@ -1405,7 +1405,7 @@ IPhysicalDevice::SExternalMemoryProperties CVulkanPhysicalDevice::getExternalMem
     };
 }
 
-IPhysicalDevice::SExternalMemoryProperties CVulkanPhysicalDevice::getExternalMemoryProperties_impl(
+IPhysicalDevice::SExternalImageProperties CVulkanPhysicalDevice::getExternalImageProperties_impl(
   const SImageFormatInfo& info, 
   IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
 {
@@ -1436,10 +1436,19 @@ IPhysicalDevice::SExternalMemoryProperties CVulkanPhysicalDevice::getExternalMem
     assert(VK_SUCCESS == re);
 
     const auto& externalMemProps = externalProps.externalMemoryProperties;
-    return SExternalMemoryProperties{
-      .exportableTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.exportFromImportedHandleTypes),
-      .compatibleTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.compatibleHandleTypes),
-      .features = static_cast<E_EXTERNAL_MEMORY_FEATURE_FLAGS>(externalMemProps.externalMemoryFeatures)
+    return {
+        .formatProperties = {
+            .maxExtent = props.imageFormatProperties.maxExtent,
+            .maxMipLevels = props.imageFormatProperties.maxMipLevels,
+            .maxArrayLayers = props.imageFormatProperties.maxArrayLayers,
+            .sampleCounts = static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(props.imageFormatProperties.sampleCounts),
+            .maxResourceSize = props.imageFormatProperties.maxResourceSize,
+        },
+        .externalMemoryProperties = {
+            .exportableTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.exportFromImportedHandleTypes),
+            .compatibleTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.compatibleHandleTypes),
+            .features = static_cast<E_EXTERNAL_MEMORY_FEATURE_FLAGS>(externalMemProps.externalMemoryFeatures),
+        } 
     };
 }
 

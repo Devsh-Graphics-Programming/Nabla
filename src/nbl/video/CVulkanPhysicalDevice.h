@@ -111,7 +111,7 @@ class CVulkanPhysicalDevice final : public IPhysicalDevice
 
         SExternalMemoryProperties getExternalMemoryProperties_impl(core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const override;
 
-        SExternalMemoryProperties getExternalMemoryProperties_impl(const SImageFormatInfo& imageFormatInfo, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const override;
+        SExternalImageProperties getExternalImageProperties_impl(const SImageFormatInfo& imageFormatInfo, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const override;
 
         core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params) override;
 

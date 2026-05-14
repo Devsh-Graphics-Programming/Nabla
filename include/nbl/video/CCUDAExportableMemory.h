@@ -43,6 +43,7 @@ class NBL_API2 CCUDAExportableMemory final : public core::IReferenceCounted
 		 */
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
 
+		inline const SCachedCreationParams& getCreationParams() const { return m_params; }
 	private:
 		friend class CCUDADevice;
 

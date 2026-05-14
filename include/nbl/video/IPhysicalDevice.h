@@ -28,6 +28,49 @@ namespace nbl::video
 
 class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 {
+    template<class F> static constexpr bool is_bitflag = false;
+    template<class F> static constexpr bool is_bitflag<core::bitflag<F>> = true;
+
+    template<class T> struct RequestMapTraits;
+    template<class R, class...Args>struct RequestMapTraits<R(IPhysicalDevice::*)(Args...) const> : RequestMapTraits<R(IPhysicalDevice::*)(Args...)> {};
+    template<class R, class...Args> struct RequestMapTraits<R(IPhysicalDevice::*)(Args...)>
+    {
+        using Key = std::tuple<std::remove_cvref_t<Args>...>;
+        struct Hasher
+        {
+            template<int N = sizeof...(Args)>
+            static size_t hash(size_t seed, Key const& key)
+            {
+                if constexpr (0 == N)
+                    return seed;
+                else 
+                {
+                    using cur = std::remove_cvref_t<decltype(std::get<N - 1>(key))>;
+       
+                    if constexpr (is_bitflag<cur>)
+                        core::hash_combine(seed, cur::UNDERLYING_TYPE(std::get<N - 1>(key).value));
+                    else if constexpr (std::is_convertible_v<cur, size_t>)
+                        core::hash_combine(seed, size_t(std::get<N - 1>(key)));
+                    else
+                        core::hash_combine(seed, std::get<N - 1>(key));
+                    
+                    return hash<N - 1>(seed, key);
+                }
+
+            }
+
+            size_t operator()(Key const& key) const
+            {
+                return hash(0, key);
+            }
+        };
+
+        using Map = std::unordered_map<Key, R, Hasher>;
+    };
+
+    template<class T>
+    using RequestMap = typename RequestMapTraits<T>::Map;
+
     public:
         //
         virtual E_API_TYPE getAPIType() const = 0;
@@ -657,22 +700,19 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         };
 
         SExternalMemoryProperties getExternalBufferProperties(
-            core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, 
+            core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usage, 
             IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
         {
-            usages &= ~asset::IBuffer::EUF_SYNTHETIC_FLAGS_MASK; // mask out synthetic flags
+            usage &= ~asset::IBuffer::EUF_SYNTHETIC_FLAGS_MASK; // mask out synthetic flags
+            {
+                std::shared_lock lock(m_externalBufferPropertiesMutex);
+                auto it = m_externalBufferProperties.find({ usage, handleType });
+                if (it != m_externalBufferProperties.end())
+                    return it->second;
+            }
 
-            // TODO(kevinyu): Should we cached the properties like Atil does. If yes, needs mutex and mutable specifier. Class become not that simple anymore. 
-            // {
-            //     std::shared_lock lock(m_externalBufferPropertiesMutex);
-            //     auto it = m_externalBufferProperties.find({ usage, handleType });
-            //     if (it != m_externalBufferProperties.end())
-            //         return it->second;
-            // }
-            //
-            // std::unique_lock lock(m_externalBufferPropertiesMutex);
-            // return m_externalBufferProperties[{ usage, handleType }] = getExternalBufferProperties_impl(usage, handleType);
-            return getExternalMemoryProperties_impl(usages, handleType);
+            std::unique_lock lock(m_externalBufferPropertiesMutex);
+            return m_externalBufferProperties[{ usage, handleType }] = getExternalMemoryProperties_impl(usage, handleType);
         }
 
         struct SImageFormatInfo
@@ -682,12 +722,45 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             IGPUImage::TILING tiling;
             core::bitflag<IGPUImage::E_USAGE_FLAGS> usage;
             core::bitflag<IGPUImage::E_CREATE_FLAGS> flags;
+
+            bool operator==(const SImageFormatInfo& rhs) const = default;
         };
-        SExternalMemoryProperties getExternalImageProperties(
+
+        struct SImageFormatProperties
+        {
+            VkExtent3D maxExtent = {};
+            uint32_t maxMipLevels = {};
+            uint32_t maxArrayLayers = {};
+            IGPUImage::E_SAMPLE_COUNT_FLAGS sampleCounts = IGPUImage::ESCF_1_BIT;
+            uint64_t maxResourceSize = 0;
+
+            bool operator==(const SImageFormatProperties& rhs) const = default;
+        };
+
+        // Ask(kevin): Should I opt for inheritance?
+        struct SExternalImageProperties
+        {
+            // Ask(kevin): Should I drop the 'properties' because of tautology?
+            SImageFormatProperties formatProperties;
+            SExternalMemoryProperties externalMemoryProperties;
+
+            bool operator==(const SExternalImageProperties& rhs) const = default;
+        };
+
+        SExternalImageProperties getExternalImageProperties(
             const SImageFormatInfo& info,
             IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
         {
-            return getExternalMemoryProperties_impl(info, handleType);
+            auto key = std::tuple{ info, handleType };
+            {
+                std::shared_lock lock(m_externalImagePropertiesMutex);
+                auto it = m_externalImageProperties.find(key);
+                if (it != m_externalImageProperties.end())
+                    return it->second;
+            }
+
+            std::unique_lock lock(m_externalImagePropertiesMutex);
+            return m_externalImageProperties[key] = getExternalImageProperties_impl(info, handleType);
         }
 
         struct SBufferFormatPromotionRequest {
@@ -735,8 +808,24 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         inline IPhysicalDevice(SInitData&& _initData) : m_initData(std::move(_initData)) {}
 
         // External memory properties query
-        virtual SExternalMemoryProperties getExternalMemoryProperties_impl(core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
-        virtual SExternalMemoryProperties getExternalMemoryProperties_impl(const SImageFormatInfo& imageFormatInfo, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
+        virtual SExternalMemoryProperties getExternalMemoryProperties_impl(
+          core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages,
+          IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
+
+        virtual SExternalImageProperties getExternalImageProperties_impl(
+          const SImageFormatInfo& info,
+          IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const = 0;
+
+        using ExternalBufferPropsMethod = SExternalMemoryProperties(IPhysicalDevice::*)(core::bitflag<IGPUBuffer::E_USAGE_FLAGS>, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE) const;
+        
+        using ExternalImagePropsMethod = SExternalImageProperties(IPhysicalDevice::*)(
+            const SImageFormatInfo&, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE) const;
+
+        mutable RequestMap<ExternalBufferPropsMethod> m_externalBufferProperties;
+        mutable std::shared_mutex m_externalBufferPropertiesMutex;
+
+        mutable RequestMap<ExternalImagePropsMethod> m_externalImageProperties;
+        mutable std::shared_mutex m_externalImagePropertiesMutex;
 
         // ILogicalDevice creation
         bool validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const;
@@ -882,5 +971,30 @@ namespace nbl::video
     }
     
 
+}
+
+namespace std {
+    template<>
+    struct hash<nbl::video::IPhysicalDevice::SImageFormatInfo> {
+        size_t operator()(const nbl::video::IPhysicalDevice::SImageFormatInfo& info) const noexcept {
+            size_t seed = 0;
+            nbl::core::hash_combine(seed, info.format);
+            nbl::core::hash_combine(seed, info.type);
+            nbl::core::hash_combine(seed, info.tiling);
+            nbl::core::hash_combine(seed, info.usage);
+            nbl::core::hash_combine(seed, info.flags);
+            // Add any other members of SImageFormatInfo
+            return seed;
+        }
+    };
+
+    template<typename ENUM_TYPE>
+    struct hash<nbl::core::bitflag<ENUM_TYPE>> {
+        size_t operator()(const nbl::core::bitflag<ENUM_TYPE>& bf) const noexcept {
+            return std::hash<typename nbl::core::bitflag<ENUM_TYPE>::UNDERLYING_TYPE>{}(
+                static_cast<typename nbl::core::bitflag<ENUM_TYPE>::UNDERLYING_TYPE>(bf.value)
+            );
+        }
+    };
 }
 #endif
