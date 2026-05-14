@@ -43,11 +43,31 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 			EVA_72,
 			EVA_75,
 			EVA_80,
+			EVA_86,
+			EVA_87,
+			EVA_88,
+			EVA_89,
+			EVA_90,
+			EVA_90A,
+			EVA_100,
+			EVA_100A,
+			EVA_100F,
+			EVA_103,
+			EVA_103A,
+			EVA_103F,
+			EVA_110,
+			EVA_110A,
+			EVA_110F,
+			EVA_120,
+			EVA_120A,
+			EVA_120F,
+			EVA_121,
+			EVA_121A,
+			EVA_121F,
 			EVA_COUNT
 		};
 		E_VIRTUAL_ARCHITECTURE getVirtualArchitecture() const;
 
-		~CCUDADevice() override;
 
 		core::SRange<const char* const> geDefaultCompileOptions() const;
 
@@ -83,6 +103,7 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		static constexpr uint32_t AllocationGranularityLocationTypeCount = 5u;
 		struct SNativeState;
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, std::unique_ptr<SNativeState>&& nativeState, core::smart_refctd_ptr<CCUDAHandler>&& handler);
+		~CCUDADevice() override;
 		bool isValid() const;
 
 		const system::logger_opt_ptr m_logger;
