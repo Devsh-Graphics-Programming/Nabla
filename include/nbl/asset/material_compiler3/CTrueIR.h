@@ -377,7 +377,14 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					auto& pool = ir->getObjectPool();
 					const auto copyH = pool.emplace<std::remove_const_t<std::remove_pointer_t<decltype(this)> > >(getState());
 					if (auto* const copy = pool.deref(copyH); copyH)
-						*copy = *this;
+					{
+						for (uint64_t c = 0; c < getState().childCount; c++) 
+						{
+							auto childHandle = child[c];
+							if (auto* const _child = pool.deref(childHandle); _child)
+								copy->child[c] = block_allocator_type::_static_cast<IFactor>(_child->copy(ir));
+						}
+					}
 					return copyH;
 				}
 
