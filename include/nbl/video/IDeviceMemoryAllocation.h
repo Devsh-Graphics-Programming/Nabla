@@ -70,7 +70,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         };
 
         //! Flags for imported/exported allocation
-        enum E_EXTERNAL_HANDLE_TYPE : uint16_t
+        enum E_EXTERNAL_HANDLE_TYPE : uint32_t
         {
             EHT_NONE = 0,
             EHT_OPAQUE_FD = 0x00000001,
