@@ -524,7 +524,11 @@ void CFrontendIR::ISpectralVariableExpr::printDot(std::ostringstream& sstr, cons
 void CFrontendIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
 	if (profile)
-		profile.printDot(sstr,selfID);
+	{
+		const auto profileNodeID = selfID + "_profile";
+		profile.printDot(sstr, profileNodeID);
+		sstr << "\n\t" << selfID << " -> " << profileNodeID << "[label=\"Profile\"]";
+	}
 	if (profile.view)
 	{
 		const auto transformNodeID = selfID+"_pTform";
