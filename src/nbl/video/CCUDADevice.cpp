@@ -101,7 +101,7 @@ CCUDADevice::CCUDADevice(
 {
 	assert(m_native);
 
-	m_defaultCompileOptions.push_back("--std=c++14");
+	m_defaultCompileOptions.push_back("--std=c++20");
 	m_defaultCompileOptions.push_back(VirtualArchCompileOption[m_virtualArchitecture]);
 	m_defaultCompileOptions.push_back("-dc");
 	m_defaultCompileOptions.push_back("-use_fast_math");
