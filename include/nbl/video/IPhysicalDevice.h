@@ -717,14 +717,21 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SImageFormatInfo
         {
-            asset::E_FORMAT format;
-            IGPUImage::E_TYPE type;
-            IGPUImage::TILING tiling;
             core::bitflag<IGPUImage::E_USAGE_FLAGS> usage;
             core::bitflag<IGPUImage::E_CREATE_FLAGS> flags;
+            asset::E_FORMAT format;
+            IGPUImage::E_TYPE type: 2;
+            IGPUImage::TILING tiling: 1;
 
             bool operator==(const SImageFormatInfo& rhs) const = default;
         };
+        static_assert(
+          sizeof(SImageFormatInfo) == 
+          sizeof(uint16_t) + // usage
+          sizeof(uint16_t) + // flags
+          sizeof(uint8_t) + // format
+          sizeof(uint8_t) // type + tiling
+        );
 
         struct SImageFormatProperties
         {

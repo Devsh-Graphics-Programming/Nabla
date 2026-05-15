@@ -380,11 +380,11 @@ core::smart_refctd_ptr<IGPUImage> ILogicalDevice::createImage(IGPUImage::SCreati
             requestedTypes ^= handleType;
 
             auto props = m_physicalDevice->getExternalImageProperties(IPhysicalDevice::SImageFormatInfo{
+              .usage = creationParams.usage,
+              .flags = creationParams.flags,
               .format = creationParams.format,
               .type = creationParams.type,
               .tiling = creationParams.tiling,
-              .usage = creationParams.usage,
-              .flags = creationParams.flags
             }, handleType);
 
             if (!core::bitflag(props.externalMemoryProperties.compatibleTypes).hasFlags(creationParams.externalHandleTypes))
