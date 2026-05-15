@@ -2,15 +2,20 @@
 
 This document describes how to consume an installed Nabla package from another CMake project.
 
+Capability selection and package-composition rules are described in [../package-components.md](../package-components.md).
+This document focuses on the `Core` SDK capability and the runtime helpers that come with it.
+
 ## 1. Package API
 
-After `find_package(Nabla CONFIG REQUIRED)`, the package provides:
+If the package exposes the `Core` capability, then after `find_package(Nabla CONFIG REQUIRED)` it provides:
 
 - imported target `Nabla::Nabla`
 - helper `nabla_sync_runtime_modules(...)`
 - helper `nabla_apply_runtime_lookup(...)`
 - helper `nabla_setup_runtime_install_modules(...)`
 - wrapper `nabla_setup_runtime_modules(...)`
+
+The examples below assume that the selected package root exposes `Core`.
 
 On shared builds, runtime modules include Nabla and DXC.
 

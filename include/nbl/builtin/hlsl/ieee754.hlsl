@@ -16,8 +16,8 @@ template<typename Float>
 struct traits_base
 {
 	static_assert(is_same<Float, float16_t>::value || is_same<Float, float32_t>::value || is_same<Float, float64_t>::value);
-	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = int16_t(0xbeef);
-	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = int16_t(0xbeef);
+	NBL_CONSTEXPR_STATIC_INLINE int16_t exponentBitCnt = (int16_t)0xbeef;
+	NBL_CONSTEXPR_STATIC_INLINE int16_t mantissaBitCnt = (int16_t)0xbeef;
 };
 
 template<>
@@ -73,7 +73,7 @@ template<>
 inline uint32_t extractBiasedExponent(uint64_t x)
 {
 	uint64_t output = (x >> traits<float64_t>::mantissaBitCnt) & (traits<float64_t>::exponentMask >> traits<float64_t>::mantissaBitCnt);
-	return uint32_t(output);
+	return _static_cast<uint32_t>(output);
 }
 
 template<>
@@ -100,7 +100,7 @@ NBL_CONSTEXPR_FUNC T replaceBiasedExponent(T x, typename unsigned_integer_of_siz
 template <typename T>
 NBL_CONSTEXPR_FUNC T fastMulExp2(T x, int n)
 {
-	return replaceBiasedExponent(x, extractBiasedExponent(x) + uint32_t(n));
+	return replaceBiasedExponent(x, extractBiasedExponent(x) + _static_cast<uint32_t>(n));
 }
 
 template <typename T>
@@ -289,6 +289,41 @@ NBL_CONSTEXPR_FUNC bool isZero(T val)
 
 	const AsUint exponentAndMantissaMask = ~traits_t::signMask;
 	return !(ieee754::impl::bitCastToUintType(val) & exponentAndMantissaMask);
+}
+
+// Returns the largest representable value less than `val`.
+// For positive values this decrements the bit representation; for negative values it increments.
+// Caller must guarantee val is finite and non-zero.
+template <bool CanBeNeg = true, typename T NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<T>)
+NBL_CONSTEXPR_FUNC T nextDown(T val)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	using traits_t = traits<T>;
+
+	const AsUint bits = ieee754::impl::bitCastToUintType(val);
+
+	// positive: decrement; negative: increment
+	AsUint result;
+	if (CanBeNeg)
+	{
+		const bool isNegative = (bits & traits_t::signMask) != AsUint(0);
+		result = isNegative ? (bits + AsUint(1)) : (bits - AsUint(1));
+	}
+	else
+		result = bits - AsUint(1);
+	return impl::castBackToFloatType<T>(result);
+}
+
+// Returns the representable value nearest to `val` in the direction of zero.
+// For positive values this decrements the bit representation; for negative values it decrements (moving toward zero).
+// Caller must guarantee val is finite and non-zero.
+template <typename T NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<T>)
+NBL_CONSTEXPR_FUNC T nextTowardZero(T val)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+
+	const AsUint bits = ieee754::impl::bitCastToUintType(val);
+	return impl::castBackToFloatType<T>(bits - AsUint(1));
 }
 
 }

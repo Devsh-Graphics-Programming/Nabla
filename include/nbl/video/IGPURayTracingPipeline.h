@@ -143,8 +143,8 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
 
         struct SShaderGroupHandle
         {
-          private:
-            uint8_t data[video::SPhysicalDeviceLimits::ShaderGroupHandleSize];
+            private:
+                uint8_t data[video::SPhysicalDeviceLimits::ShaderGroupHandleSize];
         };
         static_assert(sizeof(SShaderGroupHandle) == video::SPhysicalDeviceLimits::ShaderGroupHandleSize);
 

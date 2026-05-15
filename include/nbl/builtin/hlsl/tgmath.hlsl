@@ -7,12 +7,8 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/tgmath/impl.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
-#include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
-#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
-#include <nbl/builtin/hlsl/concepts/core.hlsl>
-#include <nbl/builtin/hlsl/concepts/vector.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 
 // C++ headers

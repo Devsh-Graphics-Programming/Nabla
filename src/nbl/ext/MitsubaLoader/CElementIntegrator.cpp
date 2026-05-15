@@ -214,6 +214,7 @@ bool CElementIntegrator::onEndTag(CMitsubaMetadata* metadata, system::logger_opt
 	{
 	}
 
+	// TODO: nested integrators require a deep copy away from the `CObjectPool`
 	/* Nested integrators rely on closing branch to post-order visit here to set the root one as the main one in the metadata
 	if (metadata->m_global.m_integrator.type!=Type::INVALID) // D
 	{

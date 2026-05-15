@@ -21,16 +21,9 @@ class CMitsubaMaterialCompilerFrontend;
 
 #if 0 // TODO
 //#include "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
-#define uint uint32_t
-#define uvec2 uint64_t
-#define mat4x3 nbl::core::matrix3x4SIMD
 #define nbl_glsl_MC_material_data_t asset::material_compiler::material_data_t
 struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 {
-	struct vec3
-	{
-		float x, y, z;
-	};
 	mat4x3 tform;
 	vec3 normalMatrixRow0;
 	uint padding0;
@@ -40,9 +33,6 @@ struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 	uint determinantSignBit;
 	nbl_glsl_MC_material_data_t material;
 };
-#undef uint
-#undef uvec2
-#undef mat4x3
 #undef nbl_glsl_MC_material_data_t
 using instance_data_t = nbl_glsl_ext_Mitsuba_Loader_instance_data_t;
 #endif
@@ -58,12 +48,6 @@ class CMitsubaLoader final : public asset::ISceneLoader
 		virtual ~CMitsubaLoader() = default;
 
 #if 0
-		void									cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic);
-		void cacheEmissionProfile(SContext& ctx, const CElementEmissionProfile* profile);
-
-		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf, const CElementEmitter* emitter, core::matrix4SIMD tform);
-		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
-
 		template <typename Iter>
 		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
 #endif

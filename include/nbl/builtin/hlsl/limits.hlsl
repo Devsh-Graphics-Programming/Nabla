@@ -209,18 +209,18 @@ struct num_traits<float16_t> : num_base<float16_t>
 {
     // since float16_t has no constexpr ctor we have to use float32_t constants on cpp side which is only needed for testing
     using type = 
-#ifdef __cplusplus
+#ifndef __HLSL_VERSION
     float32_t
 #else
     float16_t
 #endif
 ;
-    NBL_CONSTEXPR_STATIC_INLINE type      min           = 6.103515e-05F;
-    NBL_CONSTEXPR_STATIC_INLINE type      max           = 65504.0F;
-    NBL_CONSTEXPR_STATIC_INLINE type      denorm_min    = 5.96046448e-08F;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t  quiet_NaN     = 0x7FFF;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t  signaling_NaN = 0x7DFF;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t  infinity      = 0x7C00;
+    NBL_CONSTEXPR_STATIC_INLINE type      min           = (type)6.103515e-05F;
+    NBL_CONSTEXPR_STATIC_INLINE type      max           = (type)65504.0F;
+    NBL_CONSTEXPR_STATIC_INLINE type      denorm_min    = (type)5.96046448e-08F;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t  quiet_NaN     = (uint16_t)0x7FFF;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t  signaling_NaN = (uint16_t)0x7DFF;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t  infinity      = (uint16_t)0x7C00;
 };
 
 template<> 

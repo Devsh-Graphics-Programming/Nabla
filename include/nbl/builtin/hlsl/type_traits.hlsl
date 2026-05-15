@@ -193,18 +193,15 @@ template<class T> struct remove_const : type_identity<T> {};
 template<class T> struct remove_const<const T> : type_identity<T> {};
 
 template<class T> struct remove_volatile : type_identity<T> {};
-template<class T> struct remove_volatile<volatile T> : type_identity<T> {};
 
 template<class T> struct remove_cv : type_identity<T> {};
 template<class T> struct remove_cv<const T> : type_identity<T> {};
-template<class T> struct remove_cv<volatile T> : type_identity<T> {};
-template<class T> struct remove_cv<const volatile T> : type_identity<T> {};
 
 template<class T> struct remove_cvref : remove_cv<typename impl::remove_reference<T>::type> {};
 
 template<class T> struct add_const : type_identity<const T> {};
-template<class T> struct add_volatile : type_identity<volatile T> {};
-template<class T> struct add_cv : type_identity<const volatile T> {};
+template<class T> struct add_volatile : type_identity<T> {};
+template<class T> struct add_cv : type_identity<const T> {};
 
 
 template<class T, T val>
@@ -368,9 +365,6 @@ struct is_const<const T> : bool_constant<true> {};
 
 template<class T>
 struct is_volatile : bool_constant<false> {};
-
-template<class T>
-struct is_volatile<volatile T> : bool_constant<true> {};
 
 template<class>
 struct is_trivial : bool_constant<true> {};
@@ -860,6 +854,25 @@ using float_of_size_t = typename float_of_size<bytesize>::type;
 
 // deal with typetraits, for now we rely on Clang/DXC internal __decltype(), if it breaks we revert to commit e4ab38ca227b15b2c79641c39161f1f922b779a3
 #ifdef __HLSL_VERSION
+
+// This partial spec is to stop a pile of warnings from DXC about precision of conversions
+namespace nbl
+{
+namespace hlsl
+{
+namespace impl
+{
+template<typename To, typename From>
+struct static_cast_helper<To,From,enable_if_t<is_fundamental_v<To>&&is_fundamental_v<From>,void> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE To cast(From u)
+    {
+        return (To)u;
+    }
+};
+}
+}
+}
 
 #define alignof(expr) ::nbl::hlsl::alignment_of_v<__decltype(expr)>
 

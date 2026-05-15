@@ -159,7 +159,7 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
     }
 
     if (auto hlslCompiler = m_compilerSet ? m_compilerSet->getShaderCompiler(asset::IShader::E_CONTENT_TYPE::ECT_HLSL) : nullptr)
-        hlslCompiler->getDefaultIncludeFinder()->addSearchPath("nbl/builtin/hlsl/jit", core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(), m_enabledFeatures));
+        hlslCompiler->getDefaultIncludeFinder()->addSearchPath("nbl/builtin/hlsl/jit", core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(), m_enabledFeatures), {asset::IShaderCompiler::IncludeRootOrigin::Generated,asset::IShaderCompiler::HeaderClass::System});
 }
 
 E_API_TYPE ILogicalDevice::getAPIType() const { return m_physicalDevice->getAPIType(); }
@@ -362,10 +362,14 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
         commonCompileOptions.stage = creationParams.stage;
         commonCompileOptions.debugInfoFlags = creationParams.debugInfoFlags;
         commonCompileOptions.spirvOptimizer = creationParams.optimizer;
+        commonCompileOptions.optimizerIsExtraPasses = creationParams.optimizerIsExtraPasses;
         commonCompileOptions.preprocessorOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
         commonCompileOptions.readCache = creationParams.readCache;
         commonCompileOptions.writeCache = creationParams.writeCache;
+
+        commonCompileOptions.preprocessedOutputPath = creationParams.preprocessedOutputPath;
+        commonCompileOptions.spvOutputPath = creationParams.spvOutputPath;
 
         if (sourceContent==asset::IShader::E_CONTENT_TYPE::ECT_HLSL)
         {
@@ -826,7 +830,11 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
             retval = false;
         }
         else
+        {
             output[i]->setObjectDebugName(params[i].shader.shader->getFilepathHint().c_str());
+            if (params[i].flags.hasFlags(IGPUComputePipeline::SCreationParams::FLAGS::CAPTURE_STATISTICS) && output[i]->getExecutableInfo().empty())
+                NBL_LOG(system::ILogger::ELL_WARNING, "Driver returned 0 executables for pipeline created with CAPTURE_STATISTICS flag. This pipeline type may not be supported by the driver's VK_KHR_pipeline_executable_properties implementation. (params[%u])", i);
+        }
     }
     return retval;
 }
@@ -994,7 +1002,9 @@ bool ILogicalDevice::createGraphicsPipelines(
         }
         else
         {
-// TODO: set pipeline debug name thats a concatenation of all active stages' shader file path hints
+            // TODO: set pipeline debug name thats a concatenation of all active stages' shader file path hints
+            if (params[i].flags.hasFlags(IGPUGraphicsPipeline::SCreationParams::FLAGS::CAPTURE_STATISTICS) && output[i]->getExecutableInfo().empty())
+                NBL_LOG(system::ILogger::ELL_WARNING, "Driver returned 0 executables for pipeline created with CAPTURE_STATISTICS flag. This pipeline type may not be supported by the driver's VK_KHR_pipeline_executable_properties implementation. (params[%u])", i);
         }
     }
     return true;
@@ -1025,12 +1035,6 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     {
         const bool skipAABBs = bool(param.getFlags() & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_AABBS);
         const bool skipBuiltin = bool(param.getFlags() & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_BUILT_IN_PRIMITIVES);
-
-        if (!features.rayTracingPipeline)
-        {
-            NBL_LOG_ERROR("Raytracing Pipeline feature not enabled!");
-            return {};
-        }
 
         // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03597
         if (skipAABBs && skipBuiltin)
@@ -1144,6 +1148,8 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
             NBL_LOG_ERROR("RayTracingPipeline was not created (params[%u])", i);
             return false;
         }
+        else if (params[i].getFlags().hasFlags(IGPURayTracingPipeline::SCreationParams::FLAGS::CAPTURE_STATISTICS) && output[i]->getExecutableInfo().empty())
+            NBL_LOG(system::ILogger::ELL_WARNING, "Driver returned 0 executables for pipeline created with CAPTURE_STATISTICS flag. This pipeline type may not be supported by the driver's VK_KHR_pipeline_executable_properties implementation. (params[%u])", i);
     }
     return retval;
 }

@@ -360,7 +360,7 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			else if (origType!=IAsset::E_TYPE::ET_IMAGE)
 			{
 				_params.logger.log(
-					"IAssetLoader::interm_getImageViewInHierarchy loaded assed with key \"%s\" with was of type %s not IMAGE",
+					"IAssetLoader::interm_getImageViewInHierarchy loaded asset with key \"%s\" with was of type %s not IMAGE",
 					system::ILogger::ELL_ERROR,bundle.getCacheKey().c_str(),system::to_string(origType).c_str()
 				);
 				return {};

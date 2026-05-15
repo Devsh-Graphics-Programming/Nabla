@@ -20,7 +20,7 @@ class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
             m_includes["nbl/builtin/hlsl/jit/device_capabilities.hlsl"] = collectDeviceCaps(limits,features);
         }
 
-        found_t getInclude(const system::path& searchPath, const std::string& includeName) const override;
+        found_t getInclude(const system::path& searchPath, const std::string& includeName, bool needHash = true) const override;
 
     protected:
         template<typename T>

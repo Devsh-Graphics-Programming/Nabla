@@ -1,9 +1,9 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_CORE_TYPES_H_INCLUDED_
+#define _NBL_CORE_TYPES_H_INCLUDED_
 
-#ifndef __NBL_CORE_TYPES_H_INCLUDED__
-#define __NBL_CORE_TYPES_H_INCLUDED__
 
 #include "nbl/core/decl/compile_config.h"
 
@@ -27,9 +27,9 @@
 #include "nbl/core/memory/new_delete.h"
 
 #include "nbl/core/alloc/aligned_allocator.h"
-#include "nbl/core/alloc/aligned_allocator_adaptor.h"
 
 #include <mutex>
+
 
 namespace nbl::core
 {
@@ -38,6 +38,7 @@ template<typename Compared, typename T>
 using add_const_if_const_t = std::conditional_t<std::is_const_v<Compared>,std::add_const_t<T>,T>;
 
 
+// TODO: deprecate and replace with `refctd_memory_resource` whnever possible
 template<typename T>
 using allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<T>;
 

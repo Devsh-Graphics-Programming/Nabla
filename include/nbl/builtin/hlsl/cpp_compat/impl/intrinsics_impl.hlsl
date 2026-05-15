@@ -159,7 +159,6 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_lsb_helper, findIL
 
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitReverse_helper, bitReverse, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(dot_helper, dot, (T), (T)(T), typename vector_traits<T>::scalar_type)
-template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(transpose_helper, transpose, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, (T), (T), typename vector_traits<T>::scalar_type)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSqrt, (T), (T), T)
@@ -204,18 +203,29 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitCount_helper, bitCou
 #undef ARG
 #undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
 
+template<typename Matrix> NBL_PARTIAL_REQ_TOP(concepts::Matrix<Matrix>)
+struct transpose_helper<Matrix NBL_PARTIAL_REQ_BOT(concepts::Matrix<Matrix>) >
+{
+	using transposed_t = typename matrix_traits<Matrix>::transposed_type;
+
+	static transposed_t __call(NBL_CONST_REF_ARG(Matrix) m)
+	{
+		using traits = matrix_traits<Matrix>;
+		return spirv::transpose<Matrix>(m);
+	}
+};
 template<typename UInt64> NBL_PARTIAL_REQ_TOP(is_same_v<UInt64, uint64_t>)
 struct find_msb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
 {
 	using return_t = int32_t;
 	static return_t __call(NBL_CONST_REF_ARG(UInt64) val)
 	{
-		const uint32_t highBits = uint32_t(val >> 32);
+		const uint32_t highBits = _static_cast<uint32_t>(val >> 32);
 		const int32_t highMsb = find_msb_helper<uint32_t>::__call(highBits);
 
 		if (highMsb == -1)
 		{
-			const uint32_t lowBits = uint32_t(val);
+			const uint32_t lowBits = _static_cast<uint32_t>(val);
 			const int32_t lowMsb = find_msb_helper<uint32_t>::__call(lowBits);
 			if (lowMsb == -1)
 				return -1;
@@ -231,12 +241,12 @@ struct find_lsb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
 {
 	static int32_t __call(NBL_CONST_REF_ARG(uint64_t) val)
 	{
-		const uint32_t lowBits = uint32_t(val);
+		const uint32_t lowBits = _static_cast<uint32_t>(val);
 		const int32_t lowLsb = find_lsb_helper<uint32_t>::__call(lowBits);
 
 		if (lowLsb == -1)
 		{
-			const uint32_t highBits = uint32_t(val >> 32);
+			const uint32_t highBits = _static_cast<uint32_t>(val >> 32);
 			const int32_t highLsb = find_lsb_helper<uint32_t>::__call(highBits);
 			if (highLsb == -1)
 				return -1;

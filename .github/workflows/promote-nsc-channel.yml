@@ -1,0 +1,390 @@
+name: Promote NSC Channel
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Workflow run id that produced the NSC payload and manifests artifacts"
+        required: true
+      source_repo:
+        description: "Repository that owns the source workflow run"
+        required: true
+        default: "Devsh-Graphics-Programming/Nabla"
+      source_branch:
+        description: "Expected source branch for the workflow run"
+        required: true
+        default: "master"
+      target_repo:
+        description: "Repository that should receive the manifest update PR"
+        required: true
+        default: "Devsh-Graphics-Programming/Nabla"
+      target_branch:
+        description: "Nabla branch that should receive the manifest update PR"
+        required: true
+        default: "master"
+      asset_repo:
+        description: "Repository that stores the promoted NSC channel releases"
+        required: true
+        default: "Devsh-Graphics-Programming/Nabla-Asset-Manifests"
+      channel:
+        description: "NSC manifest channel to promote"
+        required: true
+        default: "nsc-windows-x64-release"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_REPO: ${{ inputs.source_repo }}
+      SOURCE_BRANCH: ${{ inputs.source_branch }}
+      TARGET_REPO: ${{ inputs.target_repo }}
+      ASSET_REPO: ${{ inputs.asset_repo }}
+      HEAD_REPO: ${{ github.repository }}
+      HEAD_OWNER: ${{ github.repository_owner }}
+      CHANNEL: ${{ inputs.channel }}
+      TARGET_BRANCH: ${{ inputs.target_branch }}
+      RUN_ID: ${{ inputs.run_id }}
+
+    steps:
+      - name: Checkout target branch
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.target_repo }}
+          ref: ${{ inputs.target_branch }}
+          fetch-depth: 1
+          fetch-tags: false
+          persist-credentials: false
+          sparse-checkout: |
+            tools/nsc/manifests
+          sparse-checkout-cone-mode: false
+
+      - name: Resolve source run metadata
+        id: source-run
+        env:
+          GH_TOKEN: ${{ secrets.READ_PAT }}
+        run: |
+          set -euo pipefail
+
+          run_json="$(gh api "repos/${SOURCE_REPO}/actions/runs/${RUN_ID}")"
+          status="$(jq -r '.status' <<<"${run_json}")"
+          conclusion="$(jq -r '.conclusion' <<<"${run_json}")"
+          event="$(jq -r '.event' <<<"${run_json}")"
+          head_sha="$(jq -r '.head_sha' <<<"${run_json}")"
+          head_branch="$(jq -r '.head_branch' <<<"${run_json}")"
+          html_url="$(jq -r '.html_url' <<<"${run_json}")"
+
+          if [[ "${status}" != "completed" || "${conclusion}" != "success" ]]; then
+            echo "Run ${RUN_ID} is not promotable: status=${status} conclusion=${conclusion}" >&2
+            exit 1
+          fi
+          if [[ "${head_branch}" != "${SOURCE_BRANCH}" ]]; then
+            echo "Run ${RUN_ID} head branch ${head_branch} does not match expected ${SOURCE_BRANCH}" >&2
+            exit 1
+          fi
+
+          release_tag="${CHANNEL}-${head_sha}"
+          target_branch_slug="$(printf '%s' "${TARGET_BRANCH}" | tr '/._' '-' | tr -cd '[:alnum:]-')"
+          pr_branch="ci/nsc-promote-${CHANNEL}-${target_branch_slug}"
+
+          {
+            echo "source_sha=${head_sha}"
+            echo "source_branch=${head_branch}"
+            echo "source_event=${event}"
+            echo "run_url=${html_url}"
+            echo "release_tag=${release_tag}"
+            echo "pr_branch=${pr_branch}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Download NSC payload artifact
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ inputs.run_id }}
+          name: ${{ inputs.channel }}-payload
+          path: ${{ runner.temp }}/nsc-payload
+          github-token: ${{ secrets.READ_PAT }}
+          repository: ${{ inputs.source_repo }}
+
+      - name: Download NSC manifests artifact
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ inputs.run_id }}
+          name: ${{ inputs.channel }}-manifests
+          path: ${{ runner.temp }}/nsc-manifests
+          github-token: ${{ secrets.READ_PAT }}
+          repository: ${{ inputs.source_repo }}
+
+      - name: Publish release to manifest backend
+        env:
+          CR_PAT: ${{ secrets.CR_PAT }}
+          READ_PAT: ${{ secrets.READ_PAT }}
+          RELEASE_TAG: ${{ steps.source-run.outputs.release_tag }}
+          SOURCE_SHA: ${{ steps.source-run.outputs.source_sha }}
+          SOURCE_BRANCH: ${{ steps.source-run.outputs.source_branch }}
+          SOURCE_EVENT: ${{ steps.source-run.outputs.source_event }}
+          RUN_URL: ${{ steps.source-run.outputs.run_url }}
+        run: |
+          set -euo pipefail
+
+          manifests_zip="$(find "${RUNNER_TEMP}/nsc-manifests" -maxdepth 1 -type f -name '*-manifests.zip' | head -n 1)"
+          if [[ -z "${manifests_zip}" ]]; then
+            echo "Failed to locate manifests zip in ${RUNNER_TEMP}/nsc-manifests" >&2
+            exit 1
+          fi
+
+          source_repo_url="https://github.com/${SOURCE_REPO}"
+          source_commit_url="${source_repo_url}/commit/${SOURCE_SHA}"
+          updated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          release_token_candidates=()
+          if [[ -n "${CR_PAT}" ]]; then
+            release_token_candidates+=("${CR_PAT}")
+          fi
+          if [[ -n "${READ_PAT}" && "${READ_PAT}" != "${CR_PAT}" ]]; then
+            release_token_candidates+=("${READ_PAT}")
+          fi
+          if [[ "${#release_token_candidates[@]}" -eq 0 ]]; then
+            echo "No token is available for manifest backend release operations." >&2
+            exit 1
+          fi
+
+          notes_file="${RUNNER_TEMP}/nsc-release-notes.md"
+          cat > "${notes_file}" <<EOF
+          Promoted NSC payload from [\`${SOURCE_REPO}\`](${source_repo_url}).
+
+          - source commit: [\`${SOURCE_SHA}\`](${source_commit_url})
+          - source branch: \`${SOURCE_BRANCH}\`
+          - source event: \`${SOURCE_EVENT}\`
+          - source run: [\`${RUN_ID}\`](${RUN_URL})
+
+          Updated at \`${updated_at}\`.
+          EOF
+
+          release_exists=false
+          release_id=""
+          release_token="${release_token_candidates[0]}"
+          for candidate in "${release_token_candidates[@]}"; do
+            if release_json="$(GH_TOKEN="${candidate}" gh api "repos/${ASSET_REPO}/releases/tags/${RELEASE_TAG}" 2>/dev/null)"; then
+              release_exists=true
+              release_id="$(jq -r '.id' <<<"${release_json}")"
+              release_token="${candidate}"
+              break
+            fi
+          done
+          export GH_TOKEN="${release_token}"
+
+          if [[ "${release_exists}" == "false" ]]; then
+            release_created=false
+            for candidate in "${release_token_candidates[@]}"; do
+              if GH_TOKEN="${candidate}" gh release create "${RELEASE_TAG}" \
+                --repo "${ASSET_REPO}" \
+                --title "${RELEASE_TAG}" \
+                --notes-file "${notes_file}"; then
+                release_token="${candidate}"
+                export GH_TOKEN="${release_token}"
+                release_created=true
+                break
+              fi
+            done
+            if [[ "${release_created}" != "true" ]]; then
+              echo "Failed to create release ${RELEASE_TAG} in ${ASSET_REPO}." >&2
+              exit 1
+            fi
+
+            mapfile -d '' payload_assets < <(find "${RUNNER_TEMP}/nsc-payload" -maxdepth 1 -type f -print0)
+            if [[ "${#payload_assets[@]}" -eq 0 ]]; then
+              echo "No payload assets found in ${RUNNER_TEMP}/nsc-payload" >&2
+              exit 1
+            fi
+
+            payload_assets+=("${manifests_zip}")
+            gh release upload "${RELEASE_TAG}" "${payload_assets[@]}" --repo "${ASSET_REPO}"
+          else
+            echo "Release ${RELEASE_TAG} already exists in ${ASSET_REPO}. Reusing immutable release."
+            patch_file="${RUNNER_TEMP}/nsc-release-patch.json"
+            jq -n \
+              --arg name "${RELEASE_TAG}" \
+              --rawfile body "${notes_file}" \
+              '{name:$name, body:$body}' > "${patch_file}"
+            release_refreshed=false
+            for candidate in "${release_token_candidates[@]}"; do
+              if GH_TOKEN="${candidate}" gh api \
+                --method PATCH \
+                "repos/${ASSET_REPO}/releases/${release_id}" \
+                --input "${patch_file}" >/dev/null 2>&1; then
+                release_token="${candidate}"
+                export GH_TOKEN="${release_token}"
+                release_refreshed=true
+                break
+              fi
+            done
+            if [[ "${release_refreshed}" != "true" ]]; then
+              echo "Failed to refresh notes for existing ${RELEASE_TAG}. Provide a token with release edit permissions." >&2
+              exit 1
+            fi
+          fi
+
+      - name: Update manifests and tag pin
+        id: manifest-diff
+        env:
+          RELEASE_TAG: ${{ steps.source-run.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          manifests_zip="$(find "${RUNNER_TEMP}/nsc-manifests" -maxdepth 1 -type f -name '*-manifests.zip' | head -n 1)"
+          if [[ -z "${manifests_zip}" ]]; then
+            echo "Failed to locate manifests zip in ${RUNNER_TEMP}/nsc-manifests" >&2
+            exit 1
+          fi
+
+          extract_root="${RUNNER_TEMP}/nsc-manifests-extracted"
+          rm -rf "${extract_root}"
+          mkdir -p "${extract_root}"
+          unzip -q "${manifests_zip}" -d "${extract_root}"
+
+          channel_root="${extract_root}/${CHANNEL}"
+          if [[ ! -d "${channel_root}" ]]; then
+            echo "Expected extracted channel root ${channel_root} does not exist" >&2
+            exit 1
+          fi
+
+          repo_manifest_root="tools/nsc/manifests"
+          rm -rf "${repo_manifest_root:?}/${CHANNEL}"
+          mkdir -p "${repo_manifest_root}"
+          cp -R "${channel_root}" "${repo_manifest_root}/"
+          printf '%s\n' "${RELEASE_TAG}" > "${repo_manifest_root}/${CHANNEL}.tag"
+
+          if git diff --quiet -- "${repo_manifest_root}"; then
+            echo "has_changes=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "has_changes=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Commit and push promotion branch
+        if: steps.manifest-diff.outputs.has_changes == 'true'
+        env:
+          PUSH_BUILTIN_TOKEN: ${{ github.token }}
+          PR_PAT: ${{ secrets.PR_PAT }}
+          READ_PAT: ${{ secrets.READ_PAT }}
+          CR_PAT: ${{ secrets.CR_PAT }}
+          PR_BRANCH: ${{ steps.source-run.outputs.pr_branch }}
+          SOURCE_SHA: ${{ steps.source-run.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+
+          push_token="${PUSH_BUILTIN_TOKEN}"
+          if [[ "${TARGET_REPO}" != "${HEAD_REPO}" ]]; then
+            push_token="${PR_PAT}"
+            if [[ -z "${push_token}" ]]; then
+              push_token="${READ_PAT}"
+            fi
+            if [[ -z "${push_token}" ]]; then
+              push_token="${CR_PAT}"
+            fi
+            if [[ -z "${push_token}" ]]; then
+              echo "A token with contents and workflows write access is required when pushing a cross-repo promotion branch to ${HEAD_REPO}" >&2
+              exit 1
+            fi
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote rename origin upstream
+          git remote add origin "https://x-access-token:${push_token}@github.com/${HEAD_REPO}.git"
+          git checkout -B "${PR_BRANCH}"
+          git add tools/nsc/manifests
+          git commit -m "Promote NSC channel ${SOURCE_SHA}"
+          git push --force origin "${PR_BRANCH}"
+
+      - name: Create or update promotion PR
+        if: steps.manifest-diff.outputs.has_changes == 'true'
+        id: pr
+        env:
+          GH_BUILTIN_TOKEN: ${{ github.token }}
+          PR_PAT: ${{ secrets.PR_PAT }}
+          READ_PAT: ${{ secrets.READ_PAT }}
+          CR_PAT: ${{ secrets.CR_PAT }}
+          PR_BRANCH: ${{ steps.source-run.outputs.pr_branch }}
+          RELEASE_TAG: ${{ steps.source-run.outputs.release_tag }}
+          SOURCE_SHA: ${{ steps.source-run.outputs.source_sha }}
+          RUN_URL: ${{ steps.source-run.outputs.run_url }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${TARGET_REPO}" == "${HEAD_REPO}" ]]; then
+            export GH_TOKEN="${GH_BUILTIN_TOKEN}"
+            pr_head="${PR_BRANCH}"
+          else
+            pr_token="${PR_PAT}"
+            if [[ -z "${pr_token}" ]]; then
+              pr_token="${READ_PAT}"
+            fi
+            if [[ -z "${pr_token}" ]]; then
+              pr_token="${CR_PAT}"
+            fi
+            if [[ -z "${pr_token}" ]]; then
+              echo "A token with pull request write access is required when opening a PR from ${HEAD_REPO} to ${TARGET_REPO}" >&2
+              exit 1
+            fi
+            export GH_TOKEN="${pr_token}"
+            pr_head="${HEAD_OWNER}:${PR_BRANCH}"
+          fi
+
+          pr_title="CI: Promote NSC channel to ${SOURCE_SHA}"
+          release_url="https://github.com/${ASSET_REPO}/releases/tag/${RELEASE_TAG}"
+          commit_url="https://github.com/${SOURCE_REPO}/commit/${SOURCE_SHA}"
+          body_file="${RUNNER_TEMP}/nsc-promote-pr.md"
+          cat > "${body_file}" <<EOF
+          Promote \`${CHANNEL}\`.
+
+          - source commit: [\`${SOURCE_SHA}\`](${commit_url})
+          - source run: [\`${RUN_ID}\`](${RUN_URL})
+          - manifest repo release: [\`${RELEASE_TAG}\`](${release_url})
+          EOF
+
+          existing_pr_number="$(gh pr list \
+            --repo "${TARGET_REPO}" \
+            --base "${TARGET_BRANCH}" \
+            --head "${pr_head}" \
+            --json number \
+            --jq '.[0].number')"
+
+          if [[ -n "${existing_pr_number}" && "${existing_pr_number}" != "null" ]]; then
+            gh pr edit "${existing_pr_number}" \
+              --repo "${TARGET_REPO}" \
+              --title "${pr_title}" \
+              --body-file "${body_file}"
+            existing_pr_url="$(gh pr view "${existing_pr_number}" --repo "${TARGET_REPO}" --json url --jq '.url')"
+            echo "url=${existing_pr_url}" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          pr_url="$(gh pr create \
+            --repo "${TARGET_REPO}" \
+            --base "${TARGET_BRANCH}" \
+            --head "${pr_head}" \
+            --title "${pr_title}" \
+            --body-file "${body_file}")"
+
+          echo "url=${pr_url}" >> "${GITHUB_OUTPUT}"
+
+      - name: Promotion summary
+        run: |
+          {
+            echo "## NSC promotion summary"
+            echo
+            echo "- channel: \`${CHANNEL}\`"
+            echo "- source repo: \`${SOURCE_REPO}\`"
+            echo "- source run: \`${RUN_ID}\`"
+            echo "- source commit: \`${{ steps.source-run.outputs.source_sha }}\`"
+            echo "- release tag: \`${{ steps.source-run.outputs.release_tag }}\`"
+            echo "- target repo: \`${TARGET_REPO}\`"
+            echo "- target branch: \`${TARGET_BRANCH}\`"
+            if [[ "${{ steps.manifest-diff.outputs.has_changes }}" == "true" ]]; then
+              echo "- PR: ${{ steps.pr.outputs.url }}"
+            else
+              echo "- PR: no manifest changes"
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"

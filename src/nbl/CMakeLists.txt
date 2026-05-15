@@ -167,6 +167,9 @@ set(NBL_ASSET_SOURCES
 	asset/interchange/IAssetWriter.cpp
 	asset/interchange/IAssetLoader.cpp
 	
+# Materials
+	asset/material_compiler3/CFrontendIR.cpp
+
 # Shaders
 	asset/utils/ISPIRVOptimizer.cpp
 	asset/utils/ISPIRVEntryPointTrimmer.cpp
@@ -214,7 +217,7 @@ set(NBL_ASSET_SOURCES
 	asset/interchange/CImageLoaderJPG.cpp
 	asset/interchange/CImageLoaderPNG.cpp
 	asset/interchange/CImageLoaderTGA.cpp
-	asset/interchange/CImageLoaderOpenEXR.cpp # TODO: Nahim
+	asset/interchange/CImageLoaderOpenEXR.cpp
 	asset/interchange/CGLILoader.cpp
 
 # Image writers
@@ -222,7 +225,7 @@ set(NBL_ASSET_SOURCES
 	asset/interchange/CImageWriterJPG.cpp
 	asset/interchange/CImageWriterPNG.cpp
 	asset/interchange/CImageWriterTGA.cpp
-	asset/interchange/CImageWriterOpenEXR.cpp # TODO: Nahim
+	asset/interchange/CImageWriterOpenEXR.cpp
 	asset/interchange/CGLIWriter.cpp
 
 # IES profile loaders

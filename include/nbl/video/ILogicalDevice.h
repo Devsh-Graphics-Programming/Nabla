@@ -14,6 +14,7 @@
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/CThreadSafeQueueAdapter.h"
 #include "nbl/video/CJITIncludeLoader.h"
+#include "nbl/system/to_string.h"
 
 #include "git_info.h"
 #define NBL_LOG_FUNCTION m_logger.log
@@ -832,6 +833,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             std::span<const asset::IShaderCompiler::SMacroDefinition> extraDefines = {};
             hlsl::ShaderStage stage = hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
             core::bitflag<asset::IShaderCompiler::E_DEBUG_INFO_FLAGS> debugInfoFlags = asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE;
+            bool optimizerIsExtraPasses = false; // Instead of disabling the default opt passes, run the provided optimization passes at the end
+            std::string preprocessedOutputPath = "";
+            std::string spvOutputPath = "";
         };
         core::smart_refctd_ptr<asset::IShader> compileShader(const SShaderCreationParameters& creationParams);
 
@@ -1270,6 +1274,20 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 if (!requiredSubgroupSizeStages.hasFlags(ci.getRequiredSubgroupStages()))
                 {
                     NBL_LOG_ERROR("Shader stage is not a valid bit specified in requiredSubgroupSizeStages");
+                    return {};
+                }
+
+                // CAPTURE_STATISTICS and CAPTURE_INTERNAL_REPRESENTATIONS require pipelineExecutableInfo feature
+                constexpr auto CaptureStatsFlag = CreationParams::FLAGS::CAPTURE_STATISTICS;
+                constexpr auto CaptureIRFlag = CreationParams::FLAGS::CAPTURE_INTERNAL_REPRESENTATIONS;
+                if (ci.getFlags().hasFlags(CaptureStatsFlag) && !getEnabledFeatures().pipelineExecutableInfo)
+                {
+                    NBL_LOG_ERROR("CAPTURE_STATISTICS flag requires `pipelineExecutableInfo` feature (params[%d])", i);
+                    return {};
+                }
+                if (ci.getFlags().hasFlags(CaptureIRFlag) && !getEnabledFeatures().pipelineExecutableInfo)
+                {
+                    NBL_LOG_ERROR("CAPTURE_INTERNAL_REPRESENTATIONS flag requires `pipelineExecutableInfo` feature (params[%d])", i);
                     return {};
                 }
 
