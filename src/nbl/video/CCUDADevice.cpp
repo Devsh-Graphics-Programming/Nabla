@@ -96,6 +96,7 @@ CCUDADevice::CCUDADevice(
 	m_logger(vulkanDevice->getDebugCallback()->getLogger()),
 	m_defaultCompileOptions(),
 	m_vulkanConnection(std::move(vulkanConnection)),
+	m_physicalDevice(vulkanDevice),
 	m_virtualArchitecture(virtualArchitecture),
 	m_handler(std::move(handler)),
 	m_native(std::move(nativeState))
