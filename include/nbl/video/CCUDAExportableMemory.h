@@ -24,8 +24,6 @@ class NBL_API2 CCUDAExportableMemory final : public core::IReferenceCounted
 			bool deviceLocal;
 		};
 
-		~CCUDAExportableMemory() override;
-
 		cuda_interop::SCUdeviceptr getDeviceptr() const;
 
 		/**
@@ -49,6 +47,7 @@ class NBL_API2 CCUDAExportableMemory final : public core::IReferenceCounted
 
 		struct SNativeState;
 		CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState);
+		~CCUDAExportableMemory() override;
 		static core::smart_refctd_ptr<CCUDAExportableMemory> create(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState);
 
 		core::smart_refctd_ptr<CCUDADevice> m_device;

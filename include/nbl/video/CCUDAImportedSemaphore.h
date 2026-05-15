@@ -18,7 +18,6 @@ class CCUDADevice;
 class NBL_API2 CCUDAImportedSemaphore final : public core::IReferenceCounted
 {
 	public:
-		~CCUDAImportedSemaphore() override;
 		cuda_interop::SCUexternalSemaphore getInternalObject() const;
 
 	private:
@@ -26,6 +25,7 @@ class NBL_API2 CCUDAImportedSemaphore final : public core::IReferenceCounted
 
 		struct SNativeState;
 		CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<ISemaphore> src, std::unique_ptr<SNativeState>&& nativeState);
+		~CCUDAImportedSemaphore() override;
 
 		core::smart_refctd_ptr<CCUDADevice> m_device;
 		core::smart_refctd_ptr<ISemaphore> m_src;

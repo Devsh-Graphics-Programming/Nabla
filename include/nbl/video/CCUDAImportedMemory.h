@@ -14,7 +14,6 @@ class CCUDADevice;
 class NBL_API2 CCUDAImportedMemory final : public core::IReferenceCounted
 {
 	public:
-		~CCUDAImportedMemory() override;
 		cuda_interop::SCUexternalMemory getInternalObject() const;
 		bool getMappedBuffer(cuda_interop::SOutput<cuda_interop::SCUdeviceptr> mappedBuffer) const;
 
@@ -23,6 +22,7 @@ class NBL_API2 CCUDAImportedMemory final : public core::IReferenceCounted
 
 		struct SNativeState;
 		CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> device, core::smart_refctd_ptr<nbl::video::IDeviceMemoryAllocation> src, std::unique_ptr<SNativeState>&& nativeState);
+		~CCUDAImportedMemory() override;
 
 		core::smart_refctd_ptr<CCUDADevice> m_device;
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> m_src;
