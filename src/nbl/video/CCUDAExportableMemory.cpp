@@ -47,7 +47,7 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 		{ 
 		  dedication,
 		  IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
-		  CCUDADevice::EXTERNAL_MEMORY_HANDLE_TYPE,
+		  CCUDADevice::ExternalMemoryHandleType,
 		  m_params.externalHandle 
 		}).memory;
 }
