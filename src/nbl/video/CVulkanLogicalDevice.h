@@ -53,7 +53,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params);
 
         // sync stuff
-        core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) override;
         core::smart_refctd_ptr<ISemaphore> createSemaphore(ISemaphore::SCreationParams&& creationParams = {}) override;
         ISemaphore::WAIT_RESULT waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout) override;
             

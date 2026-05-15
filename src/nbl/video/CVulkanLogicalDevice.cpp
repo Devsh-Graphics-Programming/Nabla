@@ -55,26 +55,6 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
     }
 }
 
-core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const uint64_t initialValue)
-{
-
-    VkSemaphoreTypeCreateInfoKHR type = { VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO_KHR };
-    type.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR, or VkSemaphoreTypeCreateInfo
-    type.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE_KHR;
-    type.initialValue = initialValue;
-
-    VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,&type };
-    createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
-
-    VkSemaphore semaphore;
-    if (!m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
-        return nullptr;
-
-    ISemaphore::SCreationParams creationParams;
-    creationParams.initialValue = initialValue;
-    return core::make_smart_refctd_ptr<CVulkanSemaphore>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams), semaphore, system::ExternalHandleNull);
-}
-
 core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaphore::SCreationParams&& creationParams)
 {
 

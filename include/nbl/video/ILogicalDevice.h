@@ -163,7 +163,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         //! Semaphore Stuff
         [[deprecated]]
-        virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) = 0;
+        inline core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue)
+        {
+            ISemaphore::SCreationParams semParams;
+            semParams.initialValue = initialValue;
+            return createSemaphore(std::move(semParams));
+        }
+
         virtual core::smart_refctd_ptr<ISemaphore> createSemaphore(ISemaphore::SCreationParams&& creationParams = {}) = 0;
         // Waits for max timeout amout of time for the semaphores to reach a specific counter value
         // DOES NOT implicitly trigger Queue-refcount-resource release because of two reasons:
