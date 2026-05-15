@@ -71,11 +71,11 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
     VkExportSemaphoreCreateInfo exportInfo = {
       VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, 
       nullptr, 
-      static_cast<VkExternalSemaphoreHandleTypeFlags>(creationParams.externalHandleTypes.value)
+      static_cast<VkExternalSemaphoreHandleTypeFlags>(creationParams.externalHandleTypes)
     };
 
     VkSemaphoreTypeCreateInfoKHR type = { VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO_KHR };
-    type.pNext = creationParams.externalHandleTypes.value ? &exportInfo : nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR, or VkSemaphoreTypeCreateInfo
+    type.pNext = creationParams.externalHandleTypes ? &exportInfo : nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR, or VkSemaphoreTypeCreateInfo
     type.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE_KHR;
     type.initialValue = creationParams.initialValue;
 
@@ -87,7 +87,7 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
         return nullptr;
 
     system::external_handle_t externalHandle = system::ExternalHandleNull;
-    const auto handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(creationParams.externalHandleTypes.value);
+    const auto handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(creationParams.externalHandleTypes | ISemaphore::EHT_D3D12_FENCE);
     if (creationParams.externalHandleTypes != ISemaphore::EHT_NONE)
     {
         const auto isValidHandleType = [&]
@@ -99,13 +99,15 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
 #else
               core::bitflag<ISemaphore::E_EXTERNAL_HANDLE_TYPE>(ISemaphore::EHT_OPAQUE_FD | ISemaphore::EHT_SYNC_FD);
 #endif
-            return (creationParams.externalHandleTypes | ValidExternalHandleTypes) == ValidExternalHandleTypes;
+            return ValidExternalHandleTypes.hasFlags(creationParams.externalHandleTypes) && 
+              // must only be one bit set since the member is suffixed with 'FlagBits' not 'Flags'
+              core::isPoT(creationParams.externalHandleTypes);
         }();
 
 #ifdef _WIN32
         if (!isValidHandleType)
         {
-            m_logger.log("External semaphore handle type 0x%08x is not a valid Win32 handle type", system::ILogger::ELL_ERROR, creationParams.externalHandleTypes.value);
+            m_logger.log("External semaphore handle type 0x%08x is not a valid Win32 handle type", system::ILogger::ELL_ERROR, creationParams.externalHandleTypes);
             return nullptr;
         }
         VkSemaphoreGetWin32HandleInfoKHR props = {
@@ -122,7 +124,7 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
 #else
         if (!isValidHandleType)
         {
-            m_logger.log("External semaphore handle type 0x%08x is not a valid Unix handle type", system::ILogger::ELL_ERROR, creationParams.externalHandleTypes.value);
+            m_logger.log("External semaphore handle type 0x%08x is not a valid Unix handle type", system::ILogger::ELL_ERROR, creationParams.externalHandleTypes);
             return nullptr;
         }
         VkSemaphoreGetFdInfoKHR props = {

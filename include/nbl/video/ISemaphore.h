@@ -31,7 +31,7 @@ class ISemaphore : public IBackendObject
         struct SCachedCreationParams
         {
             // Handle Type for external resources
-            core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = EHT_NONE;
+            E_EXTERNAL_HANDLE_TYPE externalHandleTypes = EHT_NONE;
         };
 
         struct SCreationParams : SCachedCreationParams
