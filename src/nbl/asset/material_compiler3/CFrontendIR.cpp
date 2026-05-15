@@ -984,14 +984,36 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					irChain.emplace_back().factor = {.handle=varH,.monochrome=monochrome};
 					break;
 				}
-				case ast_expr_type_e::Other:
+				case ast_expr_type_e::Other: // the way this is written, we'd really benefit from a more "intimate" enforcing of the structure of Fresnel, Beer, etc. being identical between AST and IR
 				{
 					//
 					astStack.pop_back();
-					// TODO: We need to start a new `canonicalSum` and save a link to it in the current IR
-					args.logger.log("Unsupported AST Expression type \"%s\"",ELL_ERROR,system::to_string(astExprType).c_str());
-					printSubtree(nodeH);
-					return (headH=errorRetval);
+					// shouldn't invalidate iterator, but underline our vector changes
+					pEntry = nullptr;
+					// do not hash yet! the children are invalid!
+					const auto funcH = static_cast<const XXX*>(node)->createIRNode(btdfSubtree,srcAST,tmpIR.get());
+					auto* const func = irPool.deref<XXX>(funcH);
+					if (!func)
+					{
+						args.logger.log("Failed to Function Other IR Contributor from AST",ELL_ERROR);
+						printSubtree(nodeH);
+						return (headH=errorRetval);
+					}
+					// need to start a new `canonicalSum` for every input term of the function
+					// insert back to front so we get good `it` at the end
+					for (uint8_t c=node->getChildCount(); c;)
+					{
+						const auto astChild = node->getChildHandle(--c);
+						// record in the IR node child, the original AST child
+						func->setChildUnsafe(c,astChild);
+						// only add sum expressions for non-null children
+						if (!astChild)
+							continue;
+						it = canonicalSum.emplace(it);
+						it->astStack.push_back(astChild);
+					}
+					// what to do about monochrome?
+					irChain.emplace_back().factor = {.handle=funcH/*,.monochrome*/};
 					break;
 				}
 				default:
@@ -1040,6 +1062,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						if (it->negate && it->negate==0b111)
 							factor->setChildHandle(i++,scalarNegation);
 						bool monochromeNodes = true;
+// TODO: handle the special function IR nodes
 						for (auto itChain=irChain.begin()+1; itChain!=irChain.end(); itChain++)
 						{
 							// only one contributor per chain is allowed
@@ -1102,28 +1125,31 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				args.logger.log("Couldn't allocate a `CTrueIR::CContributorSum` node",ELL_ERROR);
 				return (headH=errorRetval);
 			}
-			// append it
-			if (it!=canonicalSum.begin())
+			// append it to previous with a contributor, if it exists
+			for (auto prev=it; prev!=canonicalSum.begin(); prev--)
 			{
-				auto itCopy = it;
-				irPool.deref((--itCopy)->sumTermH)->rest = it->sumTermH;
+				if (prev==it) // skip first loop
+					continue;
+				if (prev->hasContributor)
+				{
+					irPool.deref(prev->sumTermH)->rest = it->sumTermH;
+					break;
+				}
 			}
 		}
 		else
 		{
 			// TODO: make without a contributor
+			// Do what the above does, just don't link stuff up
 			assert(false);
 		}
 	}
-	// now hash in reverse
+	// now hash in reverse but only contributor containing sums (otherwise they're dependents)
 	for (auto it=canonicalSum.rbegin(); it!=canonicalSum.rend(); it++)
-		it->sumTermH = tmpIR->hashNCache(it->sumTermH)._const_cast();
-	// set result
-	if (!canonicalSum.empty())
-	{
-		headH = canonicalSum.begin()->sumTermH;
-		canonicalSum.clear();
-	}
+	if (it->hasContributor)
+		headH = it->sumTermH = tmpIR->hashNCache(it->sumTermH)._const_cast();
+	// headH set by last in loop with contributor, so first with contributor in the sum linked list
+	canonicalSum.clear();
 	return headH;
 }
 
