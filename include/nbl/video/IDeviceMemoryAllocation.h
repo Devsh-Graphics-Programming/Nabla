@@ -65,8 +65,8 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         enum E_MEMORY_HEAP_FLAGS : uint8_t
         {
             EMHF_NONE               = 0,
-            EMHF_DEVICE_LOCAL_BIT   = 0x00000001,
-            EMHF_MULTI_INSTANCE_BIT = 0x00000002,
+            EMHF_DEVICE_LOCAL_BIT   = 0x01,
+            EMHF_MULTI_INSTANCE_BIT = 0x02,
         };
 
         //! Flags for imported/exported allocation
