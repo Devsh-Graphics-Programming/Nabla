@@ -692,12 +692,12 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
         struct SExternalMemoryProperties
         {
-            // Need 15 bit to store all possible value of E_EXTERNAL_HANDLE_TYPE. So bitfield will not save any space.
-            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE exportableTypes;
-            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE compatibleTypes;
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE exportableTypes: 15;
+            IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE compatibleTypes: 15;
             E_EXTERNAL_MEMORY_FEATURE_FLAGS features : 3;
             bool operator == (SExternalMemoryProperties const& rhs) const = default;
         };
+        static_assert(sizeof(SExternalMemoryProperties) == sizeof(uint64_t));
 
         SExternalMemoryProperties getExternalBufferProperties(
             core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usage, 
