@@ -61,6 +61,13 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
     // TODO(kevin) : Handle importing external semaphore into Vulkan
     // VkImportSemaphoreWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR };
 
+    if (creationParams.externalHandleTypes && creationParams.externalHandleTypes != ISemaphore::EHT_OPAQUE_WIN32)
+    {
+        // We haven't tested other externalHandleType, so for now we only support EHT_OPAQUE_WIN32 handle type. WIN32_KMT definitely don't work with our implementation. They don't support DuplicateHandle and CloseHandle.
+        m_logger.log("Only EHT_OPAQUE_WIN32 external handle type currently supported",system::ILogger::ELL_ERROR);
+        return nullptr;
+    }
+
     VkExportSemaphoreCreateInfo exportInfo = {
       VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, 
       nullptr, 
@@ -81,9 +88,26 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
 
     system::external_handle_t externalHandle = system::ExternalHandleNull;
     const auto handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(creationParams.externalHandleTypes.value);
-    if (handleType != 0)
+    if (creationParams.externalHandleTypes != ISemaphore::EHT_NONE)
     {
+        const auto isValidHandleType = [&]
+        {
+            // https://docs.vulkan.org/spec/latest/chapters/synchronization.html#VUID-VkSemaphoreGetWin32HandleInfoKHR-handleType-01131
+            static constexpr auto ValidExternalHandleTypes =
 #ifdef _WIN32
+              core::bitflag<ISemaphore::E_EXTERNAL_HANDLE_TYPE>(ISemaphore::EHT_OPAQUE_WIN32 | ISemaphore::EHT_OPAQUE_WIN32_KMT | ISemaphore::EHT_OPAQUE_WIN32);
+#else
+              core::bitflag<ISemaphore::E_EXTERNAL_HANDLE_TYPE>(ISemaphore::EHT_OPAQUE_FD | ISemaphore::EHT_SYNC_FD);
+#endif
+            return (creationParams.externalHandleTypes | ValidExternalHandleTypes) == ValidExternalHandleTypes;
+        }();
+
+#ifdef _WIN32
+        if (!isValidHandleType)
+        {
+            m_logger.log("External semaphore handle type 0x%08x is not a valid Win32 handle type", system::ILogger::ELL_ERROR, creationParams.externalHandleTypes.value);
+            return nullptr;
+        }
         VkSemaphoreGetWin32HandleInfoKHR props = {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR,
             .semaphore = semaphore,
@@ -96,6 +120,11 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
             return nullptr;
         }
 #else
+        if (!isValidHandleType)
+        {
+            m_logger.log("External semaphore handle type 0x%08x is not a valid Unix handle type", system::ILogger::ELL_ERROR, creationParams.externalHandleTypes.value);
+            return nullptr;
+        }
         VkSemaphoreGetFdInfoKHR props = {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
             .semaphore = vkSemaphore,
