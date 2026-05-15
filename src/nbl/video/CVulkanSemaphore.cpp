@@ -14,7 +14,6 @@ CVulkanSemaphore::~CVulkanSemaphore()
 	{
 		const auto success = system::CloseExternalHandle(m_externalHandle);
 		if (!success) vulkanDevice->getLogger()->log("Failed to close external handle for Vulkan semaphore", system::ILogger::ELL_ERROR);
-		assert(success);
 	}
 }
 
