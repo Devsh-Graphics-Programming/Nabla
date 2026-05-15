@@ -76,14 +76,12 @@ constexpr const char* VirtualArchCompileOption[] = {
 
 static_assert(sizeof(VirtualArchCompileOption)/sizeof(*VirtualArchCompileOption)==CCUDADevice::EVA_COUNT);
 
-static CUmemAllocationHandleType getAllocationHandleType()
-{
+constexpr CUmemAllocationHandleType AllocationHandleType = 
 #ifdef _WIN32
-	return CU_MEM_HANDLE_TYPE_WIN32;
+	CU_MEM_HANDLE_TYPE_WIN32;
 #else
-	return CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
+	CU_MEM_HANDLE_TYPE_POSIX_FILE_DESCRIPTOR;
 #endif
-}
 
 }
 
@@ -126,7 +124,7 @@ CCUDADevice::CCUDADevice(
 
 		const auto prop = CUmemAllocationProp{
 			.type = CU_MEM_ALLOCATION_TYPE_PINNED,
-			.requestedHandleTypes = getAllocationHandleType(),
+			.requestedHandleTypes = AllocationHandleType,
 			.location = { .type = static_cast<CUmemLocationType>(locationType), .id = m_native->handle },
 #ifdef _WIN32
 			.win32HandleMetaData = &metadata,
@@ -206,7 +204,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 
 	const auto prop = CUmemAllocationProp{
 		.type = CU_MEM_ALLOCATION_TYPE_PINNED,
-		.requestedHandleTypes = getAllocationHandleType(),
+		.requestedHandleTypes = AllocationHandleType,
 		.location = { .type = location, .id = m_native->handle },
 #ifdef _WIN32
 		.win32HandleMetaData = &metadata,
