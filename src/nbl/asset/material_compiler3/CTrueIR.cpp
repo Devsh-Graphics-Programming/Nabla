@@ -309,11 +309,7 @@ void CTrueIR::ISpectralVariableFactor::printDot(std::ostringstream& sstr, const 
 void CTrueIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
 	if (profile)
-	{
-		const auto profileNodeID = selfID + "_profile";
-		profile.printDot(sstr, profileNodeID);
-		sstr << "\n\t" << selfID << " -> " << profileNodeID << "[label=\"Profile\"]";
-	}
+		profile.printDot(sstr, selfID);
 	if (profile.view)
 	{
 		const auto transformNodeID = selfID + "_pTform";
