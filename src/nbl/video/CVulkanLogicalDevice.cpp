@@ -87,7 +87,7 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
         return nullptr;
 
     system::external_handle_t externalHandle = system::ExternalHandleNull;
-    const auto handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(creationParams.externalHandleTypes | ISemaphore::EHT_D3D12_FENCE);
+    const auto handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(creationParams.externalHandleTypes);
     if (creationParams.externalHandleTypes != ISemaphore::EHT_NONE)
     {
         const auto isValidHandleType = [&]
@@ -101,7 +101,7 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
 #endif
             return ValidExternalHandleTypes.hasFlags(creationParams.externalHandleTypes) && 
               // must only be one bit set since the member is suffixed with 'FlagBits' not 'Flags'
-              core::isPoT(creationParams.externalHandleTypes);
+              hlsl::isPoT(static_cast<std::underlying_type_t<ISemaphore::E_EXTERNAL_HANDLE_TYPE>>(creationParams.externalHandleTypes));
         }();
 
 #ifdef _WIN32
