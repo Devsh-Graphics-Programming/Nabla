@@ -219,8 +219,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				};
 				virtual EFinalType getFinalType() const = 0;
 
-				virtual uint16_t getCapabilities() const = 0;
-
 				const auto& getHash() const {return hash;}
 
 				// only call once the nodes underneath are linked up (because it doesn't call recursively), returning empty hash means error/invalid node
@@ -864,8 +862,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CEmitter;}
 
-                uint16_t getCapabilities() const override final;
-
 				inline uint8_t getChildCount() const override final { return 0; }
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CEmitter);}
@@ -941,8 +937,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CDeltaTransmission;}
 
-				uint16_t getCapabilities() const override final;
-
 				inline uint8_t getChildCount() const override final { return 0; }
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CDeltaTransmission);}
@@ -977,8 +971,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				inline EFinalType getFinalType() const override {return EFinalType::COrenNayar;}
 
-				uint16_t getCapabilities() const override final;
-
 				inline uint8_t getChildCount() const override final { return 0; }
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
@@ -1005,8 +997,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CCookTorrance;}
-
-				uint16_t getCapabilities() const override final;
 
 				inline uint8_t getChildCount() const override final { return 1; }
 
@@ -1437,7 +1427,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 			const CTrueIR* const src;
 			CTrueIR* const dst;
-			SMaterial::SMetadata* pMetadata;
+			const SMaterial::SMetadata* pMetadata;
 		};
 		struct SRewriteSession final
 		{

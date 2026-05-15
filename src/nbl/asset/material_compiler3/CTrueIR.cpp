@@ -292,62 +292,7 @@ bool CTrueIR::SRewriteSession::rewriteSingleLayer(typed_pointer_type<const COrie
 	// observations:
 	// - Any V-dependent factors cannot be commonalized across layers, most of the CSE has to be done within a layer
 
-	auto& dstPool = args.dst->getObjectPool();
-	const auto& srcPool = args.src->getObjectPool();
-	SMaterial::SMetadata metadata = {};
-
-	core::vector<typed_pointer_type<const INode>> stack;
-	stack.reserve(32);
-	stack.push_back(oriented);
-	// use a hashmap to not explore whole DAG
-	core::unordered_map<typed_pointer_type<const INode>, typed_pointer_type<INode>> substitutions;
-	while (!stack.empty())
-	{
-		const auto entry = stack.back();
-		const auto* const node = srcPool.deref(entry);
-		if (!node)
-			return false;
-		const auto childCount = node->getChildCount();
-		if (auto& copyH = substitutions[entry]; !copyH)
-		{
-			for (uint8_t c = 0; c < childCount; c++)
-			{
-				const auto childH = node->getChildHandle(c);
-				if (auto child = srcPool.deref(childH); !child)
-					continue;
-				stack.push_back(childH);
-			}
-
-			copyH = node->copy(args.dst);
-			if (!copyH)
-				return false;
-		}
-		else
-		{
-			auto* const copy = dstPool.deref(copyH);
-			for (uint8_t c = 0; c < childCount; c++)
-			{
-				const auto childH = node->getChildHandle(c);
-				if (!childH)
-					continue;
-				auto found = substitutions.find(childH);
-				assert(found != substitutions.end());
-				copy->setChild(dstPool, c, found->second);
-			}
-			stack.pop_back();
-
-			if (node->getFinalType() == INode::EFinalType::CSpectralVariable)
-			{
-				const auto* factor = dynamic_cast<const CSpectralVariableFactor*>(node);
-				metadata.usedUVSlots.set(factor->uvSlot(), true);
-			}
-			metadata.capabilities |= core::bitflag<SMaterial::SMetadata::ECapabilityBits>(node->getCapabilities());
-		}
-	}
-
 	// TODO: combine layer meta with `retval.metadata`
-	args.pMetadata->usedUVSlots = metadata.usedUVSlots;
-	args.pMetadata->capabilities |= metadata.capabilities;
 
 	// TODO: deduplicate, collect metadata and insert into current IR
 
@@ -359,11 +304,6 @@ bool CTrueIR::SRewriteSession::rewriteSingleLayer(typed_pointer_type<const COrie
 void CTrueIR::ISpectralVariableFactor::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
 	printDotParameterSet(*pWonky(), getKnotCount(), sstr, selfID, {});
-}
-
-uint16_t CTrueIR::CEmitter::getCapabilities() const
-{
-	return static_cast<uint16_t>(SMaterial::SMetadata::ECapabilityBits::NonSpatiallyVaryingEmissive | SMaterial::SMetadata::ECapabilityBits::NotBlackhole);
 }
 
 void CTrueIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& selfID) const
@@ -385,25 +325,9 @@ void CTrueIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& s
 	}
 }
 
-uint16_t CTrueIR::CDeltaTransmission::getCapabilities() const
-{
-	return static_cast<uint16_t>(SMaterial::SMetadata::ECapabilityBits::DeltaTransmissive | SMaterial::SMetadata::ECapabilityBits::NotBlackhole);
-}
-
-uint16_t CTrueIR::COrenNayar::getCapabilities() const
-{
-	return static_cast<uint16_t>(SMaterial::SMetadata::ECapabilityBits::OrenNayar | SMaterial::SMetadata::ECapabilityBits::NonDelta | SMaterial::SMetadata::ECapabilityBits::NotBlackhole);
-}
-
 void CTrueIR::COrenNayar::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
 	ndfParams.printDot(sstr, selfID);
-}
-
-uint16_t CTrueIR::CCookTorrance::getCapabilities() const
-{
-	// TODO: could be either beckmann or ggx, also anisotropic? maybe get from ndf params?
-	return static_cast<uint16_t>(SMaterial::SMetadata::ECapabilityBits::GGX | SMaterial::SMetadata::ECapabilityBits::NonDelta | SMaterial::SMetadata::ECapabilityBits::NotBlackhole);
 }
 
 void CTrueIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::string& selfID) const
