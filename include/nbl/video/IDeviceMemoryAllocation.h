@@ -212,7 +212,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
         virtual bool unmap_impl() = 0;
 
         const ILogicalDevice* m_originDevice = nullptr;
-        SCreationParams m_params = {};
+        const SCreationParams m_params = {};
         uint8_t* m_mappedPtr = nullptr;
         MemoryRange m_mappedRange = {};
         core::bitflag<E_MAPPING_CPU_ACCESS_FLAGS> m_currentMappingAccess = EMCAF_NO_MAPPING_ACCESS;
