@@ -180,6 +180,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             uint64_t allocationSize = 0;
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::EMAF_NONE;
             // Handle Type for external resources
+            // TODO(kevin): Decide whether to support multiple handle type for each memory allocation?
             IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE;
             //! Imports the given handle  if importHandle != nullptr && externalHandleType != EHT_NONE
             //! Creates exportable memory if importHandle == nullptr && externalHandleType != EHT_NONE
