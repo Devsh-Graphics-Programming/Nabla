@@ -10,6 +10,7 @@
 #include "dimension2d.h"
 
 #include "nbl/video/IGPUBuffer.h"
+#include "vulkan/vulkan_core.h"
 
 
 namespace nbl::video
