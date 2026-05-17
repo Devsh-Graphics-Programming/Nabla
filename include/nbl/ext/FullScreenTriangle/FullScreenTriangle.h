@@ -24,11 +24,18 @@ struct ProtoPipeline final
 			const video::IGPURenderpass* renderpass,
 			const uint32_t subpassIx=0,
 			asset::SBlendParams blendParams = {},
+			asset::SRasterizationParams rasterizationParams = DefaultRasterParams,
 			const hlsl::SurfaceTransform::FLAG_BITS swapchainTransform=hlsl::SurfaceTransform::FLAG_BITS::IDENTITY_BIT,
 			video::IGPUPipelineCache* pipelineCache = nullptr
 		);
 
 		core::smart_refctd_ptr<asset::IShader> m_vxShader;
+
+		constexpr static inline asset::SRasterizationParams DefaultRasterParams = {
+			.faceCullingMode = asset::EFCM_NONE,
+			.depthWriteEnable = false,
+			.depthCompareOp = asset::ECO_ALWAYS
+		};
 };
 
 bool recordDrawCall(video::IGPUCommandBuffer* commandBuffer);
