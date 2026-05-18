@@ -45,10 +45,10 @@ struct Bilinear
         vector2_type twiceAreasUnderXCurve = vector2_type(bilinearCoeffs[0] + bilinearCoeffs[1], bilinearCoeffs[2] + bilinearCoeffs[3]);
         // Linear::create adds FLT_MIN internally, replicate here so both divisions share
         // the same denominator (sum + 2*min), enabling CSE to merge them into one division
-        const scalar_type safeSum = twiceAreasUnderXCurve[0] + twiceAreasUnderXCurve[1] + scalar_type(2.0) * hlsl::numeric_limits<scalar_type>::min;
-        const scalar_type yNormFactor = scalar_type(2.0) / safeSum;
+        const scalar_type safeSum = twiceAreasUnderXCurve[0] + twiceAreasUnderXCurve[1] + _static_cast<scalar_type>(2.0) * hlsl::numeric_limits<scalar_type>::min;
+        const scalar_type yNormFactor = _static_cast<scalar_type>(2.0) / safeSum;
         retval.lineary = Linear<scalar_type>::create(twiceAreasUnderXCurve);
-        retval.normFactor = yNormFactor * scalar_type(2.0);
+        retval.normFactor = yNormFactor * _static_cast<scalar_type>(2.0);
         return retval;
     }
 
@@ -65,7 +65,7 @@ struct Bilinear
 
         // bilinear PDF = marginal_y_pdf * conditional_x_pdf; reuse both linear caches
         const scalar_type yPdf = lineary.forwardPdf(u.y, linearYCache);
-        cache.normalizedStart = yPdf * linearx.linearCoeffStart;
+        cache.normalizedStart = yPdf * linearx.normalizedCoeffStart;
         cache.linearXCache.diffTimesX *= yPdf;
         return p;
     }
