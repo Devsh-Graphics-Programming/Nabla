@@ -24,7 +24,8 @@ class NBL_API2 IDeviceMemoryAllocator
 
 		struct SAllocateParams {
 			IDeviceMemoryBacked* dedication = nullptr;
-			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE;
+			const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>
+allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE;
 			IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE externalHandleType = IDeviceMemoryAllocation::EHT_NONE;
 			system::external_handle_t externalHandle = system::ExternalHandleNull;
 		};

@@ -39,7 +39,7 @@ class NBL_API2 CCUDAExportableMemory final : public core::IReferenceCounted
 		 *                   automatically bound to it.
 		 * @return A smart pointer to the exported IDeviceMemoryAllocation, or nullptr on failure.
 		 */
-		core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr) const;
+		core::smart_refctd_ptr<IDeviceMemoryAllocation> exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication = nullptr, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags = IDeviceMemoryAllocation::EMAF_NONE) const;
 
 		inline const SCachedCreationParams& getCreationParams() const { return m_params; }
 	private:

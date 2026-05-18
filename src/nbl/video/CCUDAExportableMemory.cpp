@@ -26,7 +26,7 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDAExportableMemory::create(core
 	);
 }
 
-core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication) const
+core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsMemory(ILogicalDevice* device, IDeviceMemoryBacked* dedication, core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags) const
 {
 	auto pd = device->getPhysicalDevice();
 	uint32_t memoryTypeBits = (1 << pd->getMemoryProperties().memoryTypeCount) - 1;
@@ -46,7 +46,7 @@ core::smart_refctd_ptr<IDeviceMemoryAllocation> CCUDAExportableMemory::exportAsM
 	return device->allocate(req, 
 		{ 
 		  dedication,
-		  IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE,
+		  allocateFlags,
 		  CCUDADevice::ExternalMemoryHandleType,
 		  m_params.externalHandle 
 		}).memory;
