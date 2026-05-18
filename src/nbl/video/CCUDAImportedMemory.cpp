@@ -63,7 +63,7 @@ CCUDAImportedMemory::CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice> dev
 	, m_src(std::move(src))
 	, m_native(std::move(nativeState))
 {
-	assert(m_native);
+	assert(false);
 }
 
 CCUDAImportedMemory::~CCUDAImportedMemory() = default;

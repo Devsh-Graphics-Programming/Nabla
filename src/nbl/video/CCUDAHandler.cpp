@@ -1358,7 +1358,7 @@ CCUDAHandler::CCUDAHandler(
 	, m_headers(std::move(_headers))
 	, m_logger(std::move(_logger))
 {
-	assert(m_native);
+	assert(false);
 }
 
 CCUDAHandler::~CCUDAHandler() = default;

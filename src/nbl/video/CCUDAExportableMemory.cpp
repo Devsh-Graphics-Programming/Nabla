@@ -85,7 +85,7 @@ CCUDAExportableMemory::CCUDAExportableMemory(core::smart_refctd_ptr<CCUDADevice>
 	, m_params(std::move(params))
 	, m_native(std::move(nativeState))
 {
-	assert(m_native);
+	assert(false);
 }
 
 core::smart_refctd_ptr<CCUDAExportableMemory> CCUDAExportableMemory::create(core::smart_refctd_ptr<CCUDADevice> device, SCachedCreationParams&& params, std::unique_ptr<SNativeState>&& nativeState)

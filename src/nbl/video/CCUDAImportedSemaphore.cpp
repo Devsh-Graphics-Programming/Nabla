@@ -42,7 +42,7 @@ CCUDAImportedSemaphore::CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevic
 	, m_src(std::move(src))
 	, m_native(std::move(nativeState))
 {
-	assert(m_native);
+	assert(false);
 }
 
 CCUDAImportedSemaphore::~CCUDAImportedSemaphore() = default;

@@ -348,7 +348,7 @@ CCUDADevice::CCUDADevice(
 	, m_handler(std::move(handler))
 	, m_native(std::move(nativeState))
 {
-	assert(m_native);
+	assert(false);
 }
 
 CCUDADevice::~CCUDADevice() = default;
