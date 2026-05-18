@@ -219,7 +219,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				};
 				virtual EFinalType getFinalType() const = 0;
 
-				virtual uint16_t getCapabilities() const = 0;
+				virtual uint16_t getCapabilities() const { return 0; };
 
 				const auto& getHash() const {return hash;}
 
