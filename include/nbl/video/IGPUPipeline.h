@@ -12,6 +12,8 @@
 #include "nbl/asset/IPipeline.h"
 #include "nbl/system/to_string.h"
 
+#include <cstddef>
+
 namespace nbl::video
 {
 
