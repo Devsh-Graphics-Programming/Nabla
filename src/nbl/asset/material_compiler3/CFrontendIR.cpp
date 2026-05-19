@@ -737,8 +737,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> headH = {};
 	if (!bxdfRootH)
 		return headH;
-	// temporary debug for WIP
-	printSubtree(bxdfRootH);
 
 	auto& astPool = srcAST->getObjectPool();
 	auto& irPool = tmpIR->getObjectPool();
@@ -922,7 +920,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							if constexpr (HardFail)
 							{
 								args.logger.log("Undef node in a MUL",ELL_ERROR);
-								printSubtree(nodeH);
 								return (headH=errorRetval);
 							}
 							else
@@ -959,7 +956,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							if constexpr (HardFail)
 							{
 								args.logger.log("Undef node in an ADD",ELL_ERROR);
-								printSubtree(nodeH);
 								return (headH=errorRetval);
 							}
 							else
@@ -1030,7 +1026,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						if constexpr (HardFail)
 						{
 							args.logger.log("Child of COMPLEMENT is null,",ELL_ERROR);
-							printSubtree(nodeH);
 							return (headH=errorRetval);
 						}
 						else
@@ -1075,12 +1070,17 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					// combine masks and check if we're dead
 					if ((it->liveSpectralChannels&=liveMask)==0)
 					{
-						const auto logLevel = system::ILogger::ELL_PERFORMANCE; 
-						// if we REALLY want to we can print all the nodes in the `irChain` so far, but then the irChain needs to track debug data from AST
-						args.logger.log("Product turns to 0 by multiplying the chain so far with the Spectral Variable:\n",logLevel);
-						printSubtree(nodeH);
-						args.logger.log("Forms a 0 constant factor across its ancestors in the mul chain, within the BxDF:\n",logLevel);
-						printSubtree(bxdfRootH);
+						// this prints a lot of these messages for 0 parameters of fresnel
+						constexpr bool ExtraDebug = false;
+						if constexpr (ExtraDebug)
+						{
+							const auto logLevel = system::ILogger::ELL_PERFORMANCE; 
+							// if we REALLY want to we can print all the nodes in the `irChain` so far, but then the irChain needs to track debug data from AST
+							args.logger.log("Product turns to 0 by multiplying the chain so far with the Spectral Variable:\n",logLevel);
+							printSubtree(nodeH);
+							args.logger.log("Forms a 0 constant factor across its ancestors in the mul chain, within the BxDF:\n",logLevel);
+							printSubtree(bxdfRootH);
+						}
 						// kill whole term
 						irChain.clear();
 						astStack.clear();
@@ -1394,7 +1394,7 @@ auto CFrontendIR::CCookTorrance::createIRNode(const bool forBTDF, const CFronten
 		const auto* const srcEta = ast->getObjectPool().deref(orientedRealEta);
 		if (!srcEta)
 			return {};
-		etaH = srcEta->createIRNode(ast,ir);
+		etaH = ir->hashNCache(srcEta->createIRNode(ast,ir));
 		if (!etaH)
 			return {};
 	}

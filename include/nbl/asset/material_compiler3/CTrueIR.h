@@ -266,6 +266,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				//
 				virtual inline void printDot(std::ostringstream& sstr, const core::string& selfID) const {}
+				virtual inline core::string getLabelSuffix() const {return "";}
 
 			protected:
 				// child managment
@@ -355,7 +356,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					padding = std::bit_cast<uint64_t>(state);
 				}
 
-				inline uint8_t getChildCount() const override final { return getState().childCount; }
+				inline uint8_t getChildCount() const override {return getState().childCount;}
 
 				// Only sane child count allowed
 				inline void setChildHandle(const uint8_t ix, const typed_pointer_type<const IFactor> handle)
@@ -363,6 +364,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					if (ix < getState().childCount)
 						child[ix] = handle;
 				}
+
+				//
+				inline core::string getLabelSuffix() const override {return getState().type==Type::Mul ? "\\nMUL":"\\nADD";}
 
 			protected:
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
@@ -827,7 +831,14 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				//
 				inline uint8_t getSpectralBins() const override final {return getKnotCount();}
-
+				
+				//
+				inline core::string getLabelSuffix() const override
+				{
+					if (getKnotCount()<2)
+						return "";
+					return "\\nSemantics = "+system::to_string(getSemantics());
+				}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 
 		    protected:
@@ -958,6 +969,16 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 			public:
+				//
+				inline core::string getLabelSuffix() const override
+				{
+					return "\\nNDF = "+system::to_string(ndfParams.getDistribution());
+				}
+				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
+				{
+					ndfParams.printDot(sstr,selfID);
+				}
+
 				SBasicNDFParams ndfParams = {};
 		};
 		class COrenNayar final : public obj_pool_type::INonTrivial, public IBxDFWithNDF
@@ -978,8 +999,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
 
 				inline COrenNayar() = default;
-
-				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 
 		    protected:
 			    COPY_DEFAULT_IMPL
@@ -1005,13 +1024,20 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCookTorrance);}
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return "orientedRealEta"; }
 
+				//
+				inline core::string getLabelSuffix() const override
+				{
+					auto retval = IBxDFWithNDF::getLabelSuffix();
+					if (orientedRealEta)
+						retval += "\\nReciprocateEta = "+(isEtaReciprocal() ? "true":"false");
+					return retval;
+				}
+
 				inline CCookTorrance() = default;
 
 				//
 				inline bool isEtaReciprocal() const {return ndfParams.params[2].padding[0];}
 				inline void setEtaReciprocal(const bool value) {ndfParams.params[2].padding[0] = value;}
-
-				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 
 				// BTDF ONLY! We need this eta to compute the refractions of `L` when importance sampling and the Jacobian during H to L generation for rough dielectrics
 				// It does not mean we compute the Fresnel weights though! You might ask why we don't do that given that state of the art importance sampling
@@ -1039,6 +1065,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					assert((uint8_t(0x1u)<<MaxFuncArgsLog2)>=retval);
 					return retval;
 				}
+
+				//
+				inline core::string getLabelSuffix() const override {return "\\nscalar = "+core::string(scalar ? "true":"false");}
 
 				//
 				inline uint8_t getSpectralBins() const override {return scalar ? 3:1;}
@@ -1481,7 +1510,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			retval += " [label=\"";
 			retval += node->getTypeName();
 			retval += "\\n" + system::to_string(node->getHash());
-			// maybe label suffix?
+			retval += node->getLabelSuffix();
 			retval += "\"]";
 			return retval;
 		}

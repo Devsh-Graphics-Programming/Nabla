@@ -321,15 +321,5 @@ void CTrueIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& s
 	}
 }
 
-void CTrueIR::COrenNayar::printDot(std::ostringstream& sstr, const core::string& selfID) const
-{
-	ndfParams.printDot(sstr, selfID);
-}
-
-void CTrueIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::string& selfID) const
-{
-	ndfParams.printDot(sstr, selfID);
-}
-
 template class CTrueIR::CSpectralVariable<CTrueIR::ISpectralVariableFactor>;
 }
