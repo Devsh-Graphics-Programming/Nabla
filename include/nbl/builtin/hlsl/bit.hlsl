@@ -3,6 +3,7 @@
 
 
 #include <nbl/builtin/hlsl/macros.h>
+#include <nbl/builtin/hlsl/cpp_compat/basic.h>
 
 
 #ifndef __HLSL_VERSION
@@ -123,5 +124,32 @@ uint16_t countl_zero(T n)
 }
 }
 #endif
- 
+
+namespace nbl
+{
+namespace hlsl
+{
+
+// Variable-width sub-word bit rotation
+template<typename T>
+NBL_CONSTEXPR_FUNC T rotl(T value, uint32_t bits, uint32_t width)
+{
+    const T mask = (width >= sizeof(T) * 8) ? ~T(0) : ((T(1) << width) - T(1));
+    value &= mask;
+    bits &= -(bits < width);
+    return ((value << bits) | (value >> (width - bits))) & mask;
+}
+
+template<typename T>
+NBL_CONSTEXPR_FUNC T rotr(T value, uint32_t bits, uint32_t width)
+{
+    const T mask = (width >= sizeof(T) * 8) ? ~T(0) : ((T(1) << width) - T(1));
+    value &= mask;
+    bits &= -(bits < width);
+    return ((value >> bits) | (value << (width - bits))) & mask;
+}
+
+}
+}
+
 #endif

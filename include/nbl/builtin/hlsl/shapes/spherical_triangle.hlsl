@@ -20,6 +20,26 @@ namespace hlsl
 namespace shapes
 {
 
+// TODO: move to where fast_acos lives
+template<typename T, int order=2>
+T acos_csc_approx(const T arg)
+{
+    const T u = hlsl::log2(_static_cast<T>(1)+arg);
+    // The curve fit "revealed in a dream" to me is `exp2(F(log2(x+1)))` where `F(u)` is a polynomial
+    // I have a feeling that a polynomial of ((Au+B)u+C)u+D could be sufficient if it has following properties:
+    // `F(0) = 0` and
+    // `F(u) <= log2(\frac{\cos^{-1}\left(2^{x}-1\right)}{\sqrt{1-\left(2^{x}-1\right)^{2}}})` because you want to consistently under-estimate the Projected Solid Angle to avoid creating energy
+    // See https://www.desmos.com/calculator/sdptomhbju
+    // Furthermore we could clip the polynomial calc to `Cu+D or `(Bu+C)u+D` for small arguments
+    T poly;
+    // TODO: actually optimize these constants in real world scenarios (renders)
+    if (order==1)
+        poly = (_static_cast<T>(1)-u)*_static_cast<T>(0.6);
+    else if (order==2)
+        poly = (_static_cast<T>(1)-u)*_static_cast<T>(0.637)+(_static_cast<T>(1) - u * u) * _static_cast<T>(0.0115);
+    return hlsl::exp2<T>(poly);
+}
+
 template<typename T>
 struct SphericalTriangle
 {
@@ -54,6 +74,7 @@ struct SphericalTriangle
         // degenerate triangle: any side has near-zero sin, so csc blows up
         if (hlsl::any<vector<bool, 3> >(retval.csc_sides >= hlsl::promote<vector3_type>(numeric_limits<scalar_type>::max)))
         {
+            // TODO: can't do this, still need to be able to sample thin triangle like a line light, so need to know all the angles which are still valid
             retval.cos_vertices = hlsl::promote<vector3_type>(0.0);
             retval.sin_vertices = hlsl::promote<vector3_type>(0.0);
             retval.solid_angle = 0;
@@ -86,35 +107,29 @@ struct SphericalTriangle
         if (solid_angle <= numeric_limits<scalar_type>::epsilon)
             return 0;
 
-        matrix<scalar_type, 3, 3> awayFromEdgePlane;
-        awayFromEdgePlane[0] = hlsl::cross(vertices[1], vertices[2]) * csc_sides[0];
-        awayFromEdgePlane[1] = hlsl::cross(vertices[2], vertices[0]) * csc_sides[1];
-        awayFromEdgePlane[2] = hlsl::cross(vertices[0], vertices[1]) * csc_sides[2];
+        // `cross(A,B)*acos(dot(A,B))/sin(1-dot^2)` can be done with `cross(A,B)*acos_csc_approx(dot(A,B))`
+#define ACOS_CSC(I) acos_csc_approx(cos_sides[I])
+//#define ACOS_CSC(I) hlsl::acos(cos_sides[I])*csc_sides[I]
+        scalar_type externalProductsWeightedByPyramidAngles = hlsl::dot(hlsl::cross(vertices[1], vertices[2]),receiverNormal) * ACOS_CSC(0);
+        externalProductsWeightedByPyramidAngles += hlsl::dot(hlsl::cross(vertices[2], vertices[0]),receiverNormal) * ACOS_CSC(1);
+        externalProductsWeightedByPyramidAngles += hlsl::dot(hlsl::cross(vertices[0], vertices[1]),receiverNormal) * ACOS_CSC(2);
+#undef ACOS_CSC
+
         // The ABS makes it so that the computation is correct for an `abs(cos(theta))` factor which is the projected solid angle used for a BSDF.
+        // It also makes the computation insensitive to the CW or CCW winding of the vertices in the triangle.
         // Proof: Kelvin-Stokes theorem, if you split the set into two along the horizon with constant CCW winding, the `cross` along the shared edge
         // goes in different directions and cancels out, while `acos` of the clipped great arcs corresponding to polygon edges add up to the original sides again.
-        const vector3_type externalProducts = hlsl::abs(hlsl::mul(/* transposed already */awayFromEdgePlane, receiverNormal));
-
-        // Far TODO: `cross(A,B)*acos(dot(A,B))/sin(1-dot^2)` can be done with `cross*acos_csc_approx(dot(A,B))`
-        // We could skip the `csc_sides` factor, and computing `pyramidAngles` and replace them with this approximation weighting before the dot product with the receiver notmal
-        // The curve fit "revealed in a dream" to me is `exp2(F(log2(x+1)))` where `F(u)` is a polynomial, so far I've calculated `F = (1-u)0.635+(1-u^2)0.0118` which gives <5% error until 165 degrees
-        // I have a feeling that a polynomial of ((Au+B)u+C)u+D could be sufficient if it has following properties:
-        // `F(0) = 0` and
-        // `F(u) <= log2(\frac{\cos^{-1}\left(2^{x}-1\right)}{\sqrt{1-\left(2^{x}-1\right)^{2}}})` because you want to consistently under-estimate the Projected Solid Angle to avoid creating energy
-        // See https://www.desmos.com/calculator/sdptomhbju
-        // Furthermore we could clip the polynomial calc to `Cu+D or `(Bu+C)u+D` for small arguments
-        const vector3_type pyramidAngles = hlsl::acos<vector3_type>(cos_sides);
-        // So that triangle covering almost whole hemisphere sums to PI
-        return hlsl::dot(pyramidAngles, externalProducts) * scalar_type(0.5);
+        // The 0.5 is so that triangle covering almost whole hemisphere sums to PI
+        return externalProductsWeightedByPyramidAngles * scalar_type(0.5);
     }
 
     vector3_type vertices[3];
     // angles of vertices with origin, so the sides are INSIDE the sphere
     vector3_type cos_sides;
-    vector3_type csc_sides;
+    vector3_type csc_sides; // TODO: spherical triangle sampling only needs `csc_sides[1]` and possibly `csc_sides[2]`
     // angles between arcs on the sphere, so angles in the TANGENT plane at each vertex
     vector3_type cos_vertices;
-    vector3_type sin_vertices;
+    vector3_type sin_vertices; // TODO: spherical triangle sampling only needs `sin_vertices[0]` a.k.a `sinA`
     scalar_type solid_angle;
 };
 

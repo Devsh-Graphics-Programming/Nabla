@@ -85,7 +85,7 @@ struct CandelaSampler
         const angle_t vAngle = degrees(polar.theta);
         const angle_t hAngle = degrees(__wrapPhi(polar.phi, symmetry));
 
-#define NBL_IES_DEF_ANGLE_ACC(T, EXPR) struct T { using value_type = angle_t; accessor_t acc; value_type operator[](uint32_t idx) NBL_CONST_MEMBER_FUNC { return EXPR; } };
+#define NBL_IES_DEF_ANGLE_ACC(T, EXPR) struct T { using value_type = angle_t; accessor_t acc; value_type operator[](uint32_t idx) NBL_CONST_MEMBER_FUNC { return EXPR; } void get(uint32_t idx, NBL_REF_ARG(value_type) val) NBL_CONST_MEMBER_FUNC { val = EXPR; } };
 
         NBL_IES_DEF_ANGLE_ACC(VAcc, acc.vAngle(idx))
         NBL_IES_DEF_ANGLE_ACC(HAcc, acc.hAngle(idx))

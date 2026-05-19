@@ -41,7 +41,7 @@ struct ConcentricMapping
    static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
    {
       // map [0,1]^2 to [-1,1]^2
-      const vector2_type centered = scalar_type(2) * u - hlsl::promote<vector2_type>(scalar_type(1));
+      const vector2_type centered = _static_cast<scalar_type>(2) * u - hlsl::promote<vector2_type>(_static_cast<scalar_type>(1));
 
       const scalar_type a = centered.x;
       const scalar_type b = centered.y;
@@ -51,10 +51,10 @@ struct ConcentricMapping
       const scalar_type dominant = hlsl::select(cond, a, b);
       const scalar_type minor = hlsl::select(cond, b, a);
 
-      const scalar_type safe_dominant = dominant != scalar_type(0) ? dominant : scalar_type(0);
+      const scalar_type safe_dominant = dominant != _static_cast<scalar_type>(0) ? dominant : _static_cast<scalar_type>(0);
       const scalar_type ratio = minor / safe_dominant;
 
-      const scalar_type angle = scalar_type(0.25) * numbers::pi<scalar_type> * ratio;
+      const scalar_type angle = _static_cast<scalar_type>(0.25) * numbers::pi<scalar_type> * ratio;
       const scalar_type c = hlsl::cos<scalar_type>(angle);
       const scalar_type s = hlsl::sin<scalar_type>(angle);
 
@@ -90,7 +90,7 @@ struct ConcentricMapping
       // angle in [0, pi/4]
       const scalar_type phi = hlsl::atan2(num, denom);
 
-      const scalar_type minor_val = r * phi / (scalar_type(0.25) * numbers::pi<scalar_type>);
+      const scalar_type minor_val = r * phi / (_static_cast<scalar_type>(0.25) * numbers::pi<scalar_type>);
 
       // reconstruct a,b using select instead of branching
       const scalar_type a_base = hlsl::select(swapped, minor_val, r);
@@ -99,7 +99,7 @@ struct ConcentricMapping
       const scalar_type a = ieee754::copySign(a_base, p.x);
       const scalar_type b = ieee754::copySign(b_base, p.y);
 
-      return (vector2_type(a, b) + hlsl::promote<vector2_type>(scalar_type(1))) * scalar_type(0.5);
+      return (vector2_type(a, b) + hlsl::promote<vector2_type>(_static_cast<scalar_type>(1))) * _static_cast<scalar_type>(0.5);
    }
 
    // The PDF of Shirley mapping is constant (1/PI on the unit disk)

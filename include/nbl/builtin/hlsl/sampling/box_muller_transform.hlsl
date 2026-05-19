@@ -37,16 +37,16 @@ struct BoxMullerTransform
     {
         BoxMullerTransform<T> retval;
         retval.stddev = _stddev;
-        retval.halfRcpStddev2 = scalar_type(0.5) / (_stddev * _stddev);
+        retval.halfRcpStddev2 = _static_cast<scalar_type>(0.5) / (_stddev * _stddev);
         return retval;
     }
 
     codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
     {
         scalar_type sinPhi, cosPhi;
-        math::sincos<scalar_type>(scalar_type(2.0) * numbers::pi<scalar_type> * u.y - numbers::pi<scalar_type>, sinPhi, cosPhi);
+        math::sincos<scalar_type>(_static_cast<scalar_type>(2.0) * numbers::pi<scalar_type> * u.y - numbers::pi<scalar_type>, sinPhi, cosPhi);
         cache.direction = vector2_type(cosPhi, sinPhi);
-        return cache.direction * nbl::hlsl::sqrt(scalar_type(-2.0) * nbl::hlsl::log(u.x)) * stddev;
+        return cache.direction * nbl::hlsl::sqrt(_static_cast<scalar_type>(-2.0) * nbl::hlsl::log(u.x)) * stddev;
     }
 
     density_type forwardPdf(const domain_type u, const cache_type cache) NBL_CONST_MEMBER_FUNC

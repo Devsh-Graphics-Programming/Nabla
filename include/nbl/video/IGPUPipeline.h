@@ -12,6 +12,8 @@
 #include "nbl/asset/IPipeline.h"
 #include "nbl/system/to_string.h"
 
+#include <cstddef>
+
 namespace nbl::video
 {
 
@@ -128,6 +130,58 @@ class IGPUPipelineBase {
 
         using SShaderEntryMap = SShaderSpecInfo::entry_map_t;
 
+        // One row of VK_KHR_pipeline_executable_properties statistics, kept as the driver
+        // returned it (no formatting, no string scraping). The string field on
+        // SExecutableInfo below is still populated -- this is a parallel, structured view
+        // for callers that need numbers (benchmarks, regressions, baseline diffs).
+        struct SExecutableStatistic
+        {
+            enum class FORMAT : uint8_t { BOOL32, INT64, UINT64, FLOAT64 };
+            std::string name;
+            std::string description;
+            FORMAT      format = FORMAT::UINT64;
+            union Value
+            {
+                bool     b32;
+                int64_t  i64;
+                uint64_t u64;
+                double   f64;
+            } value = {};
+
+            // Convenience: collapse to a uint64_t regardless of the original format.
+            // Matches what most consumers want -- counters, sizes, register tallies.
+            inline uint64_t asUint() const
+            {
+                switch (format)
+                {
+                    case FORMAT::BOOL32:  return value.b32 ? 1u : 0u;
+                    case FORMAT::INT64:   return value.i64 < 0 ? 0u : uint64_t(value.i64);
+                    case FORMAT::UINT64:  return value.u64;
+                    case FORMAT::FLOAT64: return value.f64 < 0.0 ? 0u : uint64_t(value.f64);
+                }
+                return 0u;
+            }
+        };
+
+        // One IR (e.g. SPIR-V, AMD ISA, NV SASS) returned by the driver. Text payloads
+        // are stored without the trailing NUL the driver adds; binary payloads are kept
+        // verbatim. Lets callers dump to a file or hash the data without re-parsing the
+        // pretty-printed blob.
+        struct SInternalRepresentation
+        {
+            std::string             name;
+            std::string             description;
+            bool                    isText = false;
+            core::vector<std::byte> data;
+
+            // View text payloads as a string_view without copying. Empty for binary IRs.
+            inline std::string_view asText() const
+            {
+                if (!isText || data.empty()) return {};
+                return std::string_view(reinterpret_cast<const char*>(data.data()), data.size());
+            }
+        };
+
         // Per-executable info from VK_KHR_pipeline_executable_properties
         struct SExecutableInfo
         {
@@ -135,8 +189,10 @@ class IGPUPipelineBase {
             std::string description;
             core::bitflag<hlsl::ShaderStage> stages = hlsl::ShaderStage::ESS_UNKNOWN;
             uint32_t subgroupSize = 0;
-            std::string statistics;
-            std::string internalRepresentations;
+            std::string statistics;                                              // human-readable, aligned columns; what users log today
+            core::vector<SExecutableStatistic> structuredStatistics;             // same data, structured; for programmatic use
+            std::string internalRepresentations;                                 // human-readable concatenation of IRs (textual ones inline, binaries as "[binary data, N bytes]")
+            core::vector<SInternalRepresentation> structuredInternalRepresentations; // same data, structured; for programmatic use (file dump, hashing, etc.)
         };
 
         inline std::span<const SExecutableInfo> getExecutableInfo() const { return m_executableInfo; }
