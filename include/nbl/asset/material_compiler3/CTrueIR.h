@@ -969,11 +969,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 			public:
-				//
-				inline core::string getLabelSuffix() const override
-				{
-					return "\\nNDF = "+system::to_string(ndfParams.getDistribution());
-				}
 				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
 				{
 					ndfParams.printDot(sstr,selfID);
@@ -1029,7 +1024,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				{
 					auto retval = IBxDFWithNDF::getLabelSuffix();
 					if (orientedRealEta)
-						retval += "\\nReciprocateEta = "+(isEtaReciprocal() ? "true":"false");
+						retval += "\\nReciprocateEta = "+core::string(isEtaReciprocal() ? "true":"false");
 					return retval;
 				}
 
@@ -1628,6 +1623,7 @@ inline void CTrueIR::SParameter::printDot(std::ostringstream& sstr, const core::
 
 inline void CTrueIR::SBasicNDFParams::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
+	// TODO: print the Distribution!
 	constexpr const char* paramSemantics[] = {
 		"dh/du",
 		"dh/dv",

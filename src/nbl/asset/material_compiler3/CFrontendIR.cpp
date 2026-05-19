@@ -737,6 +737,8 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> headH = {};
 	if (!bxdfRootH)
 		return headH;
+	// temporary debug for WIP
+	printSubtree(bxdfRootH);
 
 	auto& astPool = srcAST->getObjectPool();
 	auto& irPool = tmpIR->getObjectPool();
@@ -1169,7 +1171,9 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 			// no point making a mul node
 			if (combinerState.childCount==1)
 			{
-				uniqueFactorH = hashIfFunction(irChain.front());
+				const auto leafH = irChain.front();
+				monochromeFactor = irPool.deref(leafH)->isScalar();
+				uniqueFactorH = hashIfFunction(leafH);
 				if (!uniqueFactorH)
 				{
 					args.logger.log("Couldn't hash a `CTrueIR::IFunction` node",ELL_ERROR);
@@ -1403,6 +1407,8 @@ auto CFrontendIR::CCookTorrance::createIRNode(const bool forBTDF, const CFronten
 	{
 		ct->ndfParams = ndParams; // the padding abuse is the same between the classes
 		ct->orientedRealEta = etaH;
+		// we don't flip depending on `forBTDF` because a BTDF can be hit from underside as long as its not the last BTDF
+		ct->setEtaReciprocal(this->isEtaReciprocal());
 	}
 	return retval;
 }
