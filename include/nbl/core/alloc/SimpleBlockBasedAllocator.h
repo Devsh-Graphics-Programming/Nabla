@@ -400,8 +400,11 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 			retval.value = h.value;
 			if (h)
 			{
-				const auto* const p = deref<const U>(h);
-				retval.value += ptrdiff_t(dynamic_cast<const T*>(p)) - ptrdiff_t(p);
+				const auto* const pU = deref<const U>(h);
+				const T* pT = dynamic_cast<const T*>(pU);
+				if (!pT)
+					return {};
+				retval.value += ptrdiff_t(pT) - ptrdiff_t(pU);
 			}
 			return retval;
 		}

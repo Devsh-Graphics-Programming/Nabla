@@ -338,14 +338,20 @@ class CFrontendIR final : public CNodePool
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
-				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const;
+				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const override;
+		};
+		//! Nodes which must obey standard AST DFS traversal to evaluate using function composition and can't be reassociated
+		class IFunctionNode : public obj_pool_type::INonTrivial, public IExprNode
+		{
+			public:
+				virtual CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const = 0;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, their behaviour depends on the IContributor in its MUL node relative subgraph.
 		//! If you use a different contributor node type or normal for shading, these nodes get split and duplicated into two in our Final IR.
 		//! Due to the Helmholtz Reciprocity handling outlined in the comments for the entire front-end you can usually count on these nodes
 		//! getting applied once using `VdotH` for Cook-Torrance BRDF, twice using `VdotN` and `LdotN` for Diffuse BRDF, and using their
 		//! complements before multiplication for BTDFs. 
-		class IContributorDependant : public obj_pool_type::INonTrivial, public IExprNode
+		class IContributorDependant : public IFunctionNode
 		{
 		};
 		// Beer's Law Node, behaves differently depending on where it is:
@@ -358,6 +364,8 @@ class CFrontendIR final : public CNodePool
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CBeer);}
 				inline uint8_t getChildCount() const override {return 2;}
+				
+				NBL_API2 CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const override;
 
 				// you can set the members later
 				inline CBeer() = default;
@@ -383,9 +391,11 @@ class CFrontendIR final : public CNodePool
 		class CFresnel final : public IContributorDependant
 		{
 			public:
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFresnel);}
 				inline uint8_t getChildCount() const override {return 2;}
 
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFresnel);}
+				NBL_API2 CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const override;
+
 				inline CFresnel() = default;
 
 				// Already pre-divided Index of Refraction, e.g. exterior/interior since VdotG>0 the ray always arrives from the exterior.
@@ -450,7 +460,7 @@ class CFrontendIR final : public CNodePool
 		// ------------------
 		// 
 		// The obvious downside of using this node for transmission is that its impossible to get "milky" glass because a spread of refractions is needed
-		class CThinInfiniteScatterCorrection final : public obj_pool_type::INonTrivial, public IExprNode
+		class CThinInfiniteScatterCorrection final : public IFunctionNode
 		{
 			protected:
 				COPY_DEFAULT_IMPL
@@ -468,6 +478,8 @@ class CFrontendIR final : public CNodePool
 			public:
 				inline uint8_t getChildCount() const override final {return 3;}
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CThinInfiniteScatterCorrection);}
+
+				NBL_API2 CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const override;
 
 				// you can set the children later
 				inline CThinInfiniteScatterCorrection() = default;
@@ -801,37 +813,6 @@ class CFrontendIR final : public CNodePool
 				bool btdfSubtree = false;
 				// for going over layers in the AST
 				core::vector<const CLayer*> layerStack;
-				// Distribute/hoist the ADD over the MUL. So replace a `MUL ADD A B C` with `ADD MUL A C MUL B C`
-				struct SFactor
-				{
-					struct SContributor
-					{
-						CTrueIR::typed_pointer_type<const CTrueIR::IContributor> handle = {};
-						uint32_t monochrome : 1 = true;
-						uint32_t isContributor : 1 = true;
-						uint32_t zeroValue : 30 = 0;
-					};
-					// these are the parts that need to be sorted
-					struct SOrdered
-					{
-						CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf> handle = {};
-						uint32_t monochrome : 1 = true;
-						// 0 for contributors and leaf factors, contributors can be told apart from leaf factors by having 0s in the whole DWORD here
-						uint32_t padding : 31 = 0;
-					};
-
-					// TODO: do this better, check whole DWORD is 0
-					inline bool isContributor() const {return contributor.monochrome && contributor.isContributor && contributor.zeroValue==0;}
-
-					union
-					{
-						CTrueIR::typed_pointer_type<const CTrueIR::INode> typeless;
-						// contributor is always monochrome, etc.
-						SContributor contributor;
-						// the fatter thing which actually can be monochrome, etc.
-						SOrdered factor = {};
-					};
-				};
 				// Holds the single `Product_j` of full expression in the form:
 				// 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
 				// Everything on the `irChain` multiplies together, everything on the `astStack` before the current top is our relative through a MUL node.
@@ -844,14 +825,24 @@ class CFrontendIR final : public CNodePool
 					// Deal with optimizing this later on, not sure if `DoublyLinkedList` is appropriate, maybe I'd need a `DoublyLinkedBeadedCurtain` data structure
 					// also the mulChain needs to be sorted later on, and doubly linked list is PITA to sort
 					core::vector<typed_pointer_type<const IExprNode>> astStack = {}; // its also a stack
-					core::vector<SFactor> irChain = {};
-					// this is to help us hash in reverse properly
-					CTrueIR::typed_pointer_type<CTrueIR::CContributorSum> sumTermH = {};
 					// Expressions for `h_{ij}` can also have ADD/MUL inside and we distribute and canonicalize them at the same time
-					uint8_t hasContributor : 1 = false;
+					// Distribute/hoist the ADD over the MUL. So replace a `MUL ADD A B C` with `ADD MUL A C MUL B C`
+					core::vector<CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf>> irChain = {};
+					// this is to help us hash in reverse properly
+					union
+					{
+						// without the `rest` filled out yet
+						CTrueIR::typed_pointer_type<CTrueIR::CContributorSum> contribSumH;
+						// we're targetting a particular argument of this node, and this node shall have binary adds below it
+						CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> funcH = {};
+					};
+					uint16_t hasContributor : 1 = false;
+					// whether this is the last node ever to target this `funcH`
+					uint16_t finalFuncArgTail : 1 = false;
+					uint16_t targetArg : CTrueIR::IFunctionNode::MaxFuncArgsLog2 = 0;
 					// extend later when allowing variable bucket count
-					uint8_t negate : 3 = 0b000;
-					uint8_t liveSpectralChannels : 3 = 0b111;
+					uint16_t negate : 3 = 0b000;
+					uint16_t liveSpectralChannels : 3 = 0b111;
 				};
 				// We rework the expression Top down because Bottom up would require descent from the top anyway to find ADD within MUL.
 				// The List<Stack<>> allows us to descend the AST dually with multiple traversals at once, so we never actually need to rewrite the AST into something else.
