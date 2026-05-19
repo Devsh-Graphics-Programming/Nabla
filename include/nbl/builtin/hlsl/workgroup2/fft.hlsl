@@ -38,6 +38,8 @@ uint32_t minimumSharedMemoryDWORDs(uint16_t workgroupSizeLog2)
 // These policies describe different ways of avoiding overflow by dividing at different moments through the algorithm. 
 struct DivisionPolicy
 {
+    // "We have enums at home"
+
     // No division performed at any step of the FFT
     NBL_CONSTEXPR_STATIC_INLINE uint16_t NoDivision = 0;
     // Divides the array by sqrt(FFTSize) right at the start of the algorithm
@@ -60,30 +62,27 @@ struct DivisionPolicy
 namespace impl
 {
 
-struct Constants
-{
-    NBL_CONSTEXPR_STATIC_INLINE float32_t INV_SQRT_2 = 0.707106781f;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t INV_SQRT_3 = 0.577350269f;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t INV_SQRT_5 = 0.447213595f;
-};
-
 template<uint16_t ElementsPerInvocation, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2>
 struct DivisionConstants
 {
+    NBL_CONSTEXPR_STATIC_INLINE float64_t INV_SQRT_2 = 0.7071067811865475;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t INV_SQRT_3 = 0.5773502691896258;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t INV_SQRT_5 = 0.4472135954999579;
+
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLength = ElementsPerInvocation * (1 << (WorkgroupSizeLog2));
-    NBL_CONSTEXPR_STATIC_INLINE float32_t InvFFTLength = float32_t(1) / FFTLength;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t InvFFTLength = float64_t(1) / FFTLength;
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthA = ElementsPerInvocation >> 1;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthB = 1u << (WorkgroupSizeLog2 - SubgroupSizeLog2);
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthC = 1u << (SubgroupSizeLog2 + 1);
-    NBL_CONSTEXPR_STATIC_INLINE float32_t InvFFTLengthA = float32_t(1) / FFTLengthA;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t InvFFTLengthB = float32_t(1) / FFTLengthB;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t InvFFTLengthC = float32_t(1) / FFTLengthC;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t InvFFTLengthA = float64_t(1) / FFTLengthA;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t InvFFTLengthB = float64_t(1) / FFTLengthB;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t InvFFTLengthC = float64_t(1) / FFTLengthC;
 
-    NBL_CONSTEXPR_STATIC_INLINE float32_t PrimeFactorInvSqrt = (ElementsPerInvocation % 3 ? (ElementsPerInvocation % 5 ? float32_t(1) : Constants::INV_SQRT_5) : Constants::INV_SQRT_3);
+    NBL_CONSTEXPR_STATIC_INLINE float64_t PrimeFactorInvSqrt = (ElementsPerInvocation % 3 ? (ElementsPerInvocation % 5 ? float64_t(1) : INV_SQRT_5) : INV_SQRT_3);
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthLog2 = WorkgroupSizeLog2 + mpl::log2_v<ElementsPerInvocation>;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t InvSqrtFFTLength = float32_t(1) / (1u << (FFTLengthLog2 / 2)) * (FFTLengthLog2 & 1 ? Constants::INV_SQRT_2 : float32_t(1)) * PrimeFactorInvSqrt;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t InvSqrtFFTLength = float64_t(1) / (1u << (FFTLengthLog2 / 2)) * (FFTLengthLog2 & 1 ? INV_SQRT_2 : float64_t(1)) * PrimeFactorInvSqrt;
     
     // Log2A part should only consider log2 of the pure radix2, ignoring extra prime factor
     NBL_CONSTEXPR_STATIC_INLINE uint32_t Radix2ElementsPerInvocation = (ElementsPerInvocation % 3 ? (ElementsPerInvocation % 5 ? ElementsPerInvocation : ElementsPerInvocation / 5) : ElementsPerInvocation / 3);
@@ -91,9 +90,9 @@ struct DivisionConstants
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthLog2A = mpl::log2_v <Radix2ElementsPerInvocation> - 1;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthLog2B = WorkgroupSizeLog2 - SubgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTLengthLog2C = SubgroupSizeLog2 + 1;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t InvSqrtFFTLengthA = float32_t(1) / (1u << (FFTLengthLog2A / 2)) * (FFTLengthLog2A & 1 ? Constants::INV_SQRT_2 : float32_t(1)) * PrimeFactorInvSqrt;
-    NBL_CONSTEXPR_STATIC_INLINE float32_t InvSqrtFFTLengthB = float32_t(1) / (1u << (FFTLengthLog2B / 2)) * (FFTLengthLog2B & 1 ? Constants::INV_SQRT_2 : float32_t(1));
-    NBL_CONSTEXPR_STATIC_INLINE float32_t InvSqrtFFTLengthC = float32_t(1) / (1u << (FFTLengthLog2C / 2)) * (FFTLengthLog2C & 1 ? Constants::INV_SQRT_2 : float32_t(1));
+    NBL_CONSTEXPR_STATIC_INLINE float64_t InvSqrtFFTLengthA = float64_t(1) / (1u << (FFTLengthLog2A / 2)) * (FFTLengthLog2A & 1 ? INV_SQRT_2 : float64_t(1)) * PrimeFactorInvSqrt;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t InvSqrtFFTLengthB = float64_t(1) / (1u << (FFTLengthLog2B / 2)) * (FFTLengthLog2B & 1 ? INV_SQRT_2 : float64_t(1));
+    NBL_CONSTEXPR_STATIC_INLINE float64_t InvSqrtFFTLengthC = float64_t(1) / (1u << (FFTLengthLog2C / 2)) * (FFTLengthLog2C & 1 ? INV_SQRT_2 : float64_t(1));
 };
 
 } //namespace impl
@@ -461,7 +460,7 @@ struct InnerFFT<false, fft::ConstevalParameters<ElementsPerInvocationPerChannel,
             sharedmemAccessor = sharedmemAdaptor.accessor;
         }
 
-        const float32_t DivisionFactor = (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeHalfway ? consteval_parameters_t::DivisionConstants::InvFFTLength
+        const float64_t DivisionFactor = (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeHalfway ? consteval_parameters_t::DivisionConstants::InvFFTLength
                                        : (DivisionPolicy == fft::DivisionPolicy::DivBySqrtHalfway ? consteval_parameters_t::DivisionConstants::InvSqrtFFTLength
                                        : (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeByParts ? consteval_parameters_t::DivisionConstants::InvFFTLengthC
                                        : consteval_parameters_t::DivisionConstants::InvSqrtFFTLengthC))); // Assume DivBySqrtByParts, won't be used otherwise
@@ -535,7 +534,7 @@ struct InnerFFT<true, fft::ConstevalParameters<ElementsPerInvocationPerChannel, 
         // Subgroup-sized FFT at the start
         subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, VirtualChannels - 1, loAccessor, hiAccessor);
 
-        const float32_t DivisionFactor = (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeHalfway ? consteval_parameters_t::DivisionConstants::InvFFTLength
+        const float64_t DivisionFactor = (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeHalfway ? consteval_parameters_t::DivisionConstants::InvFFTLength
                                        : (DivisionPolicy == fft::DivisionPolicy::DivBySqrtHalfway ? consteval_parameters_t::DivisionConstants::InvSqrtFFTLength
                                        : (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeByParts ? consteval_parameters_t::DivisionConstants::InvFFTLengthC
                                        : consteval_parameters_t::DivisionConstants::InvSqrtFFTLengthC))); // Assume DivBySqrtByParts, won't be used otherwise

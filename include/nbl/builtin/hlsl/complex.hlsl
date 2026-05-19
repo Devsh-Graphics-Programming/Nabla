@@ -447,7 +447,7 @@ complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
     return retVal;
 }
 
-// Fast square
+// Fast square - I think a good optimizer does this anyway
 template<typename Scalar>
 complex_t<Scalar> square(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
 {

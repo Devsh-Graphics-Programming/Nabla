@@ -129,7 +129,7 @@ template<bool inverse, typename Scalar>
 complex_t<Scalar> twiddle(uint32_t k, uint32_t halfN)
 {
     complex_t<Scalar> retVal;
-    const Scalar kthRootAngleRadians = numbers::pi<Scalar> *Scalar(k) / Scalar(halfN);
+    const Scalar kthRootAngleRadians = numbers::pi<Scalar> * Scalar(k) / Scalar(halfN);
     Scalar cosine = nbl::hlsl::cos<Scalar>(kthRootAngleRadians);
     Scalar sine   = nbl::hlsl::sin<Scalar>(kthRootAngleRadians);
     retVal.real(cosine);
