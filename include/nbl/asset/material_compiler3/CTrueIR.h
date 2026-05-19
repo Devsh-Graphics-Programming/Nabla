@@ -228,13 +228,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					// always put the node type into the hash
 					hasher << static_cast<uint8_t>(getFinalType());
 					if (!computeHash_impl(pool,hasher))
- 						return {};
+ 						return core::blake3_hash_t::EmptyInput();
 					return hasher.operator core::blake3_hash_t();
 				}
 				inline bool recomputeHash(const obj_pool_type& pool)
 				{
 					hash = computeHash(pool);
-					return hash != core::blake3_hash_t::EmptyInput();
+					return hash!=core::blake3_hash_t::EmptyInput();
 				}
 
 				virtual _typed_pointer_type<INode> copy(CTrueIR* ir) const = 0;
@@ -341,6 +341,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline CFactorCombiner(const SState state)
 				{
 					padding = std::bit_cast<uint64_t>(state);
+					std::uninitialized_default_construct_n(child,state.childCount);
 				}
 
 				//
@@ -1035,7 +1036,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				{
 					const auto retval = getChildCount_impl();
 					// static assert all below have equal or less children than 0x1u<<MaxFuncArgsLog2)
-					assert((uint8_t(0x1u)<<MaxFuncArgsLog2)<retval);
+					assert((uint8_t(0x1u)<<MaxFuncArgsLog2)>=retval);
 					return retval;
 				}
 
