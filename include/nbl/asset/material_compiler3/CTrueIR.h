@@ -970,10 +970,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 			public:
-				inline core::string getLabelSuffix() const override
-				{
-					return ndfParams.getDistribution()!=CTrueIR::SBasicNDFParams::EDistribution::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";
-				}
 				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
 				{
 					ndfParams.printDot(sstr,selfID);
@@ -1031,7 +1027,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				//
 				inline core::string getLabelSuffix() const override
 				{
-					auto retval = IBxDFWithNDF::getLabelSuffix();
+					core::string retval = ndfParams.getDistribution()!=SBasicNDFParams::EDistribution::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";
 					if (orientedRealEta)
 						retval += "\\nReciprocateEta = "+core::string(isEtaReciprocal() ? "true":"false");
 					return retval;
@@ -1159,7 +1155,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				
 				inline core::string getLabelSuffix() const override
 				{
-					return IFunctionNode::getLabelSuffix()+"\\nnReciprocateEta = "+(getReciprocateEtas() ? "true" : "false");
+					return IFunctionNode::getLabelSuffix()+"\\nReciprocateEta = "+(getReciprocateEtas() ? "true" : "false");
 				}
 
 				inline bool getReciprocateEtas() const {return padding;}
@@ -1441,11 +1437,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					m_ir = ir;
 				}
 
-				NBL_API2 void operator()(std::ostringstream& output);
-				inline core::string operator()()
+				NBL_API2 void operator()(std::ostringstream& output, const bool singleLayer=false);
+				inline core::string operator()(const bool singleLayer=false)
 				{
 					std::ostringstream tmp;
-					operator()(tmp);
+					operator()(tmp,singleLayer);
 					return tmp.str();
 				}
 			

@@ -182,7 +182,7 @@ uint32_t CTrueIR::deepCopy(typed_pointer_type<INode>* out, const std::span<const
 	return invalidCount;
 }
 
-void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
+void CTrueIR::SDotPrinter::operator()(std::ostringstream& output, const bool singleLayer)
 {
 	output << "digraph {\n";
 
@@ -212,6 +212,10 @@ void CTrueIR::SDotPrinter::operator()(std::ostringstream& output)
 					{
 						output << "\n\t" << nodeID << " -> " << m_ir->getNodeID(childHandle) << "[label=\"" << node->getChildName(childIx) << "\"]";
 						const auto [unused,inserted] = visitedNodes.insert(childHandle);
+						// TODO: ban comparison of base class pointer against derived without downcasting first
+						if (singleLayer && node->getFinalType()==INode::EFinalType::CCorellatedTransmission)
+						if (decltype(childHandle) coatedAsINode=static_cast<const CCorellatedTransmission*>(node)->coated; coatedAsINode==childHandle)
+							continue;
 						if (inserted)
 							nodeStack.push_back(childHandle);
 					}

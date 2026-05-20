@@ -800,7 +800,7 @@ class CFrontendIR final : public CNodePool
 				{
 					irPrinter.reset(ir);
 					irPrinter.layerStack.push_back(layerH);
-					args.logger.log("IR Layer Dot3 : \n%s\n",system::ILogger::ELL_DEBUG,irPrinter().c_str());
+					args.logger.log("IR Layer Dot3 : \n%s\n",system::ILogger::ELL_DEBUG,irPrinter(true).c_str());
 					irPrinter.visitedNodes.clear();
 				}
 				

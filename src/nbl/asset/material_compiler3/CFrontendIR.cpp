@@ -692,8 +692,8 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 		retval.root = tmpIR->hashNCache(layerH);
 		// Now optimize everything inserting it into the proper IR
 		{
-			// temporary debug print
-			constexpr bool DebugBeforeAndAfterOpt = true;
+			// extra debug print
+			constexpr bool DebugBeforeAndAfterOpt = false;
 			if constexpr(DebugBeforeAndAfterOpt)
 			{
 				args.logger.log("Before optimization:",ELL_DEBUG);
@@ -738,8 +738,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> headH = {};
 	if (!bxdfRootH)
 		return headH;
-	// temporary debug for WIP
-	printSubtree(bxdfRootH);
 
 	auto& astPool = srcAST->getObjectPool();
 	auto& irPool = tmpIR->getObjectPool();
