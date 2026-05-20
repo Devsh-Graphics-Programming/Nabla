@@ -197,7 +197,7 @@ class CFrontendIR final : public CNodePool
 
 				virtual bool inline reciprocatable() const {return false;}
 				// unless you override it, you're not supposed to call it
-				virtual void reciprocate(IExprNode* dst) const {assert(reciprocatable() && dst);}
+				virtual void reciprocate() {assert(reciprocatable());}
 				
 				virtual inline core::string getLabelSuffix() const {return "";}
 				virtual inline std::string_view getChildName_impl(const uint8_t ix) const {return "";}
@@ -418,9 +418,9 @@ class CFrontendIR final : public CNodePool
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 
 				inline bool reciprocatable() const override {return true;}
-				inline void reciprocate(IExprNode* dst) const override
+				inline void reciprocate() override
 				{
-					(*static_cast<CFresnel*>(dst) = *this).reciprocateEtas = ~reciprocateEtas;
+					reciprocateEtas = ~reciprocateEtas;
 				}
 
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Imaginary":"Real";}
@@ -477,6 +477,9 @@ class CFrontendIR final : public CNodePool
 				}
 
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
+
+				inline bool reciprocatable() const override {return true;}
+				inline void reciprocate() override {std::swap(reflectanceTop,reflectanceBottom);}
 				
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? (ix>1 ? "reflectanceBottom":"extinction"):"reflectanceTop";}
 				
@@ -581,11 +584,7 @@ class CFrontendIR final : public CNodePool
 				
 				// TODO: should this only return true when `orientedRealEta` is present?
 				inline bool reciprocatable() const override {return true;}
-				inline void reciprocate(IExprNode* dst) const override
-				{
-					auto* const other = static_cast<CCookTorrance*>(dst);
-					other->setEtaReciprocal(!isEtaReciprocal());
-				}
+				inline void reciprocate() override {setEtaReciprocal(!isEtaReciprocal());}
 
 				inline core::string getLabelSuffix() const override
 				{

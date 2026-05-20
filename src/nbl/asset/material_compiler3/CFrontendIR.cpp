@@ -228,8 +228,6 @@ auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig, co
 				auto* const copy = dstPool.deref(copyH);
 				if (!copy)
 					return {};
-				if (needToReciprocate)
-					node->reciprocate(copy);
 				// reciprocate might take full copies, and copy pointers across, so do all modifications after
 				if (pSourceIR!=this)
 					copy->debugInfo = copyDebugInfo(node->debugInfo,pSourceIR);
@@ -242,6 +240,9 @@ auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig, co
 					if (auto found=substitutions.find(childH); found!=substitutions.end())
 						copy->setChild(c,found->second);
 				}
+				// reciprocate only after all data is complete
+				if (needToReciprocate)
+					copy->reciprocate();
 				substitutions.insert({entry,copyH});
 			}
 			stack.pop_back();
