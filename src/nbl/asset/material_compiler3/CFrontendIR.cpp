@@ -1,7 +1,6 @@
 ﻿// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#define _NBL_ASSET_MATERIAL_COMPILER3_C_FRONTEND_IR_CPP_
 #include "nbl/asset/material_compiler3/CFrontendIR.h"
 
 #include "nbl/builtin/hlsl/complex.hlsl"

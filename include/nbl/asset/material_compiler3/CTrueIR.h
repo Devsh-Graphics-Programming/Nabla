@@ -350,7 +350,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				//
 				inline void setComplementMask(const uint64_t mask)
 				{
-					assert(mask < (0x1<<57));
+					assert(mask < (0x1ull<<57));
 					auto state = getState();
 					state.childIxComplementMask = mask;
 					padding = std::bit_cast<uint64_t>(state);
