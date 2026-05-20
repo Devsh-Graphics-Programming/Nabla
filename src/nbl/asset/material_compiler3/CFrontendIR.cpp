@@ -981,12 +981,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							afterIt = canonicalSum.insert(++afterIt,*it);
 							// but we need to remove the first child from the copy's astStack
 							afterIt->astStack.pop_back();
-							// make the latter chain take over the function
-							if (it->finalFuncArgTail)
-							{
-								afterIt->finalFuncArgTail = true;
-								it->finalFuncArgTail = false;
-							}
 						}
 					}
 					// didn't push anything, need to kill current sum term
@@ -1010,12 +1004,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						afterIt = canonicalSum.insert(afterIt,*it);
 						// with AST cleared, so chain is stopped (gets us our MUL PREFIX 1.0 term)
 						afterIt->astStack.clear();
-						// make the latter chain take over the function
-						if (it->finalFuncArgTail)
-						{
-							afterIt->finalFuncArgTail = true;
-							it->finalFuncArgTail = false;
-						}
 						// negate our current chain (get use our MUL PREFIX -CHILD)
 						it->negate ^= 0b111;
 						// now the expression which was getting complemented needs to be on the AST stack so we don't visit the complement again
@@ -1117,8 +1105,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						// only add sum expressions for non-null children
 						if (!astChild)
 							continue;
-						// first child pushed will be last child actually 
-						it->finalFuncArgTail = goBack;
 						// start a new mul chain for the arg
 						goBack = true;
 						it = canonicalSum.emplace(it);

@@ -1147,6 +1147,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFresnel);}
 
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "Imaginary":"Real";}
+				
+				inline core::string getLabelSuffix() const override
+				{
+					return IFunctionNode::getLabelSuffix()+"\\nnReciprocateEta = "+(getReciprocateEtas() ? "true" : "false");
+				}
 
 				inline bool getReciprocateEtas() const {return padding;}
 				inline void setReciprocateEtas(const bool value) {padding = value;}

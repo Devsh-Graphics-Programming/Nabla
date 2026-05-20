@@ -837,8 +837,6 @@ class CFrontendIR final : public CNodePool
 						CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> funcH = {};
 					};
 					uint16_t hasContributor : 1 = false;
-					// whether this is the last node ever to target this `funcH`
-					uint16_t finalFuncArgTail : 1 = false;
 					uint16_t targetArg : CTrueIR::IFunctionNode::MaxFuncArgsLog2 = 0;
 					// extend later when allowing variable bucket count
 					uint16_t negate : 3 = 0b000;
