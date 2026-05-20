@@ -1222,27 +1222,28 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final
 			    {
-					if (ix > 1)
-						return reflectanceBottom;
-				    if (ix)
-					    return extinction;
-				    return reflectanceTop;
+					switch (ix)
+					{
+						default:
+							return reflectanceTop;
+						case 1:
+							return extinction;
+						case 2:
+							return reflectanceBottom;
+					}
 			    }
 			    inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 			    {
 					switch (ix)
 					{
-						case 0:
-							reflectanceBottom = pool._dynamic_cast<const IFactor>(newChild);
+						default:
+							reflectanceTop = pool._dynamic_cast<const IFactor>(newChild);
 							break;
 						case 1:
 							extinction = pool._dynamic_cast<const IFactor>(newChild);
 							break;
 						case 2:
-							reflectanceTop = pool._dynamic_cast<const IFactor>(newChild);
-							break;
-						default:
-							assert(false);
+							reflectanceBottom = pool._dynamic_cast<const IFactor>(newChild);
 							break;
 					}
 			    }
