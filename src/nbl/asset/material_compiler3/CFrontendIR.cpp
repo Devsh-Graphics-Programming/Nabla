@@ -978,8 +978,8 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							// first child (second to be pushed) copies our chains and carries on
 							auto afterIt = it;
 							afterIt = canonicalSum.insert(++afterIt,*it);
-							// but we need to remove the first child from the copy's astStack
-							afterIt->astStack.pop_back();
+							// need to visit a different child
+							afterIt->astStack.back() = childH;
 						}
 					}
 					// didn't push anything, need to kill current sum term
