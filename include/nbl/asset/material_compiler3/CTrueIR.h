@@ -587,6 +587,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 							break;
 						default:
 							btdf = pool._dynamic_cast<const CContributorSum>(newChild);
+							break;
 					}
 				}
 		};
@@ -1010,8 +1011,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 						return false;
 					IBxDFWithNDF::computeHash_impl(pool,hasher);
 					hasher << static_cast<uint8_t>(ndfParams.getDistribution());
-					hasher << isEtaReciprocal();
-					HASH_OPTIONALS_HASH(orientedRealEta);
+					if (orientedRealEta)
+					{
+						// only hash the reciprocal or not option if there's an Eta to be used
+						hasher << isEtaReciprocal();
+						HASH_REQUIREDS_HASH(orientedRealEta);
+					}
 					return true;
 				}
 
@@ -1225,12 +1230,21 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			    }
 			    inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 			    {
-					if (ix > 1)
-						reflectanceBottom = pool._dynamic_cast<const IFactor>(newChild);
-				    if (ix)
-					    extinction = pool._dynamic_cast<const IFactor>(newChild);
-				    else
-					    reflectanceTop = pool._dynamic_cast<const IFactor>(newChild);
+					switch (ix)
+					{
+						case 0:
+							reflectanceBottom = pool._dynamic_cast<const IFactor>(newChild);
+							break;
+						case 1:
+							extinction = pool._dynamic_cast<const IFactor>(newChild);
+							break;
+						case 2:
+							reflectanceTop = pool._dynamic_cast<const IFactor>(newChild);
+							break;
+						default:
+							assert(false);
+							break;
+					}
 			    }
 		};
 #undef COPY_DEFAULT_IMPL

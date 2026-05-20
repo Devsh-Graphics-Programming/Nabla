@@ -54,8 +54,9 @@ namespace nbl::asset::material_compiler3
 // both the Top and Bottom BRDF treat the Eta as being the speed of light in the medium above over the speed of light in the medium below.
 // This means that for modelling air-vs-glass you use the same Eta for the Top BRDF, the middle BTDF and Bottom BRDF.
 // We don't track the IoRs per layer because that would deprive us of the option to model each layer interface as a mixture of materials (metalness workflow).
+// NOTE: We cannot check consistency of refractive indices between BRDFs and BTDFs !
 // 
-// The backend can expand the Top BRDF, Middle BTDF, Bottom BRDF into 4 separate instruction streams for Front-Back BRDF and BTDF. This is because we can
+// The backends can expand the Top BRDF, Middle BTDF, Bottom BRDF into 4 separate instruction streams for Front-Back BRDF and BTDF. This is because we can
 // throw away the first or last BRDF+BTDF in the stack, as well as use different pre-computed Etas if we know the sign of `cos(theta_i)` as we interact with each layer.
 // Whether the backend actually generates a separate instruction stream depends on the impact of Instruction Cache misses due to not sharing streams for layers.
 // 
@@ -377,10 +378,10 @@ class CFrontendIR final : public CNodePool
 			protected:
 				COPY_DEFAULT_IMPL
 
-				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? perpTransmittance:thickness;}
+				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? thickness:perpTransmittance;}
 				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<IExprNode> newChild) override
 				{
-					*(ix ? &perpTransmittance:&thickness) = block_allocator_type::_static_cast<CSpectralVariableExpr>(newChild);
+					*(ix ? &thickness:&perpTransmittance) = block_allocator_type::_static_cast<CSpectralVariableExpr>(newChild);
 				}
 				
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Thickness":"Perpendicular\\nTransmittance";}
