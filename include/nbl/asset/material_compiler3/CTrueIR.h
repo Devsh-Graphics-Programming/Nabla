@@ -969,6 +969,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 			public:
+				inline core::string getLabelSuffix() const override
+				{
+					return ndfParams.getDistribution()!=CTrueIR::SBasicNDFParams::EDistribution::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";
+				}
 				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
 				{
 					ndfParams.printDot(sstr,selfID);
@@ -1065,7 +1069,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline core::string getLabelSuffix() const override {return "\\nscalar = "+core::string(scalar ? "true":"false");}
 
 				//
-				inline uint8_t getSpectralBins() const override {return scalar ? 3:1;}
+				inline uint8_t getSpectralBins() const override {return scalar ? 1:3;}
 
 				uint64_t scalar : 1 = true;
 				uint64_t padding : 63 = 0;

@@ -765,7 +765,7 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 		if (const auto funcH=irPool._dynamic_cast<const CTrueIR::IFunctionNode>(leafH); funcH)
 		{
 			// not finalized yet (I know what I'm doing with the const_cast)
-			if (auto* const func=const_cast<CTrueIR::IFunctionNode*>(irPool.deref(funcH)); func->getHash() == core::blake3_hash_t::EmptyInput())
+			if (auto* const func=const_cast<CTrueIR::IFunctionNode*>(irPool.deref(funcH)); func->getHash()==core::blake3_hash_t::EmptyInput())
 			{
 				// replace the argument linked list with a single add
 				const uint8_t argCount = func->getChildCount();

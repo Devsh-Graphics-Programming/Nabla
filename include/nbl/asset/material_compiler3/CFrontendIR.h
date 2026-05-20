@@ -423,6 +423,10 @@ class CFrontendIR final : public CNodePool
 				}
 
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Imaginary":"Real";}
+				inline core::string getLabelSuffix() const override
+				{
+					return "\\nReciprocateEta = "+core::string(reciprocateEtas ? "true" : "false");
+				}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// Compute Inifinite Scatter and extinction between two parallel infinite planes.
@@ -574,17 +578,22 @@ class CFrontendIR final : public CNodePool
 
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 				
+				// TODO: should this only return true when `orientedRealEta` is present?
 				inline bool reciprocatable() const override {return true;}
 				inline void reciprocate(IExprNode* dst) const override
 				{
-					(*static_cast<CCookTorrance*>(dst) = *this).setEtaReciprocal(!isEtaReciprocal());
+					auto* const other = static_cast<CCookTorrance*>(dst);
+					other->setEtaReciprocal(!isEtaReciprocal());
 				}
 
 				inline core::string getLabelSuffix() const override
 				{
-					return ndParams.getDistribution()!=CTrueIR::SBasicNDFParams::EDistribution::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";
+					core::string retval = ndParams.getDistribution()!=CTrueIR::SBasicNDFParams::EDistribution::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";
+					if (orientedRealEta)
+						retval += "\\nReciprocateEta = "+core::string(isEtaReciprocal() ? "true":"false");
+					return retval;
 				}
-				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented η";}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented Eta";}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
 				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const;
