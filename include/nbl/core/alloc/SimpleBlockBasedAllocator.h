@@ -53,8 +53,8 @@ struct TypedHandle final : std::conditional_t<std::is_const_v<T>,typename _Handl
 		using base_t = std::conditional_t<IsConst,typename _Handle::const_type,_Handle>;
 
 	public:
-		inline auto operator<=>(const _Handle& other) const {return base_t::operator<=>(other);}
-		inline auto operator<=>(const typename _Handle::const_type& other) const {return base_t::operator<=>(other);}
+		// don't allow comparison with just any type pointer (might get bitten by static cast shifting around
+		inline auto operator<=>(const TypedHandle<const T,_Handle>& other) const {return base_t::operator<=>(other);}
 
 		// implicit const_cast
 		inline operator TypedHandle<const T,_Handle>() const {return {{.value=base_t::value}};}
@@ -400,8 +400,11 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 			retval.value = h.value;
 			if (h)
 			{
-				const auto* const p = deref<const U>(h);
-				retval.value += ptrdiff_t(dynamic_cast<const T*>(p)) - ptrdiff_t(p);
+				const auto* const pU = deref<const U>(h);
+				const T* pT = dynamic_cast<const T*>(pU);
+				if (!pT)
+					return {};
+				retval.value += ptrdiff_t(pT) - ptrdiff_t(pU);
 			}
 			return retval;
 		}

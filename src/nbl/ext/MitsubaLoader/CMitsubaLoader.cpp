@@ -929,7 +929,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 								{
 									auto* thinInfiniteScatter = frontPool.deref(thinInfiniteScatterH);
 									thinInfiniteScatter->reflectanceTop = fresnelH;
-									thinInfiniteScatter->reflectanceBottom = fresnelH;
+									thinInfiniteScatter->reflectanceBottom = frontIR->reciprocate(fresnelH)._const_cast();
 									// TODO: extinction
 								}
 								mul->lhs = deltaTransmission._const_cast();
@@ -1117,7 +1117,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					case CElementBSDF::NORMALMAP:
 					{
 						// we basically ignore and skip because derivative map already applied
-						newMaterialH = getChildFromCache(_bsdf->mask.bsdf[0]);
+						newMaterialH = getChildFromCache(_bsdf->normalmap.bsdf[0]);
 						break;
 					}
 					case CElementBSDF::MIXTURE_BSDF:

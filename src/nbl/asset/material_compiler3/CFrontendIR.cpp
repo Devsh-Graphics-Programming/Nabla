@@ -228,8 +228,6 @@ auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig, co
 				auto* const copy = dstPool.deref(copyH);
 				if (!copy)
 					return {};
-				if (needToReciprocate)
-					node->reciprocate(copy);
 				// reciprocate might take full copies, and copy pointers across, so do all modifications after
 				if (pSourceIR!=this)
 					copy->debugInfo = copyDebugInfo(node->debugInfo,pSourceIR);
@@ -242,6 +240,9 @@ auto CFrontendIR::reciprocate(const typed_pointer_type<const IExprNode> orig, co
 					if (auto found=substitutions.find(childH); found!=substitutions.end())
 						copy->setChild(c,found->second);
 				}
+				// reciprocate only after all data is complete
+				if (needToReciprocate)
+					copy->reciprocate();
 				substitutions.insert({entry,copyH});
 			}
 			stack.pop_back();
@@ -691,8 +692,8 @@ auto CFrontendIR::SAdd2IRSession::makeOrientedMaterial(const CFrontendIR::typed_
 		retval.root = tmpIR->hashNCache(layerH);
 		// Now optimize everything inserting it into the proper IR
 		{
-			// temporary debug print
-			constexpr bool DebugBeforeAndAfterOpt = true;
+			// extra debug print
+			constexpr bool DebugBeforeAndAfterOpt = false;
 			if constexpr(DebugBeforeAndAfterOpt)
 			{
 				args.logger.log("Before optimization:",ELL_DEBUG);
@@ -737,8 +738,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> headH = {};
 	if (!bxdfRootH)
 		return headH;
-	// temporary debug for WIP
-	printSubtree(bxdfRootH);
 
 	auto& astPool = srcAST->getObjectPool();
 	auto& irPool = tmpIR->getObjectPool();
@@ -746,19 +745,94 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 	// basic checks
 	assert(canonicalSum.empty());
 
+	using add_ir_t = CTrueIR::CFactorCombiner;
 	// Multiplication Chain need to be sorted in a canonical order so its easier to spot them being the same
-	auto sortMuls = [](const SFactor& lhs, const SFactor& rhs)->bool
+	auto sortMuls = [&irPool](const CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf>& lhs, const CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf>& rhs)->bool
 	{
-		// contributor goes first
-		if (lhs.isContributor()!=rhs.isContributor())
-			return lhs.isContributor();
-		// only one contributor allowed per chain!
-		assert(&lhs==&rhs || !lhs.isContributor() && !rhs.isContributor());
+		// we are only sorting non-null nodes
+		assert(lhs && rhs);
 		// monochrome is cheaper
-		if (lhs.factor.monochrome!=rhs.factor.monochrome)
-			return lhs.factor.monochrome;
+		const bool lhsScalar = irPool.deref(lhs)->isScalar();
+		if (lhsScalar!=irPool.deref(rhs)->isScalar())
+			return lhsScalar;
 		// then by handle
-		return lhs.typeless.value<rhs.typeless.value;
+		return lhs.value<rhs.value;
+	};
+	//
+	auto hashIfFunction = [&](const CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf> leafH)->CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf>
+	{
+		if (const auto funcH=irPool._dynamic_cast<const CTrueIR::IFunctionNode>(leafH); funcH)
+		{
+			// not finalized yet (I know what I'm doing with the const_cast)
+			if (auto* const func=const_cast<CTrueIR::IFunctionNode*>(irPool.deref(funcH)); func->getHash()==core::blake3_hash_t::EmptyInput())
+			{
+				// replace the argument linked list with a single add
+				const uint8_t argCount = func->getChildCount();
+				for (uint8_t a=0; a<argCount; a++)
+				if (const auto firstAddH=func->getChildHandle(a); firstAddH)
+				{
+					// for logging
+					const uint32_t arg32 = a;
+					// count the add terms (note last node always has a NULL second child, there's exactly as many nodes as there's terms to sum)
+					add_ir_t::SState state = {.type=add_ir_t::Type::Add,.childCount=0};
+					for (auto* binAdd=irPool.deref(firstAddH); true; )
+					{
+						assert(binAdd->getChildHandle(0));
+						assert(binAdd->getChildCount()==2);
+						assert(binAdd->getFinalType()==CTrueIR::INode::EFinalType::CFactorCombiner);
+						assert(static_cast<const add_ir_t*>(binAdd)->getState().type==add_ir_t::Type::Add);
+						if ((state.childCount++)>>CTrueIR::CFactorCombiner::MaxChildCountLog2)
+						{
+							args.logger.log("Too many Sum terms in a Function node arg linked list %d",ELL_ERROR,arg32);
+							return {};
+						}
+						const auto rhsH = binAdd->getChildHandle(1);
+						if (!rhsH)
+							break;
+						binAdd = irPool.deref(rhsH);
+					}
+					assert(state.childCount);
+					// special case skip the ADD node
+					if (state.childCount==1)
+					{
+						func->setChild(irPool,a,irPool.deref(firstAddH)->getChildHandle(0));
+						continue;
+					}
+					const auto argH = irPool.emplace<add_ir_t>(state);
+					auto* const arg = irPool.deref(argH);
+					if (!arg)
+					{
+						args.logger.log("Failed to create ADD Node to replace the Function argument %d linked list",ELL_ERROR,arg32);
+						return {};
+					}
+					// now add all the nodes in
+					{
+						uint8_t c = 0;
+						for (auto* binAdd=irPool.deref(func->getChildHandle(a)); true; )
+						{
+							arg->setChild(irPool,c++,binAdd->getChildHandle(0));
+							const auto rhsH = binAdd->getChildHandle(1);
+							if (!rhsH)
+								break;
+							binAdd = irPool.deref(rhsH);
+						}
+					}
+					// and hashNCache
+					const auto uniqueArgH = tmpIR->hashNCache(argH);
+					if (!uniqueArgH)
+					{
+						args.logger.log("Couldn't hash a `CTrueIR::IFunction` argument %d node",ELL_ERROR,arg32);
+						return {};
+					}
+					// connect the node as the argument to a function
+					func->setChild(irPool,a,uniqueArgH);
+				}
+				else // just use NULL as the child
+					func->setChild(irPool,a,{});
+			}
+			return tmpIR->hashNCache(funcH._const_cast());
+		}
+		return leafH;
 	};
 	
 	// error value
@@ -781,11 +855,12 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 			canonicalSum.clear();
 		}
 	);
-	for (auto it=canonicalSum.begin(); it!=canonicalSum.end(); it++)
+	for (auto it=canonicalSum.begin(); it!=canonicalSum.end(); )
 	{
 		auto& irChain = it->irChain;
+		bool goBack = false;
 		auto& astStack = it->astStack;
-		while (!astStack.empty())
+		while (!it->astStack.empty())
 		{
 			auto* pEntry = &astStack.back();
 			const auto nodeH = *pEntry;
@@ -801,21 +876,35 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 				case ast_expr_type_e::Contributor:
 				{
 					// This must be the only contributor, as a contributor can only be in the leftmost branch of a Mul node's subtree, it also cannot be under any other node than Add or Mul.
-					assert(!it->hasContributor);
+					assert(!it->contribSumH);
 					//
 					astStack.pop_back();
 					// shouldn't invalidate iterator, but underline our vector changes
 					pEntry = nullptr;
-					// push onto the irChain
+					// create the contributor node and mark as found
 					const auto contributorH = tmpIR->hashNCache(static_cast<const IContributor*>(node)->createIRNode(btdfSubtree,srcAST,tmpIR.get()));
-					if (!contributorH)
+					if (contributorH)
+					{
+						const auto weightedH = irPool.emplace<CTrueIR::CWeightedContributor>();
+						if (weightedH)
+						{
+							it->contribSumH = irPool.emplace<CTrueIR::CContributorSum>();
+							auto* const sumTerm = irPool.deref(it->contribSumH);
+							if (sumTerm)
+							{
+								irPool.deref(weightedH)->contributor = contributorH;
+								// note we don't hashNCache the `weightedH` node or any that has it as its child
+								sumTerm->product = weightedH;
+								it->hasContributor = true;
+							}
+						}
+					}
+					if (!it->contribSumH)
 					{
 						args.logger.log("Failed to Create IR Contributor from AST",ELL_ERROR);
 						printSubtree(nodeH);
 						return (headH=errorRetval);
 					}
-					it->hasContributor = true;
-					irChain.emplace_back().contributor = {.handle=contributorH};
 					break;
 				}
 				case ast_expr_type_e::Mul: // pop self but push the two children
@@ -832,7 +921,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							if constexpr (HardFail)
 							{
 								args.logger.log("Undef node in a MUL",ELL_ERROR);
-								printSubtree(nodeH);
 								return (headH=errorRetval);
 							}
 							else
@@ -869,7 +957,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 							if constexpr (HardFail)
 							{
 								args.logger.log("Undef node in an ADD",ELL_ERROR);
-								printSubtree(nodeH);
 								return (headH=errorRetval);
 							}
 							else
@@ -890,8 +977,9 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						{
 							// first child (second to be pushed) copies our chains and carries on
 							auto afterIt = it;
-							// but we need to remove the first child from the copy's astStack
-							canonicalSum.insert(++afterIt,*it)->astStack.pop_back();
+							afterIt = canonicalSum.insert(++afterIt,*it);
+							// need to visit a different child
+							afterIt->astStack.back() = childH;
 						}
 					}
 					// didn't push anything, need to kill current sum term
@@ -902,21 +990,24 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						irChain.clear();
 						astStack.clear();
 					}
+					// not that since second child took over our chain and AST stack, we can continue iteration at `it` and current `astStack`
 					break;
 				}
-				case ast_expr_type_e::Complement: // MUL PREFIX ADD 1.0 CHILD
+				case ast_expr_type_e::Complement: // MUL PREFIX ADD 1.0 -CHILD
 				{
 					constexpr bool HardFail = true;
 					if (const auto childH=node->getChildHandle(0); astPool.deref(childH))
 					{
-						// insert a copy of the current chain before the current with AST cleared, so chain stopped (gets us our MUL PREFIX 1.0 term)
-						canonicalSum.insert(it,*it)->astStack.clear();
-						// start a new chain with a copy of ours but negate it (now `it` points to the copy)
+						auto afterIt = it; afterIt++;
+						// insert a copy of the current chain AFTER the current
+						afterIt = canonicalSum.insert(afterIt,*it);
+						// with AST cleared, so chain is stopped (gets us our MUL PREFIX 1.0 term)
+						afterIt->astStack.clear();
+						// negate our current chain (get use our MUL PREFIX -CHILD)
 						it->negate ^= 0b111;
 						// now the expression which was getting complemented needs to be on the AST stack so we don't visit the complement again
-						it->astStack.back() = childH;
-						// need to finalize the irChain, so go back to the entry stopped
-						it--;
+						*pEntry = childH;
+						// now we'll continue with the longer and negated product
 					}
 					else // the child is OpUndef, replace complement with 1 node
 					{
@@ -924,7 +1015,6 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 						if constexpr (HardFail)
 						{
 							args.logger.log("Child of COMPLEMENT is null,",ELL_ERROR);
-							printSubtree(nodeH);
 							return (headH=errorRetval);
 						}
 						else
@@ -969,29 +1059,60 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					// combine masks and check if we're dead
 					if ((it->liveSpectralChannels&=liveMask)==0)
 					{
-						const auto logLevel = system::ILogger::ELL_PERFORMANCE; 
-						// if we REALLY want to we can print all the nodes in the `irChain` so far, but then the irChain needs to track debug data from AST
-						args.logger.log("Product turns to 0 by multiplying the chain so far with the Spectral Variable:\n",logLevel);
-						printSubtree(nodeH);
-						args.logger.log("Forms a 0 constant factor across its ancestors in the mul chain, within the BxDF:\n",logLevel);
-						printSubtree(bxdfRootH);
+						// this prints a lot of these messages for 0 parameters of fresnel
+						constexpr bool ExtraDebug = false;
+						if constexpr (ExtraDebug)
+						{
+							const auto logLevel = system::ILogger::ELL_PERFORMANCE; 
+							// if we REALLY want to we can print all the nodes in the `irChain` so far, but then the irChain needs to track debug data from AST
+							args.logger.log("Product turns to 0 by multiplying the chain so far with the Spectral Variable:\n",logLevel);
+							printSubtree(nodeH);
+							args.logger.log("Forms a 0 constant factor across its ancestors in the mul chain, within the BxDF:\n",logLevel);
+							printSubtree(bxdfRootH);
+						}
 						// kill whole term
 						irChain.clear();
 						astStack.clear();
 						pEntry = nullptr;
 						break;
 					}
-					irChain.emplace_back().factor = {.handle=varH,.monochrome=monochrome};
+					irChain.emplace_back() = varH;
 					break;
 				}
-				case ast_expr_type_e::Other:
+				case ast_expr_type_e::Other: // the way this is written, we'd really benefit from a more "intimate" enforcing of the structure of Fresnel, Beer, etc. being identical between AST and IR
 				{
 					//
 					astStack.pop_back();
-					// TODO: We need to start a new `canonicalSum` and save a link to it in the current IR
-					args.logger.log("Unsupported AST Expression type \"%s\"",ELL_ERROR,system::to_string(astExprType).c_str());
-					printSubtree(nodeH);
-					return (headH=errorRetval);
+					// shouldn't invalidate iterator, but underline our vector changes
+					pEntry = nullptr;
+					// do not hash yet! the children are invalid!
+					const auto funcH = static_cast<const IFunctionNode*>(node)->createIRNode(btdfSubtree,srcAST,tmpIR.get());
+					auto* const func = irPool.deref(funcH);
+					if (!func)
+					{
+						args.logger.log("Failed to create Other IR Function from AST",ELL_ERROR);
+						printSubtree(nodeH);
+						return (headH=errorRetval);
+					}
+					//
+					const uint8_t argCount = node->getChildCount();
+					// need to start a new `canonicalSum` for every input term of the function
+					// insert back to front so we get good `it` at the end
+					for (uint8_t c=argCount; c;)
+					{
+						const auto astChild = node->getChildHandle(--c);
+						// only add sum expressions for non-null children
+						if (!astChild)
+							continue;
+						// start a new mul chain for the arg
+						goBack = true;
+						it = canonicalSum.emplace(it);
+						it->astStack.push_back(astChild);
+						it->funcH = funcH;
+						it->targetArg = c;
+					}
+					// note that the `irChain` is that of the `it` before we started changing it in the loop above
+					irChain.emplace_back() = funcH;
 					break;
 				}
 				default:
@@ -999,131 +1120,192 @@ auto CFrontendIR::SAdd2IRSession::makeContributors(const CFrontendIR::typed_poin
 					printSubtree(nodeH);
 					return (headH=errorRetval);
 			}
+			if (goBack)
+				break;
 		}
-		// only once the astChain is empty, if the ir chain is empty skip it, but don't remove it because some Other AST node might need it
-		if (irChain.empty())
+		// we're supposed to go back to something inserted before the sum term we started to process
+		if (goBack)
+			continue;
+		// basic error checking, need to have a target node to add to
+		if (!it->contribSumH || !it->funcH)
 		{
-			printSubtree(bxdfRootH);
-			// can't really print the subtree, because a lot of ADDs and MULs have to collude to produce this
-			args.logger.log("Empty IR mul chain encountered, skipping...",system::ILogger::ELL_PERFORMANCE);
+			args.logger.log("This Mul chain has no Contributor Node to partner with or Function Node to be an argument of!",ELL_ERROR);
+			return (headH=errorRetval);
+		}
+		// not printing an extra error message, should have already printed when found we mul to 0
+		if (it->liveSpectralChannels==0)
+		{
+			it++;
 			continue;
 		}
-		// should have gotten removed beforehand
-		assert(it->liveSpectralChannels);
 		// sort the factors in the mulchain
 		std::sort(irChain.begin(),irChain.end(),sortMuls);
-		// make the combiner
-		if (it->hasContributor)
+		//
+		bool monochromeFactor = true;
+		// create the factor node - empty node means mul with 1.0 (no mul)
+		CTrueIR::typed_pointer_type<const CTrueIR::IFactor> uniqueFactorH = {};
+		if (!irChain.empty())
 		{
-			// if we have a contributor first node in the sorted chain must be the contributor
-			assert(irChain.front().isContributor());
-			// produce the weighted contributor
-			const auto weightedContribH = irPool.emplace<CTrueIR::CWeightedContributor>();
-			if (auto* const weightedContrib=irPool.deref(weightedContribH); weightedContrib)
+			CTrueIR::CFactorCombiner::SState combinerState = {
+				.type = CTrueIR::CFactorCombiner::Type::Mul,
+				.childCount = irChain.size()
+			};
+			// one more needed for a negation of any channel
+			if (it->negate)
+				++combinerState.childCount;
+			// no point making a mul node
+			if (combinerState.childCount==1)
 			{
-				weightedContrib->contributor = irChain.front().contributor.handle;
-				// now the mul chain
-				if (irChain.size()>1)
+				const auto leafH = irChain.front();
+				monochromeFactor = irPool.deref(leafH)->isScalar();
+				uniqueFactorH = hashIfFunction(leafH);
+				if (!uniqueFactorH)
 				{
-					CTrueIR::CFactorCombiner::SState combinerState = {
-						.type = CTrueIR::CFactorCombiner::Type::Mul,
-						.childCount = irChain.size()
-					};
-					// if we negate we need to add one more mul factor, otherwise nothing
-					if (it->negate==0)
-						--combinerState.childCount;
-					const auto factorH = irPool.emplace<CTrueIR::CFactorCombiner>(combinerState);
-					if (auto* const factor=irPool.deref(factorH); factor)
-					{
-						auto i = 0;
-						// monochrome negation
-						if (it->negate && it->negate==0b111)
-							factor->setChildHandle(i++,scalarNegation);
-						bool monochromeNodes = true;
-						for (auto itChain=irChain.begin()+1; itChain!=irChain.end(); itChain++)
-						{
-							// only one contributor per chain is allowed
-							assert(!itChain->isContributor());
-							if (monochromeNodes)
-							{
-								// not monochrome for the first time
-								if (!itChain->factor.monochrome)
-								{
-									monochromeNodes = false;
-									// make the non-monochrome negation node, not using premade cause that would tie me up with spectral buckets
-									if (it->negate && it->negate!=0b111)
-									{
-										const auto negationH = irPool.emplace<CTrueIR::CSpectralVariableFactor>(uint8_t(3));
-										if (auto* const negation=irPool.deref(negationH); negation)
-										{
-											for (uint8_t c=0; c<3; c++)
-												negation->setParameter(c,{.scale=bool((it->negate>>c)&0x1u) ? (-1.f):1.f});
-										}
-										const auto uniqueH = tmpIR->hashNCache(negationH);
-										if (!uniqueH)
-										{
-											args.logger.log("Couldn't create a unique spectral negation node",ELL_ERROR);
-											return (headH=errorRetval);
-										}
-										factor->setChildHandle(i++,negationH);
-									}
-								}
-							}
-							else
-							{
-								// once you go spectral, you never go back
-								assert(!itChain->factor.monochrome);
-							}
-							factor->setChildHandle(i++,itChain->factor.handle);
-						}
-					}
-					const auto uniqueH = tmpIR->hashNCache(factorH);
-					if (!uniqueH)
-					{
-						args.logger.log("Couldn't allocate or hash a `CTrueIR::CFactorCombiner` node",ELL_ERROR);
-						return (headH=errorRetval);
-					}
-					weightedContrib->factor = uniqueH;
+					args.logger.log("Couldn't hash a `CTrueIR::IFunction` node",ELL_ERROR);
+					return (headH=errorRetval);
 				}
 			}
-			const auto uniqueWeightedH = tmpIR->hashNCache(weightedContribH);
-			if (!uniqueWeightedH)
-			{
-				args.logger.log("Couldn't allocate or hash a `CTrueIR::CWeightedContributor` node",ELL_ERROR);
-				return (headH=errorRetval);
-			}
-			// allocate new tail and slap the mul chain onto it
-			it->sumTermH = irPool.emplace<CTrueIR::CContributorSum>();
-			// note that we hold off on hashing the tail node, cause its subject to change
-			if (auto* const tail=irPool.deref(it->sumTermH); tail)
-				tail->product = uniqueWeightedH;
 			else
 			{
-				args.logger.log("Couldn't allocate a `CTrueIR::CContributorSum` node",ELL_ERROR);
-				return (headH=errorRetval);
+				const auto factorH = irPool.emplace<CTrueIR::CFactorCombiner>(combinerState);
+				if (auto* const factor=irPool.deref(factorH); factor)
+				{
+					auto i = 0;
+					// monochrome negation
+					if (it->negate==0b111)
+						factor->setChildHandle(i++,scalarNegation);
+					for (auto itChain=irChain.begin(); itChain!=irChain.end(); itChain++)
+					{
+						auto leafH = *itChain;
+						const auto* const leaf = irPool.deref(leafH);
+						assert(leaf);
+						if (monochromeFactor)
+						{
+							// not monochrome for the first time
+							if (!leaf->isScalar())
+							{
+								monochromeFactor = false;
+								// make the non-monochrome negation node, not using premade cause that would tie me up with spectral buckets
+								if (it->negate && it->negate!=0b111)
+								{
+									const auto negationH = irPool.emplace<CTrueIR::CSpectralVariableFactor>(uint8_t(3));
+									if (auto* const negation=irPool.deref(negationH); negation)
+									{
+										for (uint8_t c=0; c<3; c++)
+											negation->setParameter(c,{.scale=bool((it->negate>>c)&0x1u) ? (-1.f):1.f});
+									}
+									const auto uniqueH = tmpIR->hashNCache(negationH);
+									if (!uniqueH)
+									{
+										args.logger.log("Couldn't create a unique spectral negation node",ELL_ERROR);
+										return (headH=errorRetval);
+									}
+									factor->setChildHandle(i++,uniqueH);
+								}
+							}
+						}
+						else
+						{
+							// once you go spectral, you never go back
+							assert(!leaf->isScalar());
+						}
+						// set the child
+						if (leafH=hashIfFunction(leafH); leafH)
+							factor->setChildHandle(i++,leafH);
+						else
+						{
+							args.logger.log("Couldn't hash a `CTrueIR::IFunction` node",ELL_ERROR);
+							return (headH=errorRetval);
+						}
+					}
+				}
+				uniqueFactorH = tmpIR->hashNCache(factorH);
+				if (!uniqueFactorH)
+				{
+					args.logger.log("Couldn't allocate or hash a `CTrueIR::CFactorCombiner` Mul node",ELL_ERROR);
+					return (headH=errorRetval);
+				}
 			}
-			// append it
-			if (it!=canonicalSum.begin())
+		}
+		// link up the factor node
+		if (it->hasContributor)
+		{
+			auto* const sumTerm = irPool.deref(it->contribSumH);
+			assert(sumTerm);
 			{
-				auto itCopy = it;
-				irPool.deref((--itCopy)->sumTermH)->rest = it->sumTermH;
+				const auto weightedContribH = sumTerm->product._const_cast();
+				// attach the factor
+				irPool.deref(weightedContribH)->factor = uniqueFactorH;
+				const auto uniqueWeightedH = tmpIR->hashNCache(weightedContribH);
+				assert(uniqueWeightedH);
+				if (!uniqueWeightedH)
+				{
+					args.logger.log("Couldn't hash a `CTrueIR::CWeightedContributor` node",ELL_ERROR);
+					return (headH=errorRetval);
+				}
+				// replace the weighted contributor with unique hashed
+				sumTerm->product = uniqueWeightedH;
+				// note that we hold off on hashing the `sumTerm`, cause its subject to change (more terms attached to tail)
+			}
+			// now append it to previous with a contributor, if it exists
+			for (auto prev=it; prev!=canonicalSum.begin(); prev--)
+			{
+				if (prev==it) // skip first item, its our current one
+					continue;
+				if (prev->hasContributor)
+				{
+					irPool.deref(prev->contribSumH)->rest = it->contribSumH;
+					break;
+				}
 			}
 		}
 		else
 		{
-			// TODO: make without a contributor
-			assert(false);
+			auto* const func = irPool.deref(it->funcH);
+			assert(func);
+			// first time a function gets used, it gets hashedNCache-d, which finalizes it, can't be mutating its state afterwards!
+			assert(func->getHash()==core::blake3_hash_t::EmptyInput());
+			// make sure to update that factor is not scalar if we have any non-scalar factor term
+			if (!monochromeFactor)
+				func->scalar = false;
+			// allocate space for 2 add factors, we'll clean up later to have no dangling binop
+			const auto addTailH = irPool.emplace<add_ir_t>(add_ir_t::SState{.type=add_ir_t::Type::Add,.childCount=2});
+			if (!addTailH)
+			{
+				args.logger.log("Failed to create ADD Node to serve as root for a function arg %d",ELL_ERROR,uint32_t(it->targetArg));
+				return (headH=errorRetval);
+			}
+			auto* const addTail = irPool.deref(addTailH);
+			addTail->setChildHandle(0,uniqueFactorH);
+			// if there's already an add node waiting for us
+			if (const auto prevH=func->getChildHandle(it->targetArg); prevH)
+			{
+				assert(irPool.deref(prevH)->getFinalType()==CTrueIR::INode::EFinalType::CFactorCombiner);
+				// attach previous node as second sum term
+				addTail->setChildHandle(1,block_allocator_type::_static_cast<CTrueIR::CFactorCombiner>(prevH));
+			}
+			// connect the node as the argument to a function
+			func->setChild(irPool,it->targetArg,addTailH);
 		}
-	}
+		// progress onto next term
+		it++;
+	} 
 	// now hash in reverse
 	for (auto it=canonicalSum.rbegin(); it!=canonicalSum.rend(); it++)
-		it->sumTermH = tmpIR->hashNCache(it->sumTermH)._const_cast();
-	// set result
-	if (!canonicalSum.empty())
 	{
-		headH = canonicalSum.begin()->sumTermH;
-		canonicalSum.clear();
+		// last contributor becomes the new head node, also hashNCache
+		if (it->hasContributor)
+		{
+			const auto uniqueH = tmpIR->hashNCache(it->contribSumH);
+			// replace reference to previous tail with hashed and cached tail
+			if (headH)
+				irPool.deref(headH._const_cast())->rest = uniqueH;
+			headH = uniqueH;
+		}
+		// thankfully args to functions come before the expressions the functions are used in
 	}
+	// headH set by last in loop with contributor, so first with contributor in the sum linked list
+	canonicalSum.clear();
 	return headH;
 }
 
@@ -1148,6 +1330,28 @@ auto CFrontendIR::CEmitter::createIRNode(const bool forBTDF, const CFrontendIR* 
 		contributor->profile = profile;
 		contributor->profileTransform = profileTransform;
 	}
+	return retval;
+}
+
+//! record the original AST child handle in the IR node child, cleanup later
+auto CFrontendIR::CBeer::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode>
+{
+	auto& irPool = ir->getObjectPool();
+	auto retval = ir->getObjectPool().emplace<CTrueIR::CBeer>();
+	return retval;
+}
+auto CFrontendIR::CFresnel::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode>
+{
+	auto& irPool = ir->getObjectPool();
+	auto retval = ir->getObjectPool().emplace<CTrueIR::CFresnel>();
+	if (auto* const leaf=irPool.deref(retval); leaf)
+		leaf->setReciprocateEtas(this->reciprocateEtas);
+	return retval;
+}
+auto CFrontendIR::CThinInfiniteScatterCorrection::createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const -> CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode>
+{
+	auto& irPool = ir->getObjectPool();
+	auto retval = ir->getObjectPool().emplace<CTrueIR::CThinInfiniteScatterCorrection>();
 	return retval;
 }
 
@@ -1179,7 +1383,7 @@ auto CFrontendIR::CCookTorrance::createIRNode(const bool forBTDF, const CFronten
 		const auto* const srcEta = ast->getObjectPool().deref(orientedRealEta);
 		if (!srcEta)
 			return {};
-		etaH = srcEta->createIRNode(ast,ir);
+		etaH = ir->hashNCache(srcEta->createIRNode(ast,ir));
 		if (!etaH)
 			return {};
 	}
@@ -1188,6 +1392,8 @@ auto CFrontendIR::CCookTorrance::createIRNode(const bool forBTDF, const CFronten
 	{
 		ct->ndfParams = ndParams; // the padding abuse is the same between the classes
 		ct->orientedRealEta = etaH;
+		// we don't flip depending on `forBTDF` because a BTDF can be hit from underside as long as its not the last BTDF
+		ct->setEtaReciprocal(this->isEtaReciprocal());
 	}
 	return retval;
 }

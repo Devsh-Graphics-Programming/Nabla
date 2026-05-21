@@ -230,13 +230,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					// always put the node type into the hash
 					hasher << static_cast<uint8_t>(getFinalType());
 					if (!computeHash_impl(pool,hasher))
- 						return {};
+ 						return core::blake3_hash_t::EmptyInput();
 					return hasher.operator core::blake3_hash_t();
 				}
 				inline bool recomputeHash(const obj_pool_type& pool)
 				{
 					hash = computeHash(pool);
-					return hash != core::blake3_hash_t::EmptyInput();
+					return hash!=core::blake3_hash_t::EmptyInput();
 				}
 
 				virtual _typed_pointer_type<INode> copy(CTrueIR* ir) const = 0;
@@ -254,7 +254,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					auto retval = const_cast<INode*>(this)->getChildHandle(ix);
 					return retval;
 				}
-				inline void setChild(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<INode> newChild)
+				inline void setChild(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild)
 				{
 					assert(ix < getChildCount());
 					setChild_impl(pool, ix, newChild);
@@ -268,6 +268,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				//
 				virtual inline void printDot(std::ostringstream& sstr, const core::string& selfID) const {}
+				virtual inline core::string getLabelSuffix() const {return "";}
 
 			protected:
 				// child managment
@@ -325,10 +326,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					Mul = 0,
 					Add = 1
 				};
+				constexpr static inline uint8_t MaxChildCountLog2 = 6;
 				struct SState
 				{
 					uint64_t type : 1 = Type::Mul;
-					uint64_t childCount : 6 = 0;
+					uint64_t childCount : MaxChildCountLog2 = 0;
 					// which factors get `1-x` for an Add node or `-x` for a Mul node before getting used
 					uint64_t childIxComplementMask : 57 = 0x0u;
 				};
@@ -342,6 +344,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline CFactorCombiner(const SState state)
 				{
 					padding = std::bit_cast<uint64_t>(state);
+					std::uninitialized_default_construct_n(child,state.childCount);
 				}
 
 				//
@@ -355,7 +358,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					padding = std::bit_cast<uint64_t>(state);
 				}
 
-				inline uint8_t getChildCount() const override final { return getState().childCount; }
+				inline uint8_t getChildCount() const override {return getState().childCount;}
 
 				// Only sane child count allowed
 				inline void setChildHandle(const uint8_t ix, const typed_pointer_type<const IFactor> handle)
@@ -363,6 +366,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					if (ix < getState().childCount)
 						child[ix] = handle;
 				}
+
+				//
+				inline core::string getLabelSuffix() const override {return getState().type==Type::Mul ? "\\nMUL":"\\nADD";}
 
 			protected:
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
@@ -583,6 +589,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 							break;
 						default:
 							btdf = pool._dynamic_cast<const CContributorSum>(newChild);
+							break;
 					}
 				}
 		};
@@ -827,7 +834,14 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				//
 				inline uint8_t getSpectralBins() const override final {return getKnotCount();}
-
+				
+				//
+				inline core::string getLabelSuffix() const override
+				{
+					if (getKnotCount()<2)
+						return "";
+					return "\\nSemantics = "+system::to_string(getSemantics());
+				}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 
 		    protected:
@@ -962,6 +976,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 			public:
+				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
+				{
+					ndfParams.printDot(sstr,selfID);
+				}
+
 				SBasicNDFParams ndfParams = {};
 		};
 		class COrenNayar final : public obj_pool_type::INonTrivial, public IBxDFWithNDF
@@ -985,8 +1004,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				inline COrenNayar() = default;
 
-				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
-
 		    protected:
 			    COPY_DEFAULT_IMPL
 		};
@@ -998,8 +1015,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 						return false;
 					IBxDFWithNDF::computeHash_impl(pool,hasher);
 					hasher << static_cast<uint8_t>(ndfParams.getDistribution());
-					hasher << isEtaReciprocal();
-					HASH_OPTIONALS_HASH(orientedRealEta);
+					if (orientedRealEta)
+					{
+						// only hash the reciprocal or not option if there's an Eta to be used
+						hasher << isEtaReciprocal();
+						HASH_REQUIREDS_HASH(orientedRealEta);
+					}
 					return true;
 				}
 
@@ -1013,13 +1034,20 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCookTorrance);}
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final { return "orientedRealEta"; }
 
+				//
+				inline core::string getLabelSuffix() const override
+				{
+					core::string retval = ndfParams.getDistribution()!=SBasicNDFParams::EDistribution::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";
+					if (orientedRealEta)
+						retval += "\\nReciprocateEta = "+core::string(isEtaReciprocal() ? "true":"false");
+					return retval;
+				}
+
 				inline CCookTorrance() = default;
 
 				//
 				inline bool isEtaReciprocal() const {return ndfParams.params[2].padding[0];}
 				inline void setEtaReciprocal(const bool value) {ndfParams.params[2].padding[0] = value;}
-
-				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 
 				// BTDF ONLY! We need this eta to compute the refractions of `L` when importance sampling and the Jacobian during H to L generation for rough dielectrics
 				// It does not mean we compute the Fresnel weights though! You might ask why we don't do that given that state of the art importance sampling
@@ -1034,15 +1062,44 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final { return orientedRealEta; }
 				inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final { orientedRealEta = pool._dynamic_cast<const CSpectralVariableFactor>(newChild); }
 		};
-		//! Basic factor nodes
+		//! Basic function factor nodes
+		class IFunctionNode : public obj_pool_type::INonTrivial, public IFactorLeaf
+		{
+			public:
+				constexpr static inline uint8_t MaxFuncArgsLog2 = 2;
+
+				inline uint8_t getChildCount() const override final
+				{
+					const auto retval = getChildCount_impl();
+					// static assert all below have equal or less children than 0x1u<<MaxFuncArgsLog2)
+					assert((uint8_t(0x1u)<<MaxFuncArgsLog2)>=retval);
+					return retval;
+				}
+
+				//
+				inline core::string getLabelSuffix() const override {return "\\nscalar = "+core::string(scalar ? "true":"false");}
+
+				//
+				inline uint8_t getSpectralBins() const override {return scalar ? 1:3;}
+
+				uint64_t scalar : 1 = true;
+				uint64_t padding : 63 = 0;
+
+			protected:
+				virtual uint8_t getChildCount_impl() const = 0;
+				inline void computeHash_common(const obj_pool_type& pool, core::blake3_hasher& hasher) const
+				{
+					hasher << scalar;
+				}
+		};
 		// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
 		// Eta and `LdotX` is taken from the contributor BxDF node. With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same.
 		// Note: its allowed to apply Beer directly on BRDF as well as BTDF to simulate foggy extinction on the top layer
-		class CBeer final : public obj_pool_type::INonTrivial, public IFactorLeaf
+		class CBeer final : public IFunctionNode
 		{
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
-					hasher << channels;
+					computeHash_common(pool,hasher);
 					HASH_REQUIREDS_HASH(perpTransmittance);
 					HASH_REQUIREDS_HASH(thickness);
 					return true;
@@ -1051,20 +1108,16 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CBeer;}
 
-				inline uint8_t getChildCount() const override final { return 2; }
+				inline uint8_t getChildCount_impl() const override final { return 2; }
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CBeer);}
 
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "Thickness":"Perpendicular\\nTransmittance";}
 
-				inline uint8_t getSpectralBins() const override {return channels;}
-
 				// cannot be null, otherwise no point being there as term will multiply to 0
 				typed_pointer_type<const IFactor> perpTransmittance = {};
 				// cannot be null, otherwise its always exp2(0) and term will always be 1
 				typed_pointer_type<const IFactor> thickness = {};
-				// can be worked out by analyzing what we point to, but not needed
-				uint8_t channels = 3;
 
 		    protected:
 				COPY_DEFAULT_IMPL
@@ -1083,12 +1136,12 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 						perpTransmittance = pool._dynamic_cast<const IFactor>(newChild);
 				}
 		};
-		class CFresnel final : public obj_pool_type::INonTrivial, public IFactorLeaf
+		class CFresnel final : public IFunctionNode
 		{
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
-					hasher << reciprocateEtas;
-					hasher << channels;
+					computeHash_common(pool,hasher);
+					hasher << getReciprocateEtas();
 					if (orientedImagEta)
 					{
 						HASH_OPTIONALS_HASH(orientedRealEta);
@@ -1104,22 +1157,24 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CFresnel;}
 
-				inline uint8_t getChildCount() const override final { return 2; }
+				inline uint8_t getChildCount_impl() const override final { return 2; }
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFresnel);}
 
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? "Imaginary":"Real";}
+				
+				inline core::string getLabelSuffix() const override
+				{
+					return IFunctionNode::getLabelSuffix()+"\\nReciprocateEta = "+(getReciprocateEtas() ? "true" : "false");
+				}
 
-				inline uint8_t getSpectralBins() const override {return channels;}
+				inline bool getReciprocateEtas() const {return padding;}
+				inline void setReciprocateEtas(const bool value) {padding = value;}
 
 				// cannot be null or a constant of 1 while imaginary is null
 				typed_pointer_type<const IFactor> orientedRealEta = {};
 				// If null, then treated as a 0 (important to optimize those to 0). MUST be null for BTDFs!
 				typed_pointer_type<const IFactor> orientedImagEta = {};
-				// easier on the codegen
-				uint8_t reciprocateEtas : 1 = false;
-				// can be worked out by analyzing what we point to, but not needed
-				uint8_t channels : 7 = 3;
 
 		    protected:
 			    COPY_DEFAULT_IMPL
@@ -1138,11 +1193,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 						orientedRealEta = pool._dynamic_cast<const IFactor>(newChild);
 			    }
 		};
-		class CThinInfiniteScatterCorrection final : public obj_pool_type::INonTrivial, public IFactorLeaf
+		class CThinInfiniteScatterCorrection final : public IFunctionNode
 		{
 				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
 				{
-					hasher << channels;
+					computeHash_common(pool,hasher);
 					HASH_REQUIREDS_HASH(reflectanceTop);
 					HASH_OPTIONALS_HASH(extinction);
 					if (reflectanceBottom)
@@ -1155,13 +1210,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CThinInfiniteScatterCorrection;}
 
-				inline uint8_t getChildCount() const override final { return 3; }
+				inline uint8_t getChildCount_impl() const override final { return 3; }
 
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CThinInfiniteScatterCorrection);}
 
 				inline std::string_view getChildName_impl(const uint8_t ix) const override final {return ix ? (ix>1 ? "reflectanceBottom":"extinction"):"reflectanceTop";}
-
-				inline uint8_t getSpectralBins() const override {return channels;}
 
 				// cannot be null otherwise no point being there
 				typed_pointer_type<const IFactor> reflectanceTop = {};
@@ -1169,28 +1222,36 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				typed_pointer_type<const IFactor> extinction = {};
 				// optional, if null then `reflectanceTop` used in its place
 				typed_pointer_type<const IFactor> reflectanceBottom = {};
-				// can be worked out by analyzing what we point to, but not needed
-				uint8_t channels = 3;
 
 		    protected:
 			    COPY_DEFAULT_IMPL
 
 				inline typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const override final
 			    {
-					if (ix > 1)
-						return reflectanceBottom;
-				    if (ix)
-					    return extinction;
-				    return reflectanceTop;
+					switch (ix)
+					{
+						default:
+							return reflectanceTop;
+						case 1:
+							return extinction;
+						case 2:
+							return reflectanceBottom;
+					}
 			    }
 			    inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) override final
 			    {
-					if (ix > 1)
-						reflectanceBottom = pool._dynamic_cast<const IFactor>(newChild);
-				    if (ix)
-					    extinction = pool._dynamic_cast<const IFactor>(newChild);
-				    else
-					    reflectanceTop = pool._dynamic_cast<const IFactor>(newChild);
+					switch (ix)
+					{
+						default:
+							reflectanceTop = pool._dynamic_cast<const IFactor>(newChild);
+							break;
+						case 1:
+							extinction = pool._dynamic_cast<const IFactor>(newChild);
+							break;
+						case 2:
+							reflectanceBottom = pool._dynamic_cast<const IFactor>(newChild);
+							break;
+					}
 			    }
 		};
 #undef COPY_DEFAULT_IMPL
@@ -1216,7 +1277,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		const SBasicNodes& getBasicNodes() const {return m_basicNodes;}
 		
 		//
-		template<typename T> requires std::is_base_of_v<INode,T>
+		template<typename T> requires (!std::is_const_v<T> && std::is_base_of_v<INode,T>)
 		inline typed_pointer_type<const T> hashNCache(const typed_pointer_type<T> origH)
 		{
 			auto* const orig = getObjectPool().deref(origH);
@@ -1386,11 +1447,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					m_ir = ir;
 				}
 
-				NBL_API2 void operator()(std::ostringstream& output);
-				inline core::string operator()()
+				NBL_API2 void operator()(std::ostringstream& output, const bool singleLayer=false);
+				inline core::string operator()(const bool singleLayer=false)
 				{
 					std::ostringstream tmp;
-					operator()(tmp);
+					operator()(tmp,singleLayer);
 					return tmp.str();
 				}
 			
@@ -1474,7 +1535,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			retval += " [label=\"";
 			retval += node->getTypeName();
 			retval += "\\n" + system::to_string(node->getHash());
-			// maybe label suffix?
+			retval += node->getLabelSuffix();
 			retval += "\"]";
 			return retval;
 		}
@@ -1592,6 +1653,7 @@ inline void CTrueIR::SParameter::printDot(std::ostringstream& sstr, const core::
 
 inline void CTrueIR::SBasicNDFParams::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
+	// TODO: print the Distribution!
 	constexpr const char* paramSemantics[] = {
 		"dh/du",
 		"dh/dv",
