@@ -9,12 +9,19 @@
 #include "blake3.h"
 
 #include <span>
+#include <bit>
 
 
 namespace nbl::core
 {
 struct blake3_hash_t final
 {
+	constexpr static inline core::blake3_hash_t EmptyInput()
+	{
+		constexpr uint64_t data[4] = {0xa6a1f9f5b94913afull,0x49c9dc36ea4d40a0ull,0xb712c1adc925cb9bull,0x62321fe4ca939accull};
+		return std::bit_cast<core::blake3_hash_t>(data);
+	}
+
 	inline bool operator==(const blake3_hash_t&) const = default;
 
 	// could initialize this to a hash of a zero-length array,
