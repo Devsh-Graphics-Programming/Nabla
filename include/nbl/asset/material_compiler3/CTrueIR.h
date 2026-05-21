@@ -1004,6 +1004,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 				inline COrenNayar() = default;
 
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
+
 		    protected:
 			    COPY_DEFAULT_IMPL
 		};
@@ -1044,6 +1046,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				}
 
 				inline CCookTorrance() = default;
+
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 
 				//
 				inline bool isEtaReciprocal() const {return ndfParams.params[2].padding[0];}
