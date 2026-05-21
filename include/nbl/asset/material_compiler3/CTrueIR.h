@@ -31,7 +31,79 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			if (params.composed.blockSizeKBLog2<4)
 				return nullptr;
 			return core::smart_refctd_ptr<CTrueIR>(new CTrueIR(std::move(params)),core::dont_grab);
-		}		
+		}
+
+		// Stats needed by a renderer to skip loading parts of a material or remove expensive code altogether
+		enum class EFuncArgBits : uint64_t
+		{
+			Present = 0b001ull,
+			// Non-Const means spatially varying
+			NonConst = 0b011ull,
+			// its rare for one parameter to be constant while other comes from a texture for the same spectral thing, hence no extra bits
+			NonScalar = 0b101ull,
+			BitCount = 3
+		};
+		enum class ECapabilityBits : uint64_t
+		{
+			None = 0,
+			//
+			SpatiallyVarying = 0b1ull<<0,
+			NonScalar = 0b1ull<<1,
+		#define DEFINE_FUNC_ARG_BITS(PREFIX,OFFSET) PREFIX##Present = uint64_t(EFuncArgBits::Present)<<OFFSET, \
+			PREFIX##NonConst = (uint64_t(EFuncArgBits::NonConst)<<OFFSET)|SpatiallyVarying, \
+			PREFIX##NonScalar = (uint64_t(EFuncArgBits::NonScalar)<<OFFSET)|NonScalar
+			// if any such contributor present
+			DEFINE_FUNC_ARG_BITS(Emission,2),
+			// IES profile, implies presence of emission
+			DirectionallyVaryingEmissive = 0b1001ull<<2,
+			// can use stochastic transparency for closest hit rays and blending for anyhit
+			DeltaTransmissive = 0b1ull<<6,
+			// useful to know if the Quotient needs to be computed in the "special way"
+			CookTorranceTransmissive = 0b1ull<<7,
+			// transmission
+			OrenNayarTransmissive = 0b1ull<<8,
+			// don't do per BxDF, they will call into the same function to fetch roughnesses
+			DEFINE_FUNC_ARG_BITS(Roughness,9),
+			// perturbed normals usually require combined anisotropic roughness filtering (normals influence roughness during minification)
+			DerivativeMap = (0b1111ull<<9)|SpatiallyVarying,
+			// now its useful to know if each BXDF is present and if its in an anisotropic variant
+			#define DEFINE_BXDF_BITS(PREFIX,OFFSET) PREFIX##Present = 0b01ull<<OFFSET, \
+				PREFIX##Anisotropic = (0b11ull<<OFFSET)|RoughnessPresent
+			DEFINE_BXDF_BITS(OrenNayar,13),
+			DEFINE_BXDF_BITS(GGX,15),
+			DEFINE_BXDF_BITS(Beckmann,17),
+			#undef DEFINE_BXDF_BITS
+			// special case of Cook Torrance with constant 0 roughness
+			CookTorranceDelta = 0b1ull<<19,
+			// special functions
+			// Likelihood of neding Eta Reprocation can be inferred from having Cook Torrance or Delta Transmission and Fresnel 
+			DEFINE_FUNC_ARG_BITS(FresnelRealEta,20),
+			DEFINE_FUNC_ARG_BITS(FresnelImagEta,23),
+			DEFINE_FUNC_ARG_BITS(TIRCorrection,26),
+			DEFINE_FUNC_ARG_BITS(TIRCorrectionExtinction,29),
+			DEFINE_FUNC_ARG_BITS(TIRCorrectionDifferentBottomRefl,32),
+			// we dont even use this right now
+			DEFINE_FUNC_ARG_BITS(Beer,35),
+			// TODO: Other Coatings than Plastic detected, not sure I can actually detect during IR rewrite
+			NonPlasticLayering = 0b1ull<<63
+		};
+		#undef DEFINE_FUNC_ARG_BITS
+		// Meta bits, we don't return them individually, they can be worked out from ECapabilityBits
+		// They allow us to know whether e.g. for raytracing a material needs to register for NEE, AnyHit shaders, etc.
+		enum class EMetaCapabilityBits : uint16_t
+		{
+			None = 0,
+			NotBlackhole = 0b1u<<0, // actually have a material
+			NonDelta = 0b1u<<1, // can evaluate against point lights (or other samplings)
+			Emissive = 0b1u<<2, // has an emission component
+			NonSpatiallyVaryingEmissive = 0b1u<<3, // definitely register for NEE (and therefore query its MIS proto-weight)
+			Transmissive = 0b1u<<4, // can have V and L on opposite sides, can't cull evaluation up front
+			DeltaTransmissive = 0b1u<<5, // can use anyhit shader for stochastic transparency and translucent shadows
+			SpatiallyVarying = 0b1u<<6, // not every function argument / factor is a constant NOT including IES (usually special texture read)
+			SpatiallyVaryingEmissive = SpatiallyVarying|(0b1u<<7), // maybe register for NEE but needs different kind of NEE
+		};
+// TODO
+//static core::bitflag<EMetaCapabilityBits> computeMetaCapBits(const core::bitflag<ECapabilityBits> caps);
 
 		//! Stuff thats kind-of common to CFrontendIR but doesn't make sense in CNodePool
 		struct SParameter
@@ -196,7 +268,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			// Ignored if not invertible, otherwise its the reference "stretch" (UV derivatives) at which identity roughness and normalmapping occurs
 			hlsl::float32_t2x2 reference = hlsl::float32_t2x2(0,0,0,0);
 		};
-
+		
 		// basic "built-in" nodes
 		class INode : public CNodePool::INode
 		{
@@ -219,24 +291,25 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				};
 				virtual EFinalType getFinalType() const = 0;
 
-				virtual uint16_t getCapabilities() const { return 0; };
+				//
+				inline core::bitflag<ECapabilityBits> getCapabilities() const {return capabilities;}
 
 				const auto& getHash() const {return hash;}
 
 				// only call once the nodes underneath are linked up (because it doesn't call recursively), returning empty hash means error/invalid node
 				inline core::blake3_hash_t computeHash(const obj_pool_type& pool) const
 				{
-					core::blake3_hasher hasher = {};
-					// always put the node type into the hash
-					hasher << static_cast<uint8_t>(getFinalType());
-					if (!computeHash_impl(pool,hasher))
- 						return core::blake3_hash_t::EmptyInput();
-					return hasher.operator core::blake3_hash_t();
+					core::bitflag<ECapabilityBits> unused;
+					return computeHash(pool,unused);
 				}
 				inline bool recomputeHash(const obj_pool_type& pool)
 				{
-					hash = computeHash(pool);
-					return hash!=core::blake3_hash_t::EmptyInput();
+					core::bitflag<ECapabilityBits> caps = ECapabilityBits::None;
+					hash = computeHash(pool,caps);
+					if (hash==core::blake3_hash_t::EmptyInput())
+						return false;
+					capabilities = caps;
+					return true;
 				}
 
 				virtual _typed_pointer_type<INode> copy(CTrueIR* ir) const = 0;
@@ -271,26 +344,43 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				virtual inline core::string getLabelSuffix() const {return "";}
 
 			protected:
+				inline core::blake3_hash_t computeHash(const obj_pool_type& pool, core::bitflag<ECapabilityBits>& caps) const
+				{
+					core::blake3_hasher hasher = {};
+					// always put the node type into the hash
+					hasher << static_cast<uint8_t>(getFinalType());
+					if (!computeHash_impl(pool,hasher,caps))
+ 						return core::blake3_hash_t::EmptyInput();
+					return hasher.operator core::blake3_hash_t();
+				}
+
 				// child managment
 				virtual inline _typed_pointer_type<const INode> getChildHandle_impl(const uint8_t ix) const { assert(false); return {}; }
 				virtual inline void setChild_impl(const obj_pool_type& pool, const uint8_t ix, _typed_pointer_type<const INode> newChild) { assert(false); }
 
 				virtual inline std::string_view getChildName_impl(const uint8_t ix) const {return "";}
 
-				virtual bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const = 0;
+				virtual bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const = 0;
+// VA_ARGS is just a block of code to run if hashing successfully (usually cap extension)
 #define HASH_REQUIREDS_HASH(HANDLE) { \
 					if (const auto hash=pool.deref(HANDLE)->getHash(); hash==core::blake3_hash_t::EmptyInput()) \
 						return false; \
-					else \
-						hasher << hash; \
+					else {hasher << hash;} \
 				}
-#define HASH_OPTIONALS_HASH(HANDLE) if (HANDLE) {HASH_REQUIREDS_HASH(HANDLE);} else {hasher << core::blake3_hash_t::EmptyInput();}
+#define HASH_OPTIONALS_HASH(HANDLE,...) if (HANDLE) \
+				{ \
+					HASH_REQUIREDS_HASH(HANDLE); \
+					__VA_ARGS__; \
+				} \
+				else {hasher << core::blake3_hash_t::EmptyInput();}
 
 #define COPY_DEFAULT_IMPL inline _typed_pointer_type<INode> copy(CTrueIR* ir) const override final \
 				{ \
 					return CNodePool::copyNode<std::remove_const_t<std::remove_pointer_t<decltype(this)> > >(this,ir); \
 				}
 
+				// gets computed at the same time as the hash
+				core::bitflag<ECapabilityBits> capabilities = ECapabilityBits::None;
 				// Each node is final and immutable, has a precomputed hash for the whole subtree beneath it.
 				// Debug info does not form part of the hash, so can get wildly replaced.
 				core::blake3_hash_t hash = core::blake3_hash_t::EmptyInput();
@@ -371,7 +461,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				inline core::string getLabelSuffix() const override {return getState().type==Type::Mul ? "\\nMUL":"\\nADD";}
 
 			protected:
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override
 				{
 					if (getState().childCount==0)
 						return false;
@@ -381,6 +471,8 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 						if (!child[i])
 							return false;
 						HASH_REQUIREDS_HASH(child[i]);
+						// this definitely works for Add, should also work for Mul too
+						caps |= pool.deref(child[i])->getCapabilities();
 					}
 					return true;
 				}
@@ -407,13 +499,29 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// Note that this is not a root node, its a flipped leaf!
 		class CWeightedContributor final : public obj_pool_type::INonTrivial, public INode
 		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override
 				{
 					if (!contributor)
 						return false;
 					HASH_REQUIREDS_HASH(contributor);
-					HASH_OPTIONALS_HASH(factor);
-					// TODO: else where it hashes with a premade hash of a `IFactor = CConstantFactor` of monochrome 1.0 scalar
+					auto* const pContrib = pool.deref(contributor);
+					auto contribCap = pContrib->getCapabilities();
+					if (factor)
+					{
+						HASH_REQUIREDS_HASH(factor);
+						// contributor is emissive, and factor as nonconst or nonscalar elements
+						if (pContrib->getFinalType()==INode::EFinalType::CEmitter)
+						{
+							const auto factorCaps = pool.deref(factor)->getCapabilities();
+							if (factorCaps.hasFlags(ECapabilityBits::SpatiallyVarying))
+								contribCap |= ECapabilityBits::EmissionNonConst;
+							if (factorCaps.hasFlags(ECapabilityBits::NonScalar))
+								contribCap |= ECapabilityBits::EmissionNonScalar;
+						}
+					}
+					else // TODO: else it hashes with a premade hash of a `IFactor = CConstantFactor` of monochrome 1.0 scalar
+						hasher << core::blake3_hash_t::EmptyInput();
+					caps |= contribCap;
 					return true;
 				}
 
@@ -463,12 +571,13 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				// Also BxDFs and Emitters (which only hold IES profiles) are monochromatic so accumulating their contribution first uses least registers.
 				// Fresnel, Beer extinction and other analytic modifiers never produce 0s so should be evaluated last.
 				// Function factors which have to be evaluated via composition go even later, but within their dimension category.
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override
 				{
 					if (product)
 					{
 						HASH_REQUIREDS_HASH(product);
-						HASH_OPTIONALS_HASH(rest);
+						caps |= pool.deref(product)->getCapabilities();
+						HASH_OPTIONALS_HASH(rest,caps|=pool.deref(rest)->getCapabilities());
 					}
 					else if (rest) // this is an invalid combo, because `rest->product` could be hoisted in place of `product`
 						return false;
@@ -511,18 +620,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// Corellated layering is a far far far TODO, all it means that certain convolutions don't happen - certain BxDFs don't layer over each other (tricky to express in AST and IR)
 		class CCorellatedTransmission final : public obj_pool_type::INonTrivial, public INode
 		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
-				{
-					// invalid combo, null btdf prevents you crossing over to the next layer and hitting current from below
-					// also if there's no btdf it makes no sense to have a `next` sibling.
-					if (!btdf)
-						return false;
-					HASH_REQUIREDS_HASH(btdf);
-					HASH_OPTIONALS_HASH(brdfBottom);
-					HASH_OPTIONALS_HASH(coated);
-					HASH_OPTIONALS_HASH(next);
-					return true;
-				}
+				bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override;
 
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CCorellatedTransmission;}
@@ -596,10 +694,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// The oriented layer is a layer with already all the Etas reciprocated, etc.
 		class COrientedLayer final : public obj_pool_type::INonTrivial, public INode
 		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override
 				{
-					HASH_OPTIONALS_HASH(brdfTop);
-					HASH_OPTIONALS_HASH(firstTransmission);
+					HASH_OPTIONALS_HASH(brdfTop,caps|=pool.deref(brdfTop)->getCapabilities());
+					HASH_OPTIONALS_HASH(firstTransmission,caps|=pool.deref(firstTransmission)->getCapabilities());
 					return true;
 				}
 
@@ -798,13 +896,14 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		//
 		class ISpectralVariableFactor : public ISpectralVariable, public IFactorLeaf
 		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override final
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override final
 				{
 					const auto count = getKnotCount();
 					hasher << count;
+					const bool nonScalar = count>1;
 					{
 						const ESemantics semantics = getSemantics();
-						if (getKnotCount()>1 && semantics==ESemantics::NoneUndefined)
+						if (nonScalar && semantics==ESemantics::NoneUndefined)
 							return false;
 						hasher << semantics;
 					}
@@ -820,7 +919,10 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					{
 						hasher << wonky->uvTransform;
 						hasher << wonky->uvSlot();
+						caps |= ECapabilityBits::SpatiallyVarying;
 					}
+					if (nonScalar)
+						caps |= ECapabilityBits::NonScalar;
 					return true;
 				}
 
@@ -855,8 +957,11 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		// Unit Radiance emitter modulated by an IES profile
 		class CEmitter final : public obj_pool_type::INonTrivial, public IContributor
 		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override
 				{
+					// shouldn't even be here
+					if (profile.scale<std::numeric_limits<float>::min())
+						return false;
 					hasher << profileTransform;
 					if (profile.view)
 					{
@@ -869,16 +974,16 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 						copy.borderColor = ISampler::E_TEXTURE_BORDER_COLOR::ETBC_FLOAT_TRANSPARENT_BLACK;
 						// there's a limited set of symmetries we can exploit in our IES tabulations, TODO: check which (probably not REPEAT)
 						hasher << copy;
+						caps |= ECapabilityBits::DirectionallyVaryingEmissive;
 					}
 					else
 						hasher << profile.scale;
+					caps |= ECapabilityBits::EmissionPresent;
 					return true;
 				}
 
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CEmitter;}
-
-                uint16_t getCapabilities() const override final;
 
 				inline uint8_t getChildCount() const override final { return 0; }
 
@@ -950,12 +1055,14 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		class CDeltaTransmission final : public obj_pool_type::INonTrivial, public IBxDF
 		{
 				// nothing to do
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override {return true;}
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override
+				{
+					caps |= ECapabilityBits::DeltaTransmissive;
+					return true;
+				}
 
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CDeltaTransmission;}
-
-				uint16_t getCapabilities() const override final;
 
 				inline uint8_t getChildCount() const override final { return 0; }
 
@@ -969,11 +1076,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		class IBxDFWithNDF : public IBxDF
 		{
 			protected:
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
-				{
-					hasher << ndfParams;
-					return true;
-				}
+				core::bitflag<ECapabilityBits> computeHash_finish(const ECapabilityBits bxdfPresenceFlag, core::blake3_hasher& hasher) const;
 
 			public:
 				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
@@ -986,17 +1089,15 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		class COrenNayar final : public obj_pool_type::INonTrivial, public IBxDFWithNDF
 		{
 			public:
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override
 				{
 					if (ndfParams.getDistribution()!=SBasicNDFParams::EDistribution::Invalid)
 						return false;
-					IBxDFWithNDF::computeHash_impl(pool,hasher);
+					caps |= IBxDFWithNDF::computeHash_finish(ECapabilityBits::OrenNayarPresent,hasher);
 					return true;
 				}
 
 				inline EFinalType getFinalType() const override {return EFinalType::COrenNayar;}
-
-				uint16_t getCapabilities() const override final;
 
 				inline uint8_t getChildCount() const override final { return 0; }
 
@@ -1009,12 +1110,29 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		};
 		class CCookTorrance final : public obj_pool_type::INonTrivial, public IBxDFWithNDF
 		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
+				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override
 				{
-					if (ndfParams.getDistribution()>SBasicNDFParams::EDistribution::Beckmann)
-						return false;
-					IBxDFWithNDF::computeHash_impl(pool,hasher);
-					hasher << static_cast<uint8_t>(ndfParams.getDistribution());
+					auto ndf = ndfParams.getDistribution();
+					core::bitflag<ECapabilityBits> ndfCap = ECapabilityBits::None;
+					switch (ndfParams.getDistribution())
+					{
+						case SBasicNDFParams::EDistribution::GGX:
+							ndfCap = IBxDFWithNDF::computeHash_finish(ECapabilityBits::GGXPresent,hasher);
+							break;
+						case SBasicNDFParams::EDistribution::Beckmann:
+							ndfCap = IBxDFWithNDF::computeHash_finish(ECapabilityBits::BeckmannPresent,hasher);
+							break;
+						default:
+							return false;
+					}
+					// for delta always hash same as GGX (cheaper distr with less numerical stability issues for deltas)
+					if (!ndfCap.hasFlags(ECapabilityBits::RoughnessPresent))
+					{
+						caps |= ECapabilityBits::CookTorranceDelta;
+						ndf = SBasicNDFParams::EDistribution::GGX;
+					}
+					hasher << static_cast<uint8_t>(ndf);
+					// eta is present only for BTDF nodes
 					if (orientedRealEta)
 					{
 						// only hash the reciprocal or not option if there's an Eta to be used
@@ -1026,8 +1144,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CCookTorrance;}
-
-				uint16_t getCapabilities() const override final;
 
 				inline uint8_t getChildCount() const override final { return 1; }
 
@@ -1082,28 +1198,27 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 				//
 				inline uint8_t getSpectralBins() const override {return scalar ? 1:3;}
 
+				// TODO: deprecate, superseded by `ECapabilityBits::NonScalar`
 				uint64_t scalar : 1 = true;
 				uint64_t padding : 63 = 0;
 
 			protected:
 				virtual uint8_t getChildCount_impl() const = 0;
-				inline void computeHash_common(const obj_pool_type& pool, core::blake3_hasher& hasher) const
+				inline void computeHash_common(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const
 				{
 					hasher << scalar;
+					if (!scalar)
+						caps |= ECapabilityBits::NonScalar;
 				}
+
+				core::bitflag<ECapabilityBits> argPresenceCaps(const IFactor* arg, const ECapabilityBits argPresence) const;
 		};
 		// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
 		// Eta and `LdotX` is taken from the contributor BxDF node. With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same.
 		// Note: its allowed to apply Beer directly on BRDF as well as BTDF to simulate foggy extinction on the top layer
 		class CBeer final : public IFunctionNode
 		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
-				{
-					computeHash_common(pool,hasher);
-					HASH_REQUIREDS_HASH(perpTransmittance);
-					HASH_REQUIREDS_HASH(thickness);
-					return true;
-				}
+				bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override;
 
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CBeer;}
@@ -1138,21 +1253,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		};
 		class CFresnel final : public IFunctionNode
 		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
-				{
-					computeHash_common(pool,hasher);
-					hasher << getReciprocateEtas();
-					if (orientedImagEta)
-					{
-						HASH_OPTIONALS_HASH(orientedRealEta);
-						hasher << orientedImagEta;
-					}
-					else
-					{
-						HASH_REQUIREDS_HASH(orientedRealEta);
-					}
-					return true;
-				}
+				bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override;
 
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CFresnel;}
@@ -1195,17 +1296,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		};
 		class CThinInfiniteScatterCorrection final : public IFunctionNode
 		{
-				inline bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher) const override
-				{
-					computeHash_common(pool,hasher);
-					HASH_REQUIREDS_HASH(reflectanceTop);
-					HASH_OPTIONALS_HASH(extinction);
-					if (reflectanceBottom)
-						hasher << reflectanceBottom;
-					else
-						hasher << reflectanceTop;
-					return true;
-				}
+				bool computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const override;
 
 			public:
 				inline EFinalType getFinalType() const override {return EFinalType::CThinInfiniteScatterCorrection;}
@@ -1299,27 +1390,6 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 			//
 			struct SMetadata
 			{
-				// Stats needed by a renderer to skip loading parts of a material or remove expensive code altogether
-				enum class ECapabilityBits : uint16_t
-				{
-					None = 0,
-					// if any such contributor present
-					NotBlackhole = 0x1u<<0, // actually have a material
-					NonDelta = 0x1u<<1, // can evaluate against point lights (or other samplings)
-					DeltaTransmissive = 0x1u<<2, // can use stochastic transparency for closest hit rays and blending for anyhit 
-					NonSpatiallyVaryingEmissive = 0x1u<<3, // definitely register for NEE
-					SpatiallyVaryingEmissive = 0x1u<<4, // maybe register for NEE but needs different kind of NEE
-					// TODO: 5,6,7 left
-					// Bits that help us remove expensive code from impl
-					DerivativeMap = 0x1u<<8,
-					DirectionallyVaryingEmissive = 0x1u<<9, // IES profile
-					Lambertian = 0x1u<<10,
-					OrenNayar = 0x1u<<11,
-					GGX = 0x1u<<12,
-					AnisotropicGGX = 0x1u<<13,
-					Beckmann = 0x1u<<14,
-					AnisotropicBeckmann = 0x1u<<15,
-				};
 				//
 				constexpr static inline uint8_t MaxUVSlots = 32;
 				std::bitset<MaxUVSlots> usedUVSlots = {};
@@ -1527,18 +1597,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		};
 
 		inline core::string getNodeID(const typed_pointer_type<const INode> handle) const { return core::string("_") + std::to_string(handle.value); }
-		inline core::string getLabelledNodeID(const typed_pointer_type<const INode> handle) const
-		{
-			const INode* node = getObjectPool().deref(handle);
-			assert(node);
-			core::string retval = getNodeID(handle);
-			retval += " [label=\"";
-			retval += node->getTypeName();
-			retval += "\\n" + system::to_string(node->getHash());
-			retval += node->getLabelSuffix();
-			retval += "\"]";
-			return retval;
-		}
+		core::string getLabelledNodeID(const typed_pointer_type<const INode> handle) const;
 
 		NBL_API2 CTrueIR(creation_params_type&& params);
 
@@ -1549,15 +1608,149 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 		const SBasicNodes m_basicNodes;
 };
 
+
 template class CTrueIR::CSpectralVariable<CTrueIR::ISpectralVariableFactor>;
 
-NBL_ENUM_ADD_BITWISE_OPERATORS(CTrueIR::SMaterial::SMetadata::ECapabilityBits)
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(CTrueIR::EFuncArgBits)
+NBL_ENUM_ADD_BITWISE_OPERATORS(CTrueIR::ECapabilityBits)
+NBL_ENUM_ADD_BITWISE_OPERATORS(CTrueIR::EMetaCapabilityBits)
+
+
+inline bool CTrueIR::CCorellatedTransmission::computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const
+{
+	// invalid combo, null btdf prevents you crossing over to the next layer and hitting current from below
+	// also if there's no btdf it makes no sense to have a `next` sibling.
+	if (!btdf)
+		return false;
+	HASH_REQUIREDS_HASH(btdf);
+	// there needs to be a BTDF below us
+	const auto btdfCaps = pool.deref(btdf)->getCapabilities();
+// TODO
+//	if (!computeMetaCapBits(btdfCaps).hasFlags(EMetaCapabilityBits::NotBlackhole))
+//		return false;
+	// account for BxDF nodes like GGX being below but knowing they're a BTDF
+	if (btdfCaps.hasAnyFlag(ECapabilityBits::GGXPresent|ECapabilityBits::BeckmannPresent))
+		caps |= ECapabilityBits::CookTorranceTransmissive;
+	if (btdfCaps.hasAnyFlag(ECapabilityBits::OrenNayarPresent))
+		caps |= ECapabilityBits::OrenNayarTransmissive;
+	caps |= btdfCaps;
+	// TODO: could detect complex layerings here I guess
+	HASH_OPTIONALS_HASH(brdfBottom,{caps|=pool.deref(brdfBottom)->getCapabilities();});
+	HASH_OPTIONALS_HASH(coated,{caps|=pool.deref(coated)->getCapabilities();});
+	// nothing special about this, just another term in the sum
+	HASH_OPTIONALS_HASH(next,caps|=pool.deref(next)->getCapabilities());
+	return true;
+}
+
+inline auto CTrueIR::IBxDFWithNDF::computeHash_finish(const ECapabilityBits bxdfPresenceFlag, core::blake3_hasher& hasher) const -> core::bitflag<ECapabilityBits>
+{
+	hasher << ndfParams;
+	auto caps = bxdfPresenceFlag|ECapabilityBits::RoughnessPresent;
+	// funky way to shift the aniso bits to the correct BXDF presence bits
+	const auto anisoCap = static_cast<ECapabilityBits>(static_cast<uint64_t>(EFuncArgBits::NonScalar) * static_cast<uint64_t>(bxdfPresenceFlag));
+	switch (ndfParams.determineParamType())
+	{
+		case SBasicNDFParams::EParamType::TotallyMapped:
+			caps |= anisoCap|ECapabilityBits::DerivativeMap;
+			break;
+		case SBasicNDFParams::EParamType::AnisotropicMapped:
+			caps |= anisoCap|ECapabilityBits::RoughnessNonConst;
+			break;
+		case SBasicNDFParams::EParamType::IsotropicMapped:
+			caps |= ECapabilityBits::RoughnessNonConst;
+			break;
+		case SBasicNDFParams::EParamType::AnisotropicConstant:
+			caps |= anisoCap;
+			break;
+		default: // isotropic and constant
+			if (ndfParams.definitelyIsotropic())
+			{
+				// turn off roughness
+				if (std::abs(ndfParams.getRougness()[0].scale)<std::numeric_limits<float>::min())
+					caps ^= ECapabilityBits::RoughnessPresent;
+			}
+			break;
+	}
+	// note we don't add transmissive, because that depends if we're under a BTDF edge in the graph
+	return caps;
+}
+
+inline auto CTrueIR::IFunctionNode::argPresenceCaps(const IFactor* arg, const ECapabilityBits argPresence) const -> core::bitflag<ECapabilityBits>
+{
+	auto bits = EFuncArgBits::Present;
+	if (arg->getCapabilities().hasFlags(ECapabilityBits::SpatiallyVarying))
+		bits |= EFuncArgBits::NonConst;
+	if (arg->getCapabilities().hasFlags(ECapabilityBits::NonScalar))
+		bits |= EFuncArgBits::NonScalar;
+	return static_cast<ECapabilityBits>(static_cast<uint64_t>(bits)*static_cast<uint64_t>(argPresence));
+}
+
+inline bool CTrueIR::CBeer::computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const
+{
+	computeHash_common(pool,hasher,caps);
+	HASH_REQUIREDS_HASH(perpTransmittance);
+	HASH_REQUIREDS_HASH(thickness);
+	caps |= argPresenceCaps(pool.deref(perpTransmittance),ECapabilityBits::BeerPresent);
+	caps |= argPresenceCaps(pool.deref(perpTransmittance),ECapabilityBits::BeerPresent);
+	return true;
+}
+
+inline bool CTrueIR::CFresnel::computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const
+{
+	computeHash_common(pool,hasher,caps);
+	hasher << getReciprocateEtas();
+	if (orientedImagEta)
+	{
+		HASH_OPTIONALS_HASH(orientedRealEta,caps|=argPresenceCaps(pool.deref(orientedRealEta),ECapabilityBits::FresnelRealEtaPresent));
+		hasher << orientedImagEta;
+		caps |= argPresenceCaps(pool.deref(orientedImagEta),ECapabilityBits::FresnelImagEtaPresent);
+	}
+	else
+	{
+		HASH_REQUIREDS_HASH(orientedRealEta);
+		caps |= argPresenceCaps(pool.deref(orientedRealEta),ECapabilityBits::FresnelRealEtaPresent);
+	}
+	return true;
+}
+
+inline bool CTrueIR::CThinInfiniteScatterCorrection::computeHash_impl(const obj_pool_type& pool, core::blake3_hasher& hasher, core::bitflag<ECapabilityBits>& caps) const
+{
+	computeHash_common(pool,hasher,caps);
+	HASH_REQUIREDS_HASH(reflectanceTop);
+	HASH_OPTIONALS_HASH(extinction,caps|=argPresenceCaps(pool.deref(extinction),ECapabilityBits::TIRCorrectionExtinctionPresent));
+	caps |= argPresenceCaps(pool.deref(reflectanceTop),ECapabilityBits::TIRCorrectionPresent);
+	if (reflectanceBottom)
+	{
+		hasher << reflectanceBottom;
+		caps |= argPresenceCaps(pool.deref(reflectanceBottom),ECapabilityBits::TIRCorrectionDifferentBottomReflPresent);
+	}
+	else
+		hasher << reflectanceTop;
+	return true;
+}
+
 
 }
 
 //
 namespace nbl::system::impl
 {
+template<>
+struct system::impl::to_string_helper<asset::material_compiler3::CTrueIR::ECapabilityBits>
+{
+	using type = asset::material_compiler3::CTrueIR::ECapabilityBits;
+
+	static inline std::string __call(const type value)
+	{
+		constexpr auto BitCount = sizeof(type)*8;
+		std::string retval(BitCount,'0');
+		for (auto p=0; p<BitCount; p++)
+		if ((static_cast<std::underlying_type_t<type>>(value)>>p)&0x1ull)
+			retval[p] = '1';
+		return retval;
+	}
+};
 template<>
 struct system::impl::to_string_helper<asset::material_compiler3::CTrueIR::ISpectralVariable::ESemantics>
 {
@@ -1586,7 +1779,6 @@ struct system::impl::to_string_helper<asset::material_compiler3::CTrueIR::ISpect
 	}
 };
 }
-
 //
 namespace nbl::asset::material_compiler3
 {
@@ -1620,6 +1812,20 @@ inline bool CTrueIR::ISpectralVariable::valid(const system::logger_opt_ptr logge
 		return false;
 	}
 	return true;
+}
+
+inline core::string CTrueIR::getLabelledNodeID(const typed_pointer_type<const INode> handle) const
+{
+	const INode* node = getObjectPool().deref(handle);
+	assert(node);
+	core::string retval = getNodeID(handle);
+	retval += " [label=\"";
+	retval += node->getTypeName();
+	retval += "\\n" + system::to_string(node->getHash());
+	retval += "\\nCaps = " + system::to_string(node->getCapabilities().value);
+	retval += node->getLabelSuffix();
+	retval += "\"]";
+	return retval;
 }
 
 inline void CTrueIR::SParameter::printDot(std::ostringstream& sstr, const core::string& selfID) const

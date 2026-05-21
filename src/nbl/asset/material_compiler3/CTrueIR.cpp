@@ -289,12 +289,14 @@ bool CTrueIR::SRewriteSession::rewriteSingleLayer(typed_pointer_type<const COrie
 {
 	if (!success)
 		return false;
+	// observations:
+	// - Any V-dependent factors cannot be commonalized across layers, most of the CSE has to be done within a layer
+	// - DeltaTransmission and DeltaCookTorrance "fix" the L=-V and LdotH = VdotH for any of the function nodes (only relevant for backends)
+
 	// ideas for the pass:
 	// - skip replace delta transmissions by the layer undernearth, if null then keep as delta
 	// - if BTDF has delta transmissions, then via the sampling property hoist next layer into current layer BRDFs with the DeltaTransmission weights applied
 	// - order the `CWeightedContributor` within the `CContributorSum` linked list so emitters are first, and so on (null products go last)
-	// observations:
-	// - Any V-dependent factors cannot be commonalized across layers, most of the CSE has to be done within a layer
 
 	auto& dstPool = args.dst->getObjectPool();
 	const auto& srcPool = args.src->getObjectPool();
@@ -319,6 +321,7 @@ bool CTrueIR::SRewriteSession::rewriteSingleLayer(typed_pointer_type<const COrie
 				const auto childH = node->getChildHandle(c);
 				if (auto child = srcPool.deref(childH); !child)
 					continue;
+				// always push because 
 				stack.push_back(childH);
 			}
 
@@ -345,7 +348,7 @@ bool CTrueIR::SRewriteSession::rewriteSingleLayer(typed_pointer_type<const COrie
 				const auto* factor = dynamic_cast<const CSpectralVariableFactor*>(node);
 				metadata.usedUVSlots.set(factor->uvSlot(), true);
 			}
-			metadata.capabilities |= core::bitflag<SMaterial::SMetadata::ECapabilityBits>(node->getCapabilities());
+			metadata.capabilities |= node->getCapabilities();
 		}
 	}
 
@@ -365,11 +368,6 @@ void CTrueIR::ISpectralVariableFactor::printDot(std::ostringstream& sstr, const 
 	printDotParameterSet(*pWonky(), getKnotCount(), sstr, selfID, {});
 }
 
-uint16_t CTrueIR::CEmitter::getCapabilities() const
-{
-	return static_cast<uint16_t>(SMaterial::SMetadata::ECapabilityBits::NonSpatiallyVaryingEmissive | SMaterial::SMetadata::ECapabilityBits::NotBlackhole);
-}
-
 void CTrueIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& selfID) const
 {
 	if (profile)
@@ -383,32 +381,6 @@ void CTrueIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& s
 		// connect up
 		sstr << "\n\t" << selfID << " -> " << transformNodeID << "[label=\"Profile Transform\"]";
 	}
-}
-
-uint16_t CTrueIR::CDeltaTransmission::getCapabilities() const
-{
-	return static_cast<uint16_t>(SMaterial::SMetadata::ECapabilityBits::DeltaTransmissive | SMaterial::SMetadata::ECapabilityBits::NotBlackhole);
-}
-
-uint16_t CTrueIR::COrenNayar::getCapabilities() const
-{
-	return static_cast<uint16_t>(SMaterial::SMetadata::ECapabilityBits::OrenNayar | SMaterial::SMetadata::ECapabilityBits::NonDelta | SMaterial::SMetadata::ECapabilityBits::NotBlackhole);
-}
-
-void CTrueIR::COrenNayar::printDot(std::ostringstream& sstr, const core::string& selfID) const
-{
-	ndfParams.printDot(sstr, selfID);
-}
-
-uint16_t CTrueIR::CCookTorrance::getCapabilities() const
-{
-	// TODO: could be either beckmann or ggx, also anisotropic? maybe get from ndf params?
-	return static_cast<uint16_t>(SMaterial::SMetadata::ECapabilityBits::GGX | SMaterial::SMetadata::ECapabilityBits::NonDelta | SMaterial::SMetadata::ECapabilityBits::NotBlackhole);
-}
-
-void CTrueIR::CCookTorrance::printDot(std::ostringstream& sstr, const core::string& selfID) const
-{
-	ndfParams.printDot(sstr, selfID);
 }
 
 template class CTrueIR::CSpectralVariable<CTrueIR::ISpectralVariableFactor>;
