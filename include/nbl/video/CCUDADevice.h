@@ -23,8 +23,10 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 	public:
 #ifdef _WIN32
 		static constexpr IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE ExternalMemoryHandleType = IDeviceMemoryAllocation::EHT_OPAQUE_WIN32;
+		static constexpr ISemaphore::E_EXTERNAL_HANDLE_TYPE ExternalSemaphoreHandleType = ISemaphore::EHT_OPAQUE_WIN32;
 #else
 		static constexpr IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE ExternalMemoryHandleType = IDeviceMemoryAllocation::EHT_OPAQUE_FD;
+		static constexpr ISemaphore::E_EXTERNAL_HANDLE_TYPE ExternalSemaphoreHandleType = ISemaphore::EHT_OPAQUE_FD;
 #endif
 
 		enum E_VIRTUAL_ARCHITECTURE

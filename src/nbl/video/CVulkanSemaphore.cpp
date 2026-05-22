@@ -10,11 +10,19 @@ CVulkanSemaphore::~CVulkanSemaphore()
   const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
   auto* vk = vulkanDevice->getFunctionTable();
   vk->vk.vkDestroySemaphore(vulkanDevice->getInternalObject(), m_semaphore, nullptr);
-	if (m_creationParams.externalHandleTypes != EHT_NONE)
-	{
-		const auto success = system::CloseExternalHandle(m_externalHandle);
-		if (!success) vulkanDevice->getLogger()->log("Failed to close external handle for Vulkan semaphore", system::ILogger::ELL_ERROR);
-	}
+  if (m_creationParams.externalHandleTypes != EHT_NONE)
+  {
+    assert(m_externalHandles != nullptr);
+
+    const auto externalHandleCount = hlsl::bitCount(m_creationParams.externalHandleTypes);
+
+    for (auto i = 0; i < externalHandleCount; i++)
+    {
+      const auto externalHandle = m_externalHandles[i];
+      const auto success = system::CloseExternalHandle(externalHandle);
+      if (!success) vulkanDevice->getLogger()->log("Failed to close external handle for Vulkan semaphore", system::ILogger::ELL_ERROR);
+    }
+  }
 }
 
 uint64_t CVulkanSemaphore::getCounterValue() const
@@ -33,6 +41,21 @@ void CVulkanSemaphore::signal(const uint64_t value)
 
 	const CVulkanLogicalDevice* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
 	vulkanDevice->getFunctionTable()->vk.vkSignalSemaphore(vulkanDevice->getInternalObject(), &info);
+}
+
+system::external_handle_t CVulkanSemaphore::getExportHandle(E_EXTERNAL_HANDLE_TYPE handleType) const
+{
+  using U = typename core::bitflag<E_EXTERNAL_HANDLE_TYPE>::UNDERLYING_TYPE;
+
+  if (!std::has_single_bit(static_cast<U>(handleType))) return nullptr;
+
+  if (!m_creationParams.externalHandleTypes.hasFlags(handleType)) return nullptr;
+
+  const auto externalHandleTypes = m_creationParams.externalHandleTypes;
+  const auto mask = core::bitflag<E_EXTERNAL_HANDLE_TYPE>(handleType - 1);
+  const auto handleIndex = hlsl::bitCount(externalHandleTypes & mask);
+
+  return m_externalHandles[handleIndex];
 }
 
 void CVulkanSemaphore::setObjectDebugName(const char* label) const

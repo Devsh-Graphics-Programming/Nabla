@@ -293,10 +293,10 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
 #ifdef _WIN32
 		.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_WIN32,
-		.handle = {.win32 = {.handle = sema->getExportHandle() }},
+		.handle = {.win32 = {.handle = sema->getExportHandle(ExternalSemaphoreHandleType) }},
 #else
 		.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_FD,
-		.handle = {.fd = sema->getExportHandle()}
+		.handle = {.fd = sema->getExportHandle(ExternalSemaphoreHandleType)}
 #endif
 	};
 
