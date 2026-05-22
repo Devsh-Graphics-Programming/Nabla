@@ -23,14 +23,14 @@ cuda_interop::SCUexternalMemory CCUDAImportedMemory::getInternalObject() const
 	return m_native->handle;
 }
 
-bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SOutput<cuda_interop::SCUdeviceptr> mappedBuffer) const
+bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SOutput<cuda_interop::SCUdeviceptr> mappedBuffer, size_t size, size_t offset) const
 {
 	if (!mappedBuffer)
 		return false;
 
 	CUDA_EXTERNAL_MEMORY_BUFFER_DESC bufferDesc = {};
-	bufferDesc.offset = 0;
-	bufferDesc.size = m_src->getAllocationSize();
+	bufferDesc.offset = offset;
+	bufferDesc.size = size == WholeSize ? (m_src->getAllocationSize() - offset) : size;
 
 	CUdeviceptr nativeMappedBuffer = 0;
 	const auto& cu = m_device->getHandler()->getCUDAFunctionTable();

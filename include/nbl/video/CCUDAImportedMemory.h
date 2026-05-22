@@ -14,8 +14,11 @@ class CCUDADevice;
 class NBL_API2 CCUDAImportedMemory final : public core::IReferenceCounted
 {
 	public:
+		static constexpr size_t WholeSize = std::numeric_limits<size_t>::max();
+
 		cuda_interop::SCUexternalMemory getInternalObject() const;
-		bool getMappedBuffer(cuda_interop::SOutput<cuda_interop::SCUdeviceptr> mappedBuffer) const;
+		bool getMappedBuffer(cuda_interop::SOutput<cuda_interop::SCUdeviceptr> mappedBuffer, size_t size = WholeSize, size_t offset = 0) const;
+
 
 	private:
 		friend class CCUDADevice;
