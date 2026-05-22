@@ -90,19 +90,7 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
     const auto handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(creationParams.externalHandleTypes.value);
     if (creationParams.externalHandleTypes != ISemaphore::EHT_NONE)
     {
-        const auto isValidHandleType = [&]
-        {
-            // https://docs.vulkan.org/spec/latest/chapters/synchronization.html#VUID-VkSemaphoreGetWin32HandleInfoKHR-handleType-01131
-            static constexpr auto ValidExternalHandleTypes =
-#ifdef _WIN32
-              core::bitflag<ISemaphore::E_EXTERNAL_HANDLE_TYPE>(ISemaphore::EHT_OPAQUE_WIN32 | ISemaphore::EHT_OPAQUE_WIN32_KMT | ISemaphore::EHT_D3D12_FENCE);
-#else
-              core::bitflag<ISemaphore::E_EXTERNAL_HANDLE_TYPE>(ISemaphore::EHT_OPAQUE_FD | ISemaphore::EHT_SYNC_FD);
-#endif
-            return ValidExternalHandleTypes.hasFlags(creationParams.externalHandleTypes) && 
-              // Ask(kevin): Should we support more than one handle type? If yes, then we have to store all the handle for each handle type. Each handle type need to be closed. Is there a possibility that we want a semaphore to be shared by both Vulkan, CUDA and D3D12? Or we can always use OPAQUE_WIN32 on windows when sharing with multiple api. From doc, it seems that using D3D12_FENCE handle is faster for the driver.
-              hlsl::isPoT(static_cast<std::underlying_type_t<ISemaphore::E_EXTERNAL_HANDLE_TYPE>>(creationParams.externalHandleTypes.value));
-        }();
+      const auto isValidHandleType = ISemaphore::isValidExternalHandleTypes(creationParams.externalHandleTypes);
 
 #ifdef _WIN32
         if (!isValidHandleType)
@@ -226,20 +214,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
         vk_allocateFlagsInfo.deviceMask = 0u; // unused: for now
     }
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
-    const auto isValidHandleType = [&]
-    {
-        // https://docs.vulkan.org/spec/latest/chapters/synchronization.html#VUID-VkSemaphoreGetWin32HandleInfoKHR-handleType-01131
-        static constexpr auto ValidExternalHandleTypes =
-#ifdef _WIN32
-        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(IDeviceMemoryAllocation::EHT_OPAQUE_WIN32 | IDeviceMemoryAllocation::EHT_OPAQUE_WIN32_KMT | IDeviceMemoryAllocation::EHT_D3D11_TEXTURE | IDeviceMemoryAllocation::EHT_D3D11_TEXTURE_KMT | IDeviceMemoryAllocation::EHT_D3D12_HEAP | IDeviceMemoryAllocation::EHT_D3D12_RESOURCE);
-#else
-        core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(IDeviceMemoryAllocation::EHT_OPAQUE_FD);
-#endif
-        return ValidExternalHandleTypes.hasFlags(info.externalHandleType) && 
-          // Ask(kevin): same question as shared semaphore
-          hlsl::isPoT(static_cast<std::underlying_type_t<ISemaphore::E_EXTERNAL_HANDLE_TYPE>>(info.externalHandleType));
-    }();
-
+    const auto isValidHandleType = IDeviceMemoryAllocation::isValidExternalHandleTypes(info.externalHandleType);
 #ifdef _WIN32
     if (!isValidHandleType)
     {

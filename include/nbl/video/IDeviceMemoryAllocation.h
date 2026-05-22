@@ -86,6 +86,21 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             EHT_SCREEN_BUFFER_QNX = 0x00004000,
         };
 
+        static inline bool isValidExternalHandleTypes(core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes)
+        {
+          // https://docs.vulkan.org/spec/latest/chapters/synchronization.html#VUID-VkSemaphoreGetWin32HandleInfoKHR-handleType-01131
+          if (externalHandleTypes.value == IDeviceMemoryAllocation::EHT_NONE) return true;
+            static constexpr auto ValidExternalHandleTypes =
+#ifdef _WIN32
+            core::bitflag<E_EXTERNAL_HANDLE_TYPE>(EHT_OPAQUE_WIN32 | EHT_OPAQUE_WIN32_KMT | EHT_D3D11_TEXTURE | EHT_D3D11_TEXTURE_KMT | EHT_D3D12_HEAP | EHT_D3D12_RESOURCE);
+#else
+            core::bitflag<E_EXTERNAL_HANDLE_TYPE>(EHT_OPAQUE_FD);
+#endif
+            return ValidExternalHandleTypes.hasFlags(externalHandleTypes) &&
+              // Ask(kevin): same question as shared semaphore
+              hlsl::isPoT(static_cast<std::underlying_type_t<E_EXTERNAL_HANDLE_TYPE>>(externalHandleTypes.value));
+        }
+
         //
         const ILogicalDevice* getOriginDevice() const {return m_originDevice;}
 
