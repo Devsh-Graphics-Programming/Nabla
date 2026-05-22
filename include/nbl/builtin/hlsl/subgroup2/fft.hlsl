@@ -17,8 +17,9 @@ namespace subgroup2
 namespace impl
 {
 
+// ------------------------------------------------------------------------------------ PRECOMPUTED TWIDDLES -----------------------------------------------------------------------------------------------------------
+
 // I haven't heard of subgroup sizes over 128, so that's the max targeted here
-// TODO: think about maybe not needing all these specializations if you can just declare one array per spec and just provide that
 template<uint16_t SubgroupSize, bool Inverse, typename Scalar>
 struct PrecomputedTwiddles
 {
@@ -127,11 +128,7 @@ SUBGROUP_128_TWIDDLES(float64_t);
 
 // -----------------------------------------------------------------------------------------------------------------------------------------------------------------
 template<uint16_t SubgroupSize, bool Inverse, typename Scalar, class device_capabilities=void>
-struct FFT
-{
-    template <typename InvocationElementsAccessor>
-    static void __call(uint16_t lowChannel, uint16_t highChannel, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor);
-};
+struct FFT;
 
 // ---------------------------------------- Radix 2 forward transform - DIF -------------------------------------------------------
 
@@ -167,10 +164,10 @@ struct FFT<SubgroupSize, false, Scalar, device_capabilities>
     }
 
     template <bool ShareTwiddles, typename InvocationElementsAccessor>
-    static void __call(uint16_t lowChannel, uint16_t highChannel, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor)
+    static void __call(uint16_t lowChannel, uint16_t highChannel, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor, NBL_CONST_REF_ARG(complex_t<Scalar>) firstOwnedTwiddle)
     {
         // special first iteration
-        complex_t<Scalar> twiddle = fft2::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID(), SubgroupSize);
+        complex_t<Scalar> twiddle = { firstOwnedTwiddle.real(), firstOwnedTwiddle.imag() };
         [unroll]
         for (uint16_t channel = lowChannel; channel <= highChannel; channel++)
         {
@@ -191,7 +188,7 @@ struct FFT<SubgroupSize, false, Scalar, device_capabilities>
             for (uint32_t threadStride = SubgroupSize >> 1; threadStride > 0; threadStride >>= 1)
             {
                 const vector <Scalar, 2> toTrade = vector <Scalar, 2>(twiddle.real(), twiddle.imag());
-                const vector <Scalar, 2> otherTwiddle = glsl::subgroupShuffle< vector <Scalar, 2> >(toTrade, (glsl::gl_SubgroupInvocationID() & (threadStride - 1)) << iteration);
+                const vector <Scalar, 2> otherTwiddle = glsl::subgroupShuffle< vector <Scalar, 2> >(toTrade, (glsl::gl_SubgroupInvocationID() << 1) & (SubgroupSize - 1));
                 twiddle.real(otherTwiddle.x);
                 twiddle.imag(otherTwiddle.y);
                 FFT_loop(threadStride, lowChannel, highChannel, twiddle, loAccessor, hiAccessor);
@@ -209,6 +206,13 @@ struct FFT<SubgroupSize, false, Scalar, device_capabilities>
                 FFT_loop(threadStride, lowChannel, highChannel, twiddle, loAccessor, hiAccessor);
             }
         } 
+    }
+
+    // Specialization with no first twiddle provided, it gets computed from scratch via sin/cos
+    template <bool ShareTwiddles, typename InvocationElementsAccessor>
+    static void __call(uint16_t lowChannel, uint16_t highChannel, NBL_REF_ARG(InvocationElementsAccessor) loAccessor, NBL_REF_ARG(InvocationElementsAccessor) hiAccessor)
+    {
+        __call<ShareTwiddles, InvocationElementsAccessor>(lowChannel, highChannel, loAccessor, hiAccessor, fft2::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID(), SubgroupSize));
     }
 
     // Only uses subgroup methods, but is actually used at workgroup level. Used by the interleaved workgroup FFT at bigger than subgroup strides
@@ -284,9 +288,9 @@ struct FFT<SubgroupSize, true, Scalar, device_capabilities>
     {                                                                        
         // Decimation in Time
         // Compute all twiddles at the start, then shuffle them
+        const complex_t<Scalar> ownedTwiddle = fft2::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID(), SubgroupSize);
         if (ShareTwiddles)
         {
-            const complex_t<Scalar> ownedTwiddle = fft2::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID(), SubgroupSize);
             uint32_t reverseStride = SubgroupSize;
             [unroll]
             for (uint32_t threadStride = 1; threadStride < SubgroupSize; threadStride <<= 1)
@@ -311,14 +315,13 @@ struct FFT<SubgroupSize, true, Scalar, device_capabilities>
         }
         
         // special last iteration 
-        const complex_t<Scalar> twiddle = fft2::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID(), SubgroupSize);
         [unroll]
         for (uint16_t channel = lowChannel; channel <= highChannel; channel++)
         {
             complex_t<Scalar> lo, hi;
             loAccessor.get(channel, lo);
             hiAccessor.get(channel, hi);
-            fft2::DIT<Scalar>::radix2(twiddle, lo, hi);
+            fft2::DIT<Scalar>::radix2(ownedTwiddle, lo, hi);
             loAccessor.set(channel, lo);
             hiAccessor.set(channel, hi);
         }

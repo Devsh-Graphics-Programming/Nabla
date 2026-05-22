@@ -25,8 +25,8 @@ template<typename Scalar>
 struct complex_t : public std::complex<Scalar>
 {
     using base_t = std::complex<Scalar>;
-    complex_t(const Scalar real = Scalar(), const Scalar imag = Scalar()) : base_t(real, imag) {}
-    static complex_t create(const Scalar real, const Scalar imag)
+    constexpr complex_t(const Scalar real = Scalar(), const Scalar imag = Scalar()) : base_t(real, imag) {}
+    static constexpr complex_t create(const Scalar real, const Scalar imag)
     {
         complex_t retVal(real, imag);
         return retVal;
@@ -403,9 +403,169 @@ complex_t<Scalar> polar(const Scalar r, const Scalar theta)
     return retVal;
 }
 
+// ---------------------------------------------------------------------------------- PRIMITIVE ROOTS OF UNITY ----------------------------------------------------------------------------
+// These are the first primitive roots of unity `e^(2pi/N)` for different PoT values of N, used by the FFT. Precomputed this way due to lack of consteval in HLSL. "Inverse" returns the conjugate `e^(-2pi/N)`
+// TODO: Can use consteval in cpp so the definition can be different there idk.
 
-}
-}
+template<uint16_t logN, bool Inverse, typename Scalar>
+NBL_CONSTEXPR_STATIC complex_t<Scalar> PrimitiveRootOfUnity;
+
+// ------------------------------------------------------------------------------------------ logN = 1 ----------------------------------------------------------------------------------------
+
+#define LOGN_1_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<1, false, SCALAR > = { SCALAR (-1), SCALAR (0)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<1, true, SCALAR > = { SCALAR (-1), SCALAR (0)};
+
+LOGN_1_ROOT(float16_t)
+LOGN_1_ROOT(float32_t)
+LOGN_1_ROOT(float64_t)
+
+#undef LOGN_1_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 2 ----------------------------------------------------------------------------------------
+
+#define LOGN_2_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<2, false, SCALAR > = {SCALAR(0), SCALAR(-1)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<2, true, SCALAR > = {SCALAR(0), SCALAR(1)};
+
+LOGN_2_ROOT(float16_t)
+LOGN_2_ROOT(float32_t)
+LOGN_2_ROOT(float64_t)
+
+#undef LOGN_2_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 3 ----------------------------------------------------------------------------------------
+
+#define LOGN_3_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<3, false, SCALAR > = {SCALAR(0.70710678118654757), SCALAR(-0.70710678118654757)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<3, true, SCALAR > = {SCALAR(0.70710678118654757), SCALAR(0.70710678118654757)};
+
+LOGN_3_ROOT(float16_t)
+LOGN_3_ROOT(float32_t)
+LOGN_3_ROOT(float64_t)
+
+#undef LOGN_3_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 4 ----------------------------------------------------------------------------------------
+
+#define LOGN_4_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<4, false, SCALAR > = {SCALAR(0.92387953251128674), SCALAR(-0.38268343236508978)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<4, true, SCALAR > = {SCALAR(0.92387953251128674), SCALAR(0.38268343236508978)};
+
+LOGN_4_ROOT(float16_t)
+LOGN_4_ROOT(float32_t)
+LOGN_4_ROOT(float64_t)
+
+#undef LOGN_4_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 5 -----------------------------------------------------------------------------------------
+
+#define LOGN_5_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<5, false, SCALAR > = {SCALAR(0.98078528040323043), SCALAR(-0.19509032201612825)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<5, true, SCALAR > = {SCALAR(0.98078528040323043), SCALAR(0.19509032201612825)};
+
+LOGN_5_ROOT(float16_t)
+LOGN_5_ROOT(float32_t)
+LOGN_5_ROOT(float64_t)
+
+#undef LOGN_5_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 6 ----------------------------------------------------------------------------------------
+
+#define LOGN_6_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<6, false, SCALAR > = {SCALAR(0.99518472667219693), SCALAR(-0.098017140329560604)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<6, true, SCALAR > = {SCALAR(0.99518472667219693), SCALAR(0.098017140329560604)};
+
+LOGN_6_ROOT(float16_t)
+LOGN_6_ROOT(float32_t)
+LOGN_6_ROOT(float64_t)
+
+#undef LOGN_6_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 7 ----------------------------------------------------------------------------------------
+
+#define LOGN_7_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<7, false, SCALAR > = {SCALAR(0.99879545620517241), SCALAR(-0.049067674327418015)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<7, true, SCALAR > = {SCALAR(0.99879545620517241), SCALAR(0.049067674327418015)};
+
+LOGN_7_ROOT(float16_t)
+LOGN_7_ROOT(float32_t)
+LOGN_7_ROOT(float64_t)
+
+#undef LOGN_7_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 8 ----------------------------------------------------------------------------------------
+
+#define LOGN_8_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<8, false, SCALAR > = {SCALAR(0.99969881869620425), SCALAR(-0.024541228522912288)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<8, true, SCALAR > = {SCALAR(0.99969881869620425), SCALAR(0.024541228522912288)};
+
+LOGN_8_ROOT(float16_t)
+LOGN_8_ROOT(float32_t)
+LOGN_8_ROOT(float64_t)
+
+#undef LOGN_8_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 9 ----------------------------------------------------------------------------------------
+
+#define LOGN_9_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<9, false, SCALAR > = {SCALAR(0.9999247018391445), SCALAR(-0.012271538285719925)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<9, true, SCALAR > = {SCALAR(0.9999247018391445), SCALAR(0.012271538285719925)};
+
+LOGN_9_ROOT(float16_t)
+LOGN_9_ROOT(float32_t)
+LOGN_9_ROOT(float64_t)
+
+#undef LOGN_9_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 10 ----------------------------------------------------------------------------------------
+
+#define LOGN_10_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<10, false, SCALAR > = {SCALAR(0.99998117528260111), SCALAR(-0.0061358846491544753)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<10, true, SCALAR > = {SCALAR(0.99998117528260111), SCALAR(0.0061358846491544753)};
+
+LOGN_10_ROOT(float16_t)
+LOGN_10_ROOT(float32_t)
+LOGN_10_ROOT(float64_t)
+
+#undef LOGN_10_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 11 ----------------------------------------------------------------------------------------
+
+#define LOGN_11_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<11, false, SCALAR > = {SCALAR(0.99999529380957619), SCALAR(-0.0030679567629659761)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<11, true, SCALAR > = {SCALAR(0.99999529380957619), SCALAR(0.0030679567629659761)};
+
+LOGN_11_ROOT(float16_t)
+LOGN_11_ROOT(float32_t)
+LOGN_11_ROOT(float64_t)
+
+#undef LOGN_11_ROOT
+
+} //namespace hlsl
+} //namespace nbl
 
 // due to lack of alignof and typeid in DXC, need C++03 style tricks
 NBL_REGISTER_OBJ_TYPE(complex_t<float16_t>,::nbl::hlsl::alignment_of_v<float16_t>)
@@ -420,6 +580,7 @@ NBL_REGISTER_OBJ_TYPE(complex_t<float64_t>,::nbl::hlsl::alignment_of_v<float64_t
 NBL_REGISTER_OBJ_TYPE(complex_t<float64_t2>,::nbl::hlsl::alignment_of_v<float64_t2>)
 NBL_REGISTER_OBJ_TYPE(complex_t<float64_t3>,::nbl::hlsl::alignment_of_v<float64_t3>)
 NBL_REGISTER_OBJ_TYPE(complex_t<float64_t4>,::nbl::hlsl::alignment_of_v<float64_t4>)
+
 
 // -------------------------------------- END HLSL VERSION ---------------------------------------
 #endif
@@ -457,7 +618,7 @@ complex_t<Scalar> square(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
     return retVal;
 }
 
-}
-}
+} //namespace hlsl
+} //namespace nbl
 
 #endif
