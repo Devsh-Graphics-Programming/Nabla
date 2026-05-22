@@ -13,14 +13,75 @@ CReferenceUnidirectionalPathTracing::CResult CReferenceUnidirectionalPathTracing
 
     // TODO: handle textures somehow
     // TODO: templated structs for types in certain functions, e.g. cache (generate + quotient)
+    // TODO: where do all the type aliases come from? e.g. sample_t, vector3_t, etc.
     std::ostringstream code;
 
+    // define templates of node functions + util structs
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nstruct gen_cache;\n"; // cache struct
+
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nspectral_t albedo();\n"; // TODO: what args needed? uv?
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nvector3_t normal();\n";  // TODO: what args needed? uv?
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nvector3_t aov_throughput();\n";  // TODO: confirm return value is vec3, what args needed? uv?
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nvector3_t transparency();\n";  // TODO: return value is vec3? what args needed?
+    
+    // TODO: check how many rand numbers, might need to declare template functions by node type as well (because rand numbers vary by generate, etc.)
+    // if the above is the case, will have to check whether the node-specific template function declaration is included yet, then add before function definition
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\n"
+        << "sample_t generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, "
+        << "NBL_REF_ARG(gen_cache<hash0, hash1, hash2, hash3, hash4, hash5, hash6, hash7>) cache);\n";
+
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\n"
+        << "quotient_weight_t quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, "
+        << "NBL_REF_ARG(gen_cache<hash0, hash1, hash2, hash3, hash4, hash5, hash6, hash7>) cache);\n";
+
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\n"
+        << "eval_weight_t evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter);\n";
+
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nspectral_t emission();\n";  // TODO: what args needed?
+
     // loop through layers in IR and construct materials map? maybe just node map is fine
-    core::vector<const CTrueIR::INode*> compiledBSDFRootNodes;
-    auto compileBSDFRootNode = [&](const CTrueIR::INode* root) -> void {
-        getAlbedoHLSLCode(code, root, ir);
-        // TODO: the other functions
-        // TODO: loop through the children, also might need to do reverse order or forward declare function signatures
+    core::vector<CTrueIR::typed_pointer_type<const CTrueIR::INode>> nodeStack;
+    core::unordered_set<CTrueIR::typed_pointer_type<const CTrueIR::INode>> visitedNodes;
+    auto compileBSDFRootNode = [&](CTrueIR::typed_pointer_type<const CTrueIR::INode> rootHandle) -> void {
+        nodeStack.clear();
+        visitedNodes.clear();
+
+        nodeStack.push_back(rootHandle);
+        const auto& pool = ir->getObjectPool();
+
+        while (!nodeStack.empty())
+        {
+            const auto handle = nodeStack.back();
+            nodeStack.pop_back();
+            const auto* node = pool.deref(handle);
+            if (!node)
+                continue;
+
+            getAlbedoHLSLCode(code, node, ir);
+            getNormalHLSLCode(code, node, ir);
+            getAOVThroughputHLSLCode(code, node, ir);
+            getTransparencyHLSLCode(code, node, ir);
+            getGenerateHLSLCode(code, node, ir);
+            getEvalWeightHLSLCode(code, node, ir);
+            getQuotientWeightHLSLCode(code, node, ir);
+            getEmissionHLSLCode(code, node, ir);
+
+            // TODO: might need to do children first or forward declare function signatures
+            const auto childCount = node->getChildCount();
+            if (childCount)
+            {
+                for (auto childIx = 0; childIx < childCount; childIx++)
+                {
+                    const auto childHandle = node->getChildHandle(childIx);
+                    if (const auto child = pool.deref(childHandle); child)
+                    {
+                        const auto [unused, inserted] = visitedNodes.insert(childHandle);
+                        if (inserted)
+                            nodeStack.push_back(childHandle);
+                    }
+                }
+            }
+        }
         };
 
     const auto& materials = ir->getMaterials();
@@ -31,9 +92,9 @@ CReferenceUnidirectionalPathTracing::CResult CReferenceUnidirectionalPathTracing
 
         const auto& mat = materials[materialHandles[i].value];
         if (auto node = ir->getObjectPool().deref(mat.front.root); node)
-            compileBSDFRootNode(node);
+            compileBSDFRootNode(mat.front.root);
         if (auto node = ir->getObjectPool().deref(mat.back.root); node)
-            compileBSDFRootNode(node);
+            compileBSDFRootNode(mat.back.root);
     }
 
     // each layer/node writes as string its own code? or just hash

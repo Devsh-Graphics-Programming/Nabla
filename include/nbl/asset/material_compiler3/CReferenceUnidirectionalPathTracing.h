@@ -38,28 +38,6 @@ class CReferenceUnidirectionalPathTracing : public IBackend
 public:
     struct CResult : public IBackend::IResult
     {
-        // TODO need all this?
-        //instr_stream::traversal_t instructions;
-        //instr_stream::tex_prefetch::prefetch_stream_t prefetch_stream;
-        //core::vector<instr_stream::SBSDFUnion> bsdfData;
-        //core::vector<emitter_t> emitterData;
-
-        //bool noPrefetchStream;
-        //bool noNormPrecompStream;
-        //bool allIsotropic;
-        //bool noBSDF;
-        //uint32_t usedRegisterCount;
-        //uint32_t globalPrefetchRegCountFlags;
-        //uint32_t paramTexPresence[instr_stream::SBSDFUnion::MAX_TEXTURES][2];
-        //// always same value and the value
-        //std::pair<bool, core::vector3df_SIMD> paramConstants[instr_stream::SBSDFUnion::MAX_TEXTURES];
-
-        //core::unordered_set<instr_stream::E_OPCODE> opcodes;
-        //core::unordered_set<instr_stream::E_NDF> NDFs;
-
-        //one element for each input IR root node
-        core::vector<const CTrueIR::INode*> materials;
-
         //has to go after #version and before required user-provided descriptors and functions
         std::string fragmentShaderSource_declarations;
         //has to go after required user-provided descriptors and functions and before the rest of shader (especially entry point function)
@@ -75,6 +53,8 @@ private:
 
     void getNormalHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
 
+    void getAOVThroughputHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
+
     void getTransparencyHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
 
     void getGenerateHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
@@ -82,6 +62,8 @@ private:
     void getQuotientWeightHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
 
     void getEvalWeightHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
+
+    void getEmissionHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
 };
 
 }
