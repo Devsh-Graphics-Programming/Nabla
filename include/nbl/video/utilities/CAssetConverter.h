@@ -137,12 +137,15 @@ class CAssetConverter : public core::IReferenceCounted
 
 				using usage_flags_t = IGPUBuffer::E_USAGE_FLAGS;
 				core::bitflag<usage_flags_t> usage = usage_flags_t::EUF_NONE;
+				using external_handle_type_t = IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE;
+				core::bitflag<external_handle_type_t> externalHandleTypes = external_handle_type_t::EHT_NONE;
 
 			protected:
 				inline std::pair<bool,this_t> combine(const this_t& other) const
 				{
 					this_t retval = *this;
 					retval.usage |= other.usage;
+					retval.externalHandleTypes |= other.externalHandleTypes;
 					return {true,retval};
 				}
 		};
@@ -233,6 +236,7 @@ class CAssetConverter : public core::IReferenceCounted
 
 				using usage_flags_t = IGPUImage::E_USAGE_FLAGS;
 				constexpr static inline usage_flags_t UsagesThatPreventFormatPromotion = usage_flags_t::EUF_RENDER_ATTACHMENT_BIT|usage_flags_t::EUF_INPUT_ATTACHMENT_BIT;
+				core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = IDeviceMemoryAllocation::EHT_NONE;
 				// make our promotion policy explicit
 				inline bool canAttemptFormatPromotion() const
 				{
