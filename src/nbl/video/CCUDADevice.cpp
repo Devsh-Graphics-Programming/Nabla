@@ -287,8 +287,7 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 	auto& cu = m_handler->getCUDAFunctionTable();
 	auto handleType = sema->getCreationParams().externalHandleTypes.value;
 
-	if (!handleType)
-		return nullptr;
+	if (handleType != CCUDADevice::ExternalSemaphoreHandleType) return nullptr;
 
 	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
 #ifdef _WIN32
