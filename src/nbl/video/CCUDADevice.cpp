@@ -254,11 +254,11 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem)
 {
 	const auto& cu = m_handler->getCUDAFunctionTable();
-	const auto handleType = mem->getCreationParams().externalHandleType;
+	const auto handleTypes = mem->getCreationParams().externalHandleTypes;
 
-	if (!handleType) return nullptr;
+	if (!handleTypes.hasFlags(CCUDADevice::ExternalMemoryHandleType)) return nullptr;
 
-	const auto externalHandle = mem->getExportHandle();
+	const auto externalHandle = mem->getExportHandle(CCUDADevice::ExternalMemoryHandleType);
 
 	CUDA_EXTERNAL_MEMORY_HANDLE_DESC extMemDesc = {};
 #ifdef _WIN32

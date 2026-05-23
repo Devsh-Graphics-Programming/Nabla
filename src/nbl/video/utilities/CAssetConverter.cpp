@@ -2472,7 +2472,7 @@ class MetaDeviceMemoryAllocator final
 					info.allocateFlags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT : allocate_flags_t::EMAF_NONE;
 					info.memoryTypeIndex = memTypeIx;
 					info.dedication = nullptr;
-					info.externalHandleType = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(reqBin.first.externalHandleTypes);
+					info.externalHandleTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(reqBin.first.externalHandleTypes);
 					// allocate in progression of combined allocations, while trying allocate as much as possible in a single allocation
 					auto binItemsIt = binItems.begin();
 					for (auto firstOffsetIt=offsetsTmp.begin(); firstOffsetIt!=offsetsTmp.end(); )

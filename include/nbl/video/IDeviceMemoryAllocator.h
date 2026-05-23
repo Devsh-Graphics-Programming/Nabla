@@ -74,7 +74,7 @@ allocateFlags = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE;
 					ret.allocateFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(m_allocateFlags);
 					ret.memoryTypeIndex = dereference();
 					ret.dedication = dedication;
-					ret.externalHandleType = m_handleType;
+					ret.externalHandleTypes = m_handleType;
 					ret.importHandle = external_handle;
 					return ret;
 				}

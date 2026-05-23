@@ -140,7 +140,6 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
             bits &= bits - 1;
             handleIndex++;
         }
-
     }
 
     return core::make_smart_refctd_ptr<CVulkanSemaphore>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams), semaphore, std::move(externalHandles));
@@ -215,7 +214,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     if (info.memoryTypeIndex>=m_physicalDevice->getMemoryProperties().memoryTypeCount)
         return {};
 
-    if (info.externalHandleType && info.externalHandleType != IDeviceMemoryAllocation::EHT_OPAQUE_WIN32)
+    if (info.externalHandleTypes && info.externalHandleTypes != IDeviceMemoryAllocation::EHT_OPAQUE_WIN32)
     {
         // We haven't tested other externalHandleType, so for now we only support EHT_OPAQUE_WIN32 handle type. WIN32_KMT definitely don't work with our implementation. They don't support DuplicateHandle and CloseHandle.
         m_logger.log("Only EHT_OPAQUE_WIN32 external handle type currently supported",system::ILogger::ELL_ERROR);
@@ -229,17 +228,17 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
         vk_allocateFlagsInfo.deviceMask = 0u; // unused: for now
     }
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
-    const auto isValidHandleType = IDeviceMemoryAllocation::isValidExternalHandleTypes(info.externalHandleType);
+    const auto isValidHandleType = IDeviceMemoryAllocation::isValidExternalHandleTypes(info.externalHandleTypes);
 #ifdef _WIN32
     if (!isValidHandleType)
     {
-        m_logger.log("External semaphore handle type 0x%08x is not a valid Win32 handle type", system::ILogger::ELL_ERROR, info.externalHandleType);
+        m_logger.log("External semaphore handle type 0x%08x is not a valid Win32 handle type", system::ILogger::ELL_ERROR, info.externalHandleTypes.value);
         return {};
     }
 
     VkImportMemoryWin32HandleInfoKHR importInfo = { 
         .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
-        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleTypes.value),
     };
 
     VkExportMemoryWin32HandleInfoKHR handleInfo = {
@@ -265,19 +264,20 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
 #ifdef _WIN32
         .pNext = &handleInfo,
 #endif
-        .handleTypes = static_cast<VkExternalMemoryHandleTypeFlags>(info.externalHandleType),
+        .handleTypes = static_cast<VkExternalMemoryHandleTypeFlags>(info.externalHandleTypes.value),
     };
     
     const void** pNext = &vk_allocateFlagsInfo.pNext;
 
-    system::external_handle_t externalHandle = system::ExternalHandleNull;
-    if (info.externalHandleType)
+    std::unique_ptr<system::external_handle_t[]> externalHandles(nullptr);
+    if (info.externalHandleTypes)
     {
         if (info.importHandle) //importing
         {
-            externalHandle = system::DuplicateExternalHandle(info.importHandle);
+            externalHandles = std::make_unique<system::external_handle_t[]>(1);
+            externalHandles[0] = system::DuplicateExternalHandle(info.importHandle);
 #ifdef _WIN32
-            importInfo.handle = externalHandle;
+            importInfo.handle = externalHandles[0];
 #else
             importInfo.fd = externalHandle;
 #endif
@@ -318,24 +318,10 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     if (vk_res!=VK_SUCCESS)
         return {};
 
-    const bool exported = info.externalHandleType && !info.importHandle;
+    const bool exported = info.externalHandleTypes && !info.importHandle;
 
     if (exported)
     {
-#ifdef _WIN32
-        VkMemoryGetWin32HandleInfoKHR 
-#else
-        VkMemoryGetFdInfoKHR
-#endif
-        handleInfo = { .sType = 
-#ifdef _WIN32
-            VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
-#else 
-            VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
-#endif
-            .memory = vk_deviceMemory,
-            .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
-        };
 
         /*
             For handle types defined as NT handles, 
@@ -344,18 +330,47 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
             the application must release ownership of them 
             using the CloseHandle system call when they are no longer needed.
         */
+        auto bits = static_cast<VkExternalMemoryHandleTypeFlags>(info.externalHandleTypes.value);
+        const auto handleCount = hlsl::bitCount(bits);
+        externalHandles = std::make_unique<system::external_handle_t[]>(handleCount);
 
-        if (VK_SUCCESS != m_devf.vk.
-#ifdef _WIN32
-            vkGetMemoryWin32HandleKHR
-#else
-            vkGetMemoryFdKHR
-#endif
-            (m_vkdev, &handleInfo, &externalHandle))
+        auto handleIndex = 0;
+        while (bits)
         {
-            m_devf.vk.vkFreeMemory(m_vkdev, vk_deviceMemory, 0);
-            return {};
+            const auto lsbIndex = nbl::hlsl::findLSB(bits);
+            const auto handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(1u << lsbIndex);
+
+#ifdef _WIN32
+            VkMemoryGetWin32HandleInfoKHR 
+#else
+            VkMemoryGetFdInfoKHR
+#endif
+            handleInfo = { .sType = 
+#ifdef _WIN32
+                VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+#else 
+                VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+#endif
+                .memory = vk_deviceMemory,
+                .handleType = handleType,
+            };
+
+            if (VK_SUCCESS != m_devf.vk.
+#ifdef _WIN32
+                vkGetMemoryWin32HandleKHR
+#else
+                vkGetMemoryFdKHR
+#endif
+                (m_vkdev, &handleInfo, &externalHandles[handleIndex]))
+            {
+                m_devf.vk.vkFreeMemory(m_vkdev, vk_deviceMemory, nullptr);
+                return {};
+            }
+
+            bits &= bits - 1;
+            handleIndex++;
         }
+
 
     }
 
@@ -363,7 +378,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
     const auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
     CVulkanMemoryAllocation::SCreationParams params = { info, memoryPropertyFlags, !!info.dedication };
     IDeviceMemoryAllocator::SAllocation ret = {};
-    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory, externalHandle, std::move(params));
+    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory, std::move(externalHandles), std::move(params));
     ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
     if(info.dedication)
     {
