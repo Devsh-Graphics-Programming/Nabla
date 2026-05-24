@@ -46,7 +46,6 @@ class ISemaphore : public IBackendObject
         struct SCachedCreationParams
         {
             // Handle Type for external resources
-            // TODO(kevin): Decide whether we want to support multiple external handles in one semaphore
             core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes = EHT_NONE;
         };
 
