@@ -14,6 +14,8 @@
 #include <memory>
 #include <vector>
 
+#include "CCUDAHandler.h"
+
 namespace nbl::video
 {
 class CCUDAHandler;
@@ -95,7 +97,7 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		}
 
 		core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(SExportableMemoryCreationParams&& params);
-		core::smart_refctd_ptr<CCUDAImportedMemory> importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem);
+		core::smart_refctd_ptr<CCUDAImportedMemory> importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& memoryAllocation);
 
 		core::smart_refctd_ptr<CCUDAImportedSemaphore> importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sem);
 
@@ -107,6 +109,18 @@ class NBL_API2 CCUDADevice : public core::IReferenceCounted
 		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, std::unique_ptr<SNativeState>&& nativeState, core::smart_refctd_ptr<CCUDAHandler>&& handler);
 		~CCUDADevice() override;
 		bool isValid() const;
+
+		template<typename... Args>
+		inline void logFail(const char* msg, Args&&... args)
+		{
+			m_logger.log(msg,system::ILogger::ELL_ERROR,std::forward<Args>(args)...);
+		}
+
+		template<typename... Args>
+		inline bool handleCudaCall(cuda_interop::SCUresult result, const char* failMessage) const
+		{
+			return m_handler->defaultHandleResult(result, failMessage);
+		}
 
 		const system::logger_opt_ptr m_logger;
 		std::vector<const char*> m_defaultCompileOptions;

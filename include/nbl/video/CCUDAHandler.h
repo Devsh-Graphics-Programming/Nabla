@@ -80,9 +80,15 @@ class NBL_API2 CCUDAHandler : public core::IReferenceCounted
 			cuda_interop::SNVRTCResult result;
 		};
 
+
 		static bool defaultHandleResult(cuda_interop::SCUresult result, const system::logger_opt_ptr& logger);
+
 		bool defaultHandleResult(cuda_interop::SCUresult result) const;
 		bool defaultHandleResult(cuda_interop::SNVRTCResult result) const;
+
+		// Note(kevin): I prefer this, then the current defaultHandleResult. We just log the error code name using cuGetErrorName and let the user go to the doc themselves, rather than logging the message in CUDA documentation. We don't have to upkeep this function everytime they add new error code.
+		bool defaultHandleResult( cuda_interop::SCUresult resultCode, const char* failMessage) const;
+
 
 		cuda_interop::SNVRTCResult createProgram(cuda_interop::SOutput<cuda_interop::SNVRTCProgram> prog, std::string&& source, const char* name, const int headerCount=0, const char* const* headerContents=nullptr, const char* const* includeNames=nullptr);
 		cuda_interop::SNVRTCResult compileProgram(cuda_interop::SNVRTCProgram prog, core::SRange<const char* const> options) const;

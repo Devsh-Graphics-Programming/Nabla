@@ -520,9 +520,29 @@ core::SRange<const char* const> CCUDAHandler::getDefaultRuntimeIncludeOptions() 
 	return {begin,begin+m_native->runtimeIncludeOptionPtrs.size()};
 }
 
+bool CCUDAHandler::defaultHandleResult(cuda_interop::SCUresult opaqueResult, const char* failMessage) const
+{
+	const CUresult resultCode = opaqueResult;
+	if (resultCode == CUDA_SUCCESS) return true;
+
+	auto& cu = getCUDAFunctionTable();
+
+	const char* errorString;
+	if (cu.pcuGetErrorString(resultCode, &errorString) != CUDA_SUCCESS)
+		return false;
+	
+	const char* errorName;
+	if (cu.pcuGetErrorName(resultCode, &errorName) != CUDA_SUCCESS)
+		return false;
+
+	m_logger.log("CUDA error: %s [CUresult: %s(%s)]", system::ILogger::ELL_ERROR, failMessage, errorName, errorString);
+	return false;
+}
+
 bool CCUDAHandler::defaultHandleResult(cuda_interop::SCUresult opaqueResult, const system::logger_opt_ptr& logger)
 {
 	const CUresult result = opaqueResult;
+
 	switch (result)
 	{
 		case CUDA_SUCCESS:

@@ -28,14 +28,23 @@ bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SOutput<cuda_interop::SC
 	if (!mappedBuffer)
 		return false;
 
+	const auto allocationSize = m_src->getAllocationSize();
+
+	if (offset > allocationSize)
+	{
+		m_device->getHandler()->getLogger().log("Offset must not be more than allocation size!", system::ILogger::ELL_ERROR);
+		return false;
+	}
+
+
 	CUDA_EXTERNAL_MEMORY_BUFFER_DESC bufferDesc = {};
 	bufferDesc.offset = offset;
-	bufferDesc.size = size == WholeSize ? (m_src->getAllocationSize() - offset) : size;
+	bufferDesc.size = size == WholeSize ? (allocationSize - offset) : size;
 
 	CUdeviceptr nativeMappedBuffer = 0;
-	const auto& cu = m_device->getHandler()->getCUDAFunctionTable();
-	const auto result = cu.pcuExternalMemoryGetMappedBuffer(&nativeMappedBuffer, m_native->handle, &bufferDesc);
-	if (!m_device->getHandler()->defaultHandleResult(result))
+	const auto& handler = m_device->getHandler();
+	const auto& cu = handler->getCUDAFunctionTable();
+	if (!handler->defaultHandleResult(cu.pcuExternalMemoryGetMappedBuffer(&nativeMappedBuffer, m_native->handle, &bufferDesc), "Fail to get mapped buffer!"))
 		return false;
 
 	*mappedBuffer = nativeMappedBuffer;
@@ -44,8 +53,9 @@ bool CCUDAImportedMemory::getMappedBuffer(cuda_interop::SOutput<cuda_interop::SC
 
 CCUDAImportedMemory::~CCUDAImportedMemory()
 {
-	auto& cu = m_device->getHandler()->getCUDAFunctionTable();
-	m_device->getHandler()->defaultHandleResult(cu.pcuDestroyExternalMemory(m_native->handle));
+	const auto& handler = m_device->getHandler();
+	auto& cu = handler->getCUDAFunctionTable();
+	handler->defaultHandleResult(cu.pcuDestroyExternalMemory(m_native->handle), "Fail to destroy external memory!");
 }
 
 }

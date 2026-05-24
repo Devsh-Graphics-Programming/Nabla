@@ -108,9 +108,9 @@ CCUDADevice::CCUDADevice(
 
 	const auto& cu = m_handler->getCUDAFunctionTable();
 	
-	if (!m_handler->defaultHandleResult(cu.pcuCtxCreate_v4(&m_native->context, nullptr, 0, m_native->handle)))
+	if (!handleCudaCall(cu.pcuCtxCreate_v4(&m_native->context, nullptr, 0, m_native->handle), "Fail to create context!"))
 		return;
-	if (!m_handler->defaultHandleResult(cu.pcuCtxSetCurrent(m_native->context)))
+	if (!handleCudaCall(cu.pcuCtxSetCurrent(m_native->context), "Fail to set current context!"))
 		return;
 
 	for (uint32_t locationType = 0; locationType < m_allocationGranularity.size(); ++locationType)
@@ -129,7 +129,7 @@ CCUDADevice::CCUDADevice(
 			.win32HandleMetaData = &metadata,
 #endif
 		};
-		if (!m_handler->defaultHandleResult(cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[locationType], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM)))
+		if (!handleCudaCall(cu.pcuMemGetAllocationGranularity(&m_allocationGranularity[locationType], &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM), "Fail to get memory allocation granularity!"))
 			return;
 	}
 	m_valid = true;
@@ -213,52 +213,56 @@ core::smart_refctd_ptr<CCUDAExportableMemory> CCUDADevice::createExportableMemor
 	auto nativeState = std::make_unique<CCUDAExportableMemory::SNativeState>();
 
 	CUmemGenericAllocationHandle mem;
-	if(auto err = cu.pcuMemCreate(&mem, params.granularSize, &prop, 0); CUDA_SUCCESS != err)
-	{
-		m_logger.log("Fail to create memory handle!", system::ILogger::ELL_ERROR);
+	if(!handleCudaCall(cu.pcuMemCreate(&mem, params.granularSize, &prop, 0), "Fail to create memory!"))
 		return nullptr;
-	}
 	
-	if (auto err = cu.pcuMemExportToShareableHandle(&params.externalHandle, mem, prop.requestedHandleTypes, 0); CUDA_SUCCESS != err)
+	if (!handleCudaCall(cu.pcuMemExportToShareableHandle(&params.externalHandle, mem, prop.requestedHandleTypes, 0), "Fail to export memory!"))
 	{
-		m_logger.log("Fail to create externalHandle!", system::ILogger::ELL_ERROR);
-		handler->defaultHandleResult(cu.pcuMemRelease(mem));
+		handleCudaCall(cu.pcuMemRelease(mem), "Fail to release memory!");
 		return nullptr;
 	}
 
-	if (const auto err = reserveAddressAndMapMemory(*handler,m_native->handle,&nativeState->ptr, params.granularSize, inParams.alignment, location, mem); CUDA_SUCCESS != err)
+	if (!handleCudaCall(reserveAddressAndMapMemory(*handler,m_native->handle,&nativeState->ptr, params.granularSize, inParams.alignment, location, mem), "Fail to reserve address and map memory!"))
 	{
-		m_logger.log("Fail to reserve address and map memory!", system::ILogger::ELL_ERROR);
-
-		handler->defaultHandleResult(cu.pcuMemRelease(mem));
+		handleCudaCall(cu.pcuMemRelease(mem), "Fail to release memory!");
 
 		if (!system::CloseExternalHandle(params.externalHandle))
-			m_logger.log("Fail to close exported CUDA memory handle!", system::ILogger::ELL_ERROR);
+			logFail("Fail to close exported CUDA memory handle!");
 
 		return nullptr;
 	}
 
-	if (const auto err = cu.pcuMemRelease(mem); CUDA_SUCCESS != err)
+	if (!handleCudaCall(cu.pcuMemRelease(mem), "Fail to release memory!"))
 	{
-		handler->defaultHandleResult(err);
-		handler->defaultHandleResult(cu.pcuMemUnmap(nativeState->ptr, params.granularSize));
-		handler->defaultHandleResult(cu.pcuMemAddressFree(nativeState->ptr, params.granularSize));
+		handleCudaCall(cu.pcuMemUnmap(nativeState->ptr, params.granularSize), "Fail to unmap memory!");
+		handleCudaCall(cu.pcuMemAddressFree(nativeState->ptr, params.granularSize), "Fail to free memory address!");
 		if (!system::CloseExternalHandle(params.externalHandle))
-			m_logger.log("Fail to close exported CUDA memory handle!", system::ILogger::ELL_ERROR);
+			logFail("Fail to close exported CUDA memory handle!");
 		return nullptr;
 	}
 	
 	return CCUDAExportableMemory::create(core::smart_refctd_ptr<CCUDADevice>(this),std::move(params),std::move(nativeState));
 }
 
-core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& mem)
+core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& memoryAllocation)
 {
+	if (!memoryAllocation)
+	{
+		logFail("The memoryAllocation must not be null!");
+		return nullptr;
+	}
+
 	const auto& cu = m_handler->getCUDAFunctionTable();
-	const auto handleTypes = mem->getCreationParams().externalHandleTypes;
+	const auto handleTypes = memoryAllocation->getCreationParams().externalHandleTypes;
 
-	if (!handleTypes.hasFlags(CCUDADevice::ExternalMemoryHandleType)) return nullptr;
+	if (!handleTypes.hasFlags(CCUDADevice::ExternalMemoryHandleType))
+	{
+		logFail("Required memory handle type 0x%x not present in allocation handleTypes 0x%x",
+			CCUDADevice::ExternalMemoryHandleType, handleTypes.value);		
+	  return nullptr;
+	}
 
-	const auto externalHandle = mem->getExportHandle(CCUDADevice::ExternalMemoryHandleType);
+	const auto externalHandle = memoryAllocation->getExportHandle(CCUDADevice::ExternalMemoryHandleType);
 
 	CUDA_EXTERNAL_MEMORY_HANDLE_DESC extMemDesc = {};
 #ifdef _WIN32
@@ -268,47 +272,52 @@ core::smart_refctd_ptr<CCUDAImportedMemory> CCUDADevice::importExternalMemory(co
 	extMemDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD;
 	extMemDesc.handle.fd = externalHandle;
 #endif
-	extMemDesc.size = mem->getAllocationSize();
+	extMemDesc.size = memoryAllocation->getAllocationSize();
 
 	CUexternalMemory cuExtMem;
-	if (const auto err = cu.pcuImportExternalMemory(&cuExtMem, &extMemDesc); CUDA_SUCCESS != err)
-	{
-		m_logger.log("Fail to import external memory into CUDA!", system::ILogger::ELL_ERROR);
+	if (!handleCudaCall(cu.pcuImportExternalMemory(&cuExtMem, &extMemDesc), "Fail to import external memory!"))
 		return nullptr;
-	}
+
 	return core::smart_refctd_ptr<CCUDAImportedMemory>(
-		new CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice>(this),std::move(mem),std::make_unique<CCUDAImportedMemory::SNativeState>(cuExtMem)),
+		new CCUDAImportedMemory(core::smart_refctd_ptr<CCUDADevice>(this),std::move(memoryAllocation),std::make_unique<CCUDAImportedMemory::SNativeState>(cuExtMem)),
 		core::dont_grab
 	);
 }
 
-core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sema)
+core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& semaphore)
 {
-	auto& cu = m_handler->getCUDAFunctionTable();
-	auto handleType = sema->getCreationParams().externalHandleTypes.value;
+	if (!semaphore)
+	{
+		logFail("The semaphore must not be null");
+		return nullptr;
+	}
 
-	if (handleType != CCUDADevice::ExternalSemaphoreHandleType) return nullptr;
+	auto& cu = m_handler->getCUDAFunctionTable();
+	auto handleType = semaphore->getCreationParams().externalHandleTypes.value;
+
+	if (handleType != CCUDADevice::ExternalSemaphoreHandleType)
+	{
+		logFail("Required semaphore handle type 0x%x not present in semaphore handleTypes 0x%x", handleType);
+		return nullptr;
+	}
 
 	CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC desc = {
 #ifdef _WIN32
 		.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_WIN32,
-		.handle = {.win32 = {.handle = sema->getExportHandle(ExternalSemaphoreHandleType) }},
+		.handle = {.win32 = {.handle = semaphore->getExportHandle(ExternalSemaphoreHandleType) }},
 #else
 		.type = CU_EXTERNAL_SEMAPHORE_HANDLE_TYPE_TIMELINE_SEMAPHORE_FD,
-		.handle = {.fd = sema->getExportHandle(ExternalSemaphoreHandleType)}
+		.handle = {.fd = semaphore->getExportHandle(ExternalSemaphoreHandleType)}
 #endif
 	};
 
 
 	CUexternalSemaphore cusema;
-	if (const auto err = cu.pcuImportExternalSemaphore(&cusema, &desc); CUDA_SUCCESS != err)
-	{
-		m_logger.log("Fail to import semaphore into CUDA!");
+	if (!handleCudaCall(cu.pcuImportExternalSemaphore(&cusema, &desc), "Fail to import external semaphore!"))
 		return nullptr;
-	}
 	
 	return core::smart_refctd_ptr<CCUDAImportedSemaphore>(
-		new CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this),std::move(sema),std::make_unique<CCUDAImportedSemaphore::SNativeState>(cusema)),
+		new CCUDAImportedSemaphore(core::smart_refctd_ptr<CCUDADevice>(this),std::move(semaphore),std::make_unique<CCUDAImportedSemaphore::SNativeState>(cusema)),
 		core::dont_grab
 	);
 }
@@ -316,7 +325,7 @@ core::smart_refctd_ptr<CCUDAImportedSemaphore> CCUDADevice::importExternalSemaph
 CCUDADevice::~CCUDADevice()
 {
 	if (m_native->context)
-		m_handler->defaultHandleResult(m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_native->context));
+		handleCudaCall(m_handler->getCUDAFunctionTable().pcuCtxDestroy_v2(m_native->context), "Fail to destroy context!");
 }
 
 bool CCUDADevice::isValid() const
