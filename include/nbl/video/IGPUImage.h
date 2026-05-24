@@ -41,7 +41,6 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked
 
           // https://vulkan.lunarg.com/doc/view/1.3.231.0/mac/1.3-extensions/vkspec.html#VUID-VkImageCreateInfo-pNext-01443
           if (externalHandleTypes.value != 0 && preinitialized) return false;
-					// TODO(kevin): Look at other things that can be validated from IGPUImage::SCreationParams
 					return true;
 			}
 		};
