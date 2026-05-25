@@ -164,46 +164,134 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
         {
             const auto childProductHash = getHashAs4UintsString(childProduct, ir);
             sstr << "spectral_t product = albedo<" << childProductHash << ">();\n";
-            // TODO: what to do with child caches?
         }
         if (auto childRest = ir->getObjectPool().deref(sum->rest); childRest)
         {
             const auto childRestHash = getHashAs4UintsString(childRest, ir);
             sstr << "spectral_t rest = albedo<" << childRestHash << ">();\n";
-            // TODO: what to do with child caches?
         }
 
         sstr << "spectral_t retval = product + rest;\n";
         sstr << "return retval;\n}\n";
         break;
     }
-    case CTrueIR::INode::EFinalType::CWeightedContributor:
+    case CTrueIR::INode::EFinalType::CFactorCombiner:
     {
-        // TODO
-        break;
-    }
-    case CTrueIR::INode::EFinalType::CCorellatedTransmission:
-    {
-        // TODO
-        break;
-    }
-    case CTrueIR::INode::EFinalType::COrenNayar:
-    {
-        const auto* oren_nayar = dynamic_cast<const CTrueIR::COrenNayar*>(node);
-        if (!oren_nayar)
+        const auto* combiner = dynamic_cast<const CTrueIR::CFactorCombiner*>(node);
+        if (!combiner)
             break;
 
         const auto hashString = getHashAs4UintsString(node, ir);
         sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
-        sstr << "return hlsl::promote<spectral_t>(0.0);\n}\n";
+
+        const auto childCount = combiner->getChildCount();
+
+        for (uint8_t i = 0; i < childCount; i++)
+        {
+            if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
+            {
+                const auto childHash = getHashAs4UintsString(child, ir);
+                sstr << "spectral_t child" << static_cast<uint32_t>(i) << " = albedo<" << childHash << ">();\n";
+            }
+        }
+
+        sstr << "spectral_t retval = ";
+        for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
+            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? " + " : "");
+        sstr << ";\n";
+        sstr << "return retval;\n}\n";
         break;
     }
-    case CTrueIR::INode::EFinalType::CCookTorrance:
+    case CTrueIR::INode::EFinalType::CWeightedContributor:
     {
-        const auto* cook_torrance = dynamic_cast<const CTrueIR::CCookTorrance*>(node);
-        if (!cook_torrance)
+        const auto* contrib = dynamic_cast<const CTrueIR::CWeightedContributor*>(node);
+        if (!contrib)
             break;
 
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
+
+        if (auto childContrib = ir->getObjectPool().deref(contrib->contributor); childContrib)
+        {
+            const auto childContribHash = getHashAs4UintsString(childContrib, ir);
+            sstr << "spectral_t contributor = albedo<" << childContribHash << ">();\n";
+        }
+        if (auto childFactor = ir->getObjectPool().deref(contrib->factor); childFactor)
+        {
+            const auto childFactorHash = getHashAs4UintsString(childFactor, ir);
+            sstr << "spectral_t factor = albedo<" << childFactorHash << ">();\n";
+        }
+
+        sstr << "spectral_t retval = contributor + factor;\n";
+        sstr << "return retval;\n}\n";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CCorellatedTransmission:
+    {
+        const auto* transmission = dynamic_cast<const CTrueIR::CCorellatedTransmission*>(node);
+        if (!transmission)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
+
+        if (auto child = ir->getObjectPool().deref(transmission->btdf); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "spectral_t btdf = albedo<" << childHash << ">();\n";
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->brdfBottom); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "spectral_t brdf = albedo<" << childHash << ">();\n";
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->coated); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "spectral_t coated = albedo<" << childHash << ">();\n";
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->next); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "spectral_t next = albedo<" << childHash << ">();\n";
+        }
+
+        sstr << "spectral_t retval = btdf + brdf + coated + next;\n";
+        sstr << "return retval;\n}\n";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CSpectralVariable:
+    {
+        const auto* spectral = dynamic_cast<const CTrueIR::CSpectralVariableFactor*>(node);
+        if (!spectral)
+            break;
+
+        auto bins = spectral->getSpectralBins();
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
+        if (bins > 1)
+        {
+            sstr << "return spectral_t(";
+            for (uint8_t i = 0; i < bins; i++)
+                sstr << spectral->getParameter(i).scale << (i < bins - 1 ? "," : "");
+            sstr << ");\n}\n";
+        }
+        else
+            sstr << "return hlsl::promote<spectral_t>(" << spectral->getParameter(0).scale << ");\n}\n";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CEmitter:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::COrenNayar:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CCookTorrance:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CBeer:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CFresnel:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
+    {
         const auto hashString = getHashAs4UintsString(node, ir);
         sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
         sstr << "return hlsl::promote<spectral_t>(0.0);\n}\n";
