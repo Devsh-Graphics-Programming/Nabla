@@ -19,8 +19,8 @@ namespace nbl::asset::material_compiler3
     // define templates of node functions + util structs
     code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nstruct gen_cache;\n"; // cache struct
 
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nspectral_t albedo();\n"; // TODO: what args needed? uv?
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nvector3_t normal();\n";  // TODO: what args needed? uv?
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nspectral_t albedo();\n"; // TODO: might add interaction arg
+    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nvector3_t normal(NBL_CONST_REF_ARG(aniso_interaction_t) inter);\n";
     code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nvector3_t aov_throughput();\n";  // TODO: confirm return value is vec3, what args needed? uv?
     code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nvector3_t transparency();\n";  // TODO: return value is vec3? what args needed?
     
@@ -301,6 +301,48 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
     {
         const auto hashString = getHashAs4UintsString(node, ir);
         sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\nreturn hlsl::promote<spectral_t>(0);\n}\n";   // TODO: what args needed? uv?
+    }
+    }
+}
+
+void CReferenceUnidirectionalPathTracing::getNormalHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+{
+    switch (node->getFinalType())
+    {
+    case CTrueIR::INode::EFinalType::COrientedLayer:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CContributorSum:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CFactorCombiner:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CWeightedContributor:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CCorellatedTransmission:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CSpectralVariable:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CEmitter:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::COrenNayar:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CCookTorrance:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CBeer:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CFresnel:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
+        [[fallthrough]]
+    default:
+    {
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+template<>
+vector3_t normal<)===" << hashString << R"===(>(NBL_CONST_REF_ARG(aniso_interaction_t) inter)
+{
+    return inter.getN();
+}
+)===";    // return shading normal by default
     }
     }
 }
