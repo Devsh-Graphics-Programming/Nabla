@@ -38,6 +38,14 @@ if (NBL_BUILD_OPTIX)
     )
 endif()
 
+add_subdirectory(CUDAInterop)
+if (NBL_COMPILE_WITH_CUDA)
+    set(NBL_EXT_CUDA_INTEROP_LIB
+        ${NBL_EXT_CUDA_INTEROP_LIB}
+        PARENT_SCOPE
+    )
+endif()
+
 if (NBL_BUILD_IMGUI)
     add_subdirectory(ImGui)
     set(NBL_EXT_IMGUI_UI_INCLUDE_DIRS

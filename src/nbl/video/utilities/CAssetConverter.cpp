@@ -50,6 +50,8 @@ bool CAssetConverter::patch_impl_t<ICPUBuffer>::valid(const ILogicalDevice* devi
 		return false;
 	if (usage.hasFlags(usage_flags_t::EUF_SHADER_BINDING_TABLE_BIT) && !features.rayTracingPipeline)
 		return false;
+	if (!IDeviceMemoryAllocation::validateExternalHandleTypes(externalHandleTypes))
+		return false;
 	// good default
 	usage |= usage_flags_t::EUF_INLINE_UPDATE_VIA_CMDBUF;
 	return true;
@@ -1183,7 +1185,9 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBuffer> loo
 	auto patchedParams = lookup.asset->getCreationParams();
 	assert(lookup.patch->usage.hasFlags(patchedParams.usage));
 	patchedParams.usage = lookup.patch->usage;
-	hasher.update(&patchedParams,sizeof(patchedParams)) << lookup.asset->getContentHash();
+	hasher.update(&patchedParams,sizeof(patchedParams)) 
+    << lookup.patch->externalHandleTypes.value
+    << lookup.asset->getContentHash();
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBottomLevelAccelerationStructure> lookup)
@@ -2293,6 +2297,7 @@ class MetaDeviceMemoryAllocator final
 
 			uint64_t compatibileMemoryTypeBits : 32 = 0;
 			uint64_t needsDeviceAddress : 1 = 0;
+			uint64_t externalHandleTypes: 16 = IDeviceMemoryAllocation::EHT_NONE;
 		};
 	
 		template<Asset AssetType>
@@ -2309,10 +2314,12 @@ class MetaDeviceMemoryAllocator final
 			}
 			//
 			bool needsDeviceAddress = false;
+			core::bitflag<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE> externalHandleTypes;
 			if constexpr (std::is_same_v<std::remove_pointer_t<decltype(gpuObj)>,IGPUBuffer>)
 			{
 				const auto usage = gpuObj->getCreationParams().usage;
 				needsDeviceAddress = usage.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT);
+				externalHandleTypes = gpuObj->getCachedCreationParams().externalHandleTypes;
 				// stops us needing weird awful code to ensure buffer storing AS has alignment of at least 256
 				assert(!usage.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT) || memReqs.alignmentLog2>=8);
 			}
@@ -2320,7 +2327,7 @@ class MetaDeviceMemoryAllocator final
 			if (memReqs.requiresDedicatedAllocation)
 			{
 				// allocate and bind right away
-				auto allocation = m_allocator->allocate(memReqs,gpuObj);
+				auto allocation = m_allocator->allocate(memReqs, { gpuObj, IDeviceMemoryAllocation::EMAF_NONE, externalHandleTypes.value });
 				if (!allocation.isValid())
 				{
 					m_logger.log("Failed to allocate and bind dedicated memory for %s",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
@@ -2332,8 +2339,9 @@ class MetaDeviceMemoryAllocator final
 			{
 				// make the creation conditional upon allocation success
 				const MemoryRequirementBin reqBin = {
-					.compatibileMemoryTypeBits = memReqs.memoryTypeBits&memoryTypeConstraint,
+					.compatibileMemoryTypeBits = memReqs.memoryTypeBits & memoryTypeConstraint,
 					.needsDeviceAddress = needsDeviceAddress,
+					.externalHandleTypes = externalHandleTypes.value,
 					// we ignore this for now, because we can't know how many `DeviceMemory` objects we have left to make, so just join everything by default
 					//.refersDedicatedAllocation = memReqs.prefersDedicatedAllocation
 				};
@@ -2459,12 +2467,12 @@ class MetaDeviceMemoryAllocator final
 					failures.reserve(binItemCount);
 					// ...
 					using allocate_flags_t = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS;
-					IDeviceMemoryAllocator::SAllocateInfo info = {
-						.size = 0xdeadbeefBADC0FFEull, // set later
-						.flags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT:allocate_flags_t::EMAF_NONE,
-						.memoryTypeIndex = memTypeIx,
-						.dedication = nullptr
-					};
+					IDeviceMemoryAllocator::SAllocateInfo info;
+					info.allocationSize = 0xdeadbeefBADC0FFEull; // set later
+					info.allocateFlags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT : allocate_flags_t::EMAF_NONE;
+					info.memoryTypeIndex = memTypeIx;
+					info.dedication = nullptr;
+					info.externalHandleTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(reqBin.first.externalHandleTypes);
 					// allocate in progression of combined allocations, while trying allocate as much as possible in a single allocation
 					auto binItemsIt = binItems.begin();
 					for (auto firstOffsetIt=offsetsTmp.begin(); firstOffsetIt!=offsetsTmp.end(); )
@@ -2473,7 +2481,7 @@ class MetaDeviceMemoryAllocator final
 						const size_t combinedCount = std::distance(firstOffsetIt,nextOffsetIt);
 						const size_t lastIx = combinedCount-1;
 						// if we take `combinedCount` starting at `firstItem` their allocation would need this size
-						info.size = (firstOffsetIt[lastIx]-*firstOffsetIt)+getAsBase(binItemsIt[lastIx])->getMemoryReqs().size;
+						info.allocationSize = (firstOffsetIt[lastIx]-*firstOffsetIt)+getAsBase(binItemsIt[lastIx])->getMemoryReqs().size;
 						auto allocation = m_allocator->allocate(info);
 						if (allocation.isValid())
 						{
@@ -3095,6 +3103,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					const auto queueFamilies =  inputs.getSharedOwnershipQueueFamilies(uniqueCopyGroupID,asset,patch);
 					params.queueFamilyIndexCount = queueFamilies.size();
 					params.queueFamilyIndices = queueFamilies.data();
+					params.externalHandleTypes = patch.externalHandleTypes;
 					// if creation successful, we will request some memory allocation to bind to, and if thats okay we preliminarily request a conversion
 					conversionRequests.assign(entry.first,entry.second.firstCopyIx,i,device->createBuffer(std::move(params)),asset);
 				}
@@ -3211,6 +3220,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						const auto queueFamilies = inputs.getSharedOwnershipQueueFamilies(uniqueCopyGroupID,as,patch);
 						params.queueFamilyIndexCount = queueFamilies.size();
 						params.queueFamilyIndices = queueFamilies.data();
+						params.externalHandleTypes = IDeviceMemoryAllocation::EHT_NONE;
 						out.storage.value = device->createBuffer(std::move(params));
 						if (out.storage)
 						{
@@ -3259,6 +3269,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					if (patch.uncompressedViewOfCompressed)
 						params.flags |= create_flags_t::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
 					params.usage = patch.usageFlags;
+					params.externalHandleTypes = patch.externalHandleTypes;
 					// Now add STORAGE USAGE to creation parameters if mip-maps need to be recomputed
 					if (patch.recomputeMips)
 					{
@@ -3298,6 +3309,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					// gpu image specifics
 					params.tiling = static_cast<IGPUImage::TILING>(patch.linearTiling);
 					params.preinitialized = false;
+					params.externalHandleTypes = patch.externalHandleTypes;
 					// if creation successful, we will request some memory allocation to bind to
 					conversionRequests.assign(entry.first,entry.second.firstCopyIx,i,device->createImage(std::move(params)),asset);
 				}
@@ -5646,6 +5658,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								// same sharing setup as the previous AS buffer
 								creationParams.queueFamilyIndexCount = oldBuffer->getCachedCreationParams().queueFamilyIndexCount;
 								creationParams.queueFamilyIndices = oldBuffer->getCachedCreationParams().queueFamilyIndices;
+								creationParams.externalHandleTypes = oldBuffer->getCachedCreationParams().externalHandleTypes;
 								auto buf = device->createBuffer(std::move(creationParams));
 								if (!buf)
 								{

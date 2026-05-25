@@ -34,6 +34,15 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked
 				static_cast<asset::IImage::SCreationParams&>(*this) = rhs;
 				return *this;
 			}
+
+			inline bool valid() const
+			{
+          if (!validateCreationParameters(*this)) return false;
+
+          // https://vulkan.lunarg.com/doc/view/1.3.231.0/mac/1.3-extensions/vkspec.html#VUID-VkImageCreateInfo-pNext-01443
+          if (externalHandleTypes.value != 0 && preinitialized) return false;
+					return true;
+			}
 		};
 
 		//!

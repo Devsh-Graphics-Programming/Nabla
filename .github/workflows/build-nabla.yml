@@ -9,6 +9,11 @@ permissions:
   contents: read
   actions: read
 
+env:
+  CUDA_VERSION: '13.2.1'
+  CUDA_CACHE_BASE: 'C:\nabla-ci\cuda'
+  CUDA_CONTAINER_ROOT: 'C:\cuda'
+
 concurrency:
   group: push-lock-${{ github.ref }}
   cancel-in-progress: true
@@ -47,9 +52,36 @@ jobs:
           }
           & $rgExe --version
 
+  prepare-host-cuda:
+    name: Prepare host CUDA
+    runs-on: windows-2025
+
+    steps:
+      - name: Checkout CUDA CI helper
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            .github/scripts
+
+      - name: CUDA Toolkit paths
+        id: cuda
+        run: python .github/scripts/ci_cuda_toolkit.py outputs
+
+      - name: Restore CUDA Toolkit
+        id: cache-cuda
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.cuda.outputs.cache_root }}
+          key: ${{ steps.cuda.outputs.cache_key }}
+          restore-keys: ${{ steps.cuda.outputs.cache_restore_key }}
+
+      - name: Verify CUDA Toolkit
+        run: python .github/scripts/ci_cuda_toolkit.py verify
+
   build-windows:
     name: Nabla (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
-    needs: prepare-host-rg
+    needs: [prepare-host-rg, prepare-host-cuda]
     runs-on: ${{ matrix.os }}
 
     env:
@@ -165,6 +197,10 @@ jobs:
         with:
           submodules: 'recursive'
 
+      - name: CUDA Toolkit paths
+        id: cuda
+        run: python .github/scripts/ci_cuda_toolkit.py outputs
+
       - name: Restore ripgrep host tool
         id: cache-rg
         uses: actions/cache@v5
@@ -183,9 +219,29 @@ jobs:
           $rgDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           & $rgExe --version
 
+      - name: Restore CUDA Toolkit
+        id: cache-cuda
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.cuda.outputs.cache_root }}
+          key: ${{ steps.cuda.outputs.cache_key }}
+          restore-keys: ${{ steps.cuda.outputs.cache_restore_key }}
+
+      - name: Verify CUDA Toolkit
+        run: python .github/scripts/ci_cuda_toolkit.py verify
+
       - name: Pull Image
         run: |
-          docker pull "${{ env.image }}:${{ matrix.tag }}"
+          $image = "${{ env.image }}:${{ matrix.tag }}"
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            docker pull $image
+            if ($LASTEXITCODE -eq 0) {
+              exit 0
+            }
+            Write-Warning "docker pull failed for $image on attempt $attempt."
+            Start-Sleep -Seconds (15 * $attempt)
+          }
+          exit $LASTEXITCODE
 
       - name: Run Container
         run: |
@@ -199,8 +255,10 @@ jobs:
             --env-file .\docker\ci-windows.env `
             --env-file .\docker\ninja.env `
             --env "NSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}" `
+            --env "CUDA_PATH=${{ env.CUDA_CONTAINER_ROOT }}" `
             --name orphan --network docker_default `
             -v "${{ github.workspace }}:${{ env.mount }}" `
+            -v "${{ steps.cuda.outputs.cache_root }}:${{ env.CUDA_CONTAINER_ROOT }}" `
             -v "${pipeHost}:\\.\pipe\dockerd" -e "DOCKER_HOST=npipe:////./pipe/dockerd" `
             -w "${{ env.mount }}" `
             "${{ env.image }}:${{ matrix.tag }}" `
@@ -222,6 +280,7 @@ jobs:
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
               -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
+              -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ env.CUDA_CONTAINER_ROOT }} `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
 
@@ -635,7 +694,13 @@ jobs:
         with:
           fetch-depth: 1
           sparse-checkout: |
+            .github/scripts
             smoke
+            src/nbl/ext/CUDAInterop/smoke
+
+      - name: CUDA Toolkit paths
+        id: cuda
+        run: python .github/scripts/ci_cuda_toolkit.py outputs
 
       - name: Download VulkanSDK
         uses: Devsh-Graphics-Programming/install-vulkan-sdk-action@v1.4.0-devsh.1
@@ -645,6 +710,17 @@ jobs:
             stripdown: true
             install_lavapipe: true
             github_token: ${{ github.token }}
+
+      - name: Restore CUDA Toolkit
+        id: cache-cuda
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.cuda.outputs.cache_root }}
+          key: ${{ steps.cuda.outputs.cache_key }}
+          restore-keys: ${{ steps.cuda.outputs.cache_restore_key }}
+
+      - name: Verify CUDA Toolkit
+        run: python .github/scripts/ci_cuda_toolkit.py verify
 
       - name: Download Nabla install artifact
         uses: actions/download-artifact@v8
@@ -668,3 +744,15 @@ jobs:
 
       - name: Smoke Flow BUILD_ONLY
         run: cmake -D FLOW=BUILD_ONLY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake
+
+      - name: Build CUDA interop package smoke
+        shell: pwsh
+        run: |
+          cmake `
+            -S src/nbl/ext/CUDAInterop/smoke `
+            -B smoke/cuda-interop-smoke `
+            -D "CMAKE_PREFIX_PATH=${{ github.workspace }}\smoke\build-ct\install\cmake" `
+            -D "NBL_CUDA_INTEROP_SMOKE_WITH_NATIVE=ON" `
+            -D "Nabla_CUDA_TOOLKIT_ROOT=${{ steps.cuda.outputs.cache_root }}"
+
+          cmake --build smoke/cuda-interop-smoke --config ${{ matrix.config }}

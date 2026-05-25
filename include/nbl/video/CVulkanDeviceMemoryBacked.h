@@ -35,11 +35,11 @@ class CVulkanDeviceMemoryBacked : public Interface
 	protected:
 		// special constructor for when memory requirements are known up-front (so far only swapchains and internal forwarding here)
 		CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, const IDeviceMemoryBacked::SDeviceMemoryRequirements& _memReqs, const VkResource_t vkHandle);
-		CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, const VkResource_t vkHandle) :
-			CVulkanDeviceMemoryBacked(dev,std::move(_creationParams),obtainRequirements(dev,vkHandle),vkHandle) {}
+		CVulkanDeviceMemoryBacked(const CVulkanLogicalDevice* dev, Interface::SCreationParams&& _creationParams, bool dedicatedOnly, const VkResource_t vkHandle) :
+			CVulkanDeviceMemoryBacked(dev,std::move(_creationParams), obtainRequirements(dev, dedicatedOnly, vkHandle),vkHandle) {}
 
 	private:
-		static IDeviceMemoryBacked::SDeviceMemoryRequirements obtainRequirements(const CVulkanLogicalDevice* device, const VkResource_t vkHandle);
+		static IDeviceMemoryBacked::SDeviceMemoryRequirements obtainRequirements(const CVulkanLogicalDevice* device, bool dedicatedOnly, const VkResource_t vkHandle);
 
 		core::smart_refctd_ptr<IDeviceMemoryAllocation> m_memory = nullptr;
 		size_t m_offset = 0u;

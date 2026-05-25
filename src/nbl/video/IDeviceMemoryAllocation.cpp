@@ -14,7 +14,7 @@ IDeviceMemoryAllocation::MemoryRange IDeviceMemoryAllocation::alignNonCoherentRa
 {
     const auto alignment = m_originDevice->getPhysicalDevice()->getLimits().nonCoherentAtomSize;
     range.offset = core::alignDown(range.offset,alignment);
-    range.length = core::min(core::alignUp(range.length,alignment),m_allocationSize);
+    range.length = core::min(core::alignUp(range.length,alignment),m_params.allocationSize);
     return range;
 }
 

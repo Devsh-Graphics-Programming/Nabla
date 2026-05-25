@@ -55,23 +55,95 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
     }
 }
 
-
-core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const uint64_t initialValue)
+core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaphore::SCreationParams&& creationParams)
 {
+
+    // TODO(kevin) : Handle importing external semaphore into Vulkan
+    // VkImportSemaphoreWin32HandleInfoKHR importInfo = { VK_STRUCTURE_TYPE_IMPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR };
+
+    if (creationParams.externalHandleTypes && creationParams.externalHandleTypes != ISemaphore::EHT_OPAQUE_WIN32)
+    {
+        // We haven't tested other externalHandleType, so for now we only support EHT_OPAQUE_WIN32 handle type. WIN32_KMT definitely don't work with our implementation. They don't support DuplicateHandle and CloseHandle.
+        m_logger.log("Only EHT_OPAQUE_WIN32 external handle type currently supported",system::ILogger::ELL_ERROR);
+        return nullptr;
+    }
+
+    VkExportSemaphoreCreateInfo exportInfo = {
+      VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO, 
+      nullptr, 
+      static_cast<VkExternalSemaphoreHandleTypeFlags>(creationParams.externalHandleTypes.value)
+    };
+
     VkSemaphoreTypeCreateInfoKHR type = { VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO_KHR };
-    type.pNext = nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR
+    type.pNext = creationParams.externalHandleTypes ? &exportInfo : nullptr; // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of VkExportSemaphoreCreateInfo, VkExportSemaphoreWin32HandleInfoKHR, or VkSemaphoreTypeCreateInfo
     type.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE_KHR;
-    type.initialValue = initialValue;
+    type.initialValue = creationParams.initialValue;
 
     VkSemaphoreCreateInfo createInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,&type };
     createInfo.flags = static_cast<VkSemaphoreCreateFlags>(0); // flags must be 0
 
     VkSemaphore semaphore;
-    if (m_devf.vk.vkCreateSemaphore(m_vkdev,&createInfo,nullptr,&semaphore)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<CVulkanSemaphore>(core::smart_refctd_ptr<const CVulkanLogicalDevice>(this),semaphore);
-    else
+    if (!m_devf.vk.vkCreateSemaphore(m_vkdev, &createInfo, nullptr, &semaphore) == VK_SUCCESS)
         return nullptr;
+
+    std::unique_ptr<system::external_handle_t[]> externalHandles(nullptr);
+
+    const auto handleTypes = static_cast<VkExternalSemaphoreHandleTypeFlags>(creationParams.externalHandleTypes.value);
+    if (creationParams.externalHandleTypes != ISemaphore::EHT_NONE)
+    {
+      const auto handleCount = hlsl::bitCount(creationParams.externalHandleTypes.value);
+      externalHandles = std::make_unique<system::external_handle_t[]>(handleCount);
+      const auto isValidHandleType = ISemaphore::validateExternalHandleTypes(creationParams.externalHandleTypes);
+
+        if (!isValidHandleType)
+        {
+#ifdef _WIN32
+            m_logger.log("External semaphore handle type 0x%08x is not a valid Win32 handle type", system::ILogger::ELL_ERROR, creationParams.externalHandleTypes);
+#else
+            m_logger.log("External semaphore handle type 0x%08x is not a valid unix fd handle type", system::ILogger::ELL_ERROR, creationParams.externalHandleTypes);
+#endif
+            return nullptr;
+        }
+
+        auto bits = handleTypes;
+        auto handleIndex = 0;
+        while (bits)
+        {
+            const auto lsbIndex = nbl::hlsl::findLSB(bits);
+            const auto handleType = static_cast<VkExternalSemaphoreHandleTypeFlagBits>(1u << lsbIndex);
+
+#ifdef _WIN32
+            const VkSemaphoreGetWin32HandleInfoKHR props = {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR,
+                .semaphore = semaphore,
+                .handleType = handleType,
+            };
+
+            if (VK_SUCCESS != m_devf.vk.vkGetSemaphoreWin32HandleKHR(m_vkdev, &props, &externalHandles[handleIndex]))
+            {
+                m_devf.vk.vkDestroySemaphore(m_vkdev, semaphore, nullptr);
+                return nullptr;
+            }
+#else
+            VkSemaphoreGetFdInfoKHR props = {
+                .sType = VK_STRUCTURE_TYPE_SEMAPHORE_GET_FD_INFO_KHR,
+                .semaphore = semaphore,
+                .handleType = handleType,
+            };
+            if (VK_SUCCESS != m_devf.vk.vkGetSemaphoreFdKHR(m_vkdev, &props, &externalHandles[handleIndex]))
+            {
+                m_devf.vk.vkDestroySemaphore(m_vkdev, semaphore, nullptr);
+                return nullptr;
+            }
+#endif
+            bits &= bits - 1;
+            handleIndex++;
+        }
+    }
+
+    return core::make_smart_refctd_ptr<CVulkanSemaphore>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), std::move(creationParams), semaphore, std::move(externalHandles));
 }
+
 ISemaphore::WAIT_RESULT CVulkanLogicalDevice::waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout)
 {
     using retval_t = ISemaphore::WAIT_RESULT;
@@ -136,26 +208,92 @@ core::smart_refctd_ptr<IDeferredOperation> CVulkanLogicalDevice::createDeferredO
     return core::smart_refctd_ptr<CVulkanDeferredOperation>(reinterpret_cast<CVulkanDeferredOperation*>(memory),core::dont_grab);
 }
 
-
 IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAllocateInfo& info)
 {
-    IDeviceMemoryAllocator::SAllocation ret = {};
     if (info.memoryTypeIndex>=m_physicalDevice->getMemoryProperties().memoryTypeCount)
-        return ret;
+        return {};
 
-    const core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(info.flags);
+    if (info.externalHandleTypes && info.externalHandleTypes != IDeviceMemoryAllocation::EHT_OPAQUE_WIN32)
+    {
+        // We haven't tested other externalHandleType, so for now we only support EHT_OPAQUE_WIN32 handle type. WIN32_KMT definitely don't work with our implementation. They don't support DuplicateHandle and CloseHandle.
+        m_logger.log("Only EHT_OPAQUE_WIN32 external handle type currently supported",system::ILogger::ELL_ERROR);
+        return {};
+    }
+
     VkMemoryAllocateFlagsInfo vk_allocateFlagsInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO, nullptr };
     {
-        if (allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
+        if (info.allocateFlags.hasFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT))
             vk_allocateFlagsInfo.flags |= VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
         vk_allocateFlagsInfo.deviceMask = 0u; // unused: for now
     }
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
+    const auto isValidHandleType = IDeviceMemoryAllocation::validateExternalHandleTypes(info.externalHandleTypes);
+#ifdef _WIN32
+    if (!isValidHandleType)
+    {
+        m_logger.log("External semaphore handle type 0x%08x is not a valid Win32 handle type", system::ILogger::ELL_ERROR, info.externalHandleTypes.value);
+        return {};
+    }
+
+    VkImportMemoryWin32HandleInfoKHR importInfo = { 
+        .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleTypes.value),
+    };
+
+    VkExportMemoryWin32HandleInfoKHR handleInfo = {
+        .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR,
+        .dwAccess = GENERIC_ALL,
+    };
+#else
+    if (!isValidHandleType)
+    {
+        m_logger.log("External semaphore handle type 0x%08x is not a valid Unix handle type", system::ILogger::ELL_ERROR, info.externalHandleType);
+        return {};
+    }
+
+    VkImportMemoryFdInfoKHR importInfo = {
+        .sType = VK_STRUCTURE_TYPE_IMPORT_MEMORY_FD_INFO_KHR,
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(info.externalHandleType),
+        .fd = info.importHandle,
+    };
+#endif
+
+    VkExportMemoryAllocateInfo exportInfo = {
+        .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+#ifdef _WIN32
+        .pNext = &handleInfo,
+#endif
+        .handleTypes = static_cast<VkExternalMemoryHandleTypeFlags>(info.externalHandleTypes.value),
+    };
+    
+    const void** pNext = &vk_allocateFlagsInfo.pNext;
+
+    std::unique_ptr<system::external_handle_t[]> externalHandles(nullptr);
+    if (info.externalHandleTypes)
+    {
+        if (info.importHandle) //importing
+        {
+            externalHandles = std::make_unique<system::external_handle_t[]>(1);
+            externalHandles[0] = system::DuplicateExternalHandle(info.importHandle);
+#ifdef _WIN32
+            importInfo.handle = externalHandles[0];
+#else
+            importInfo.fd = externalHandle;
+#endif
+            *pNext = &importInfo;
+        }
+        else // exporting
+            *pNext = &exportInfo;
+        pNext = (const void**)&((VkBaseInStructure*)*pNext)->pNext;
+    }
+
     if(info.dedication)
     {
         // VK_KHR_dedicated_allocation is in core 1.1, no querying for support needed
         static_assert(MinimumVulkanApiVersion >= VK_MAKE_API_VERSION(0,1,1,0));
-        vk_allocateFlagsInfo.pNext = &vk_dedicatedInfo;
+        *pNext = &vk_dedicatedInfo;
+        pNext = &vk_dedicatedInfo.pNext;
+
         switch (info.dedication->getObjectType())
         {
             case IDeviceMemoryBacked::EOT_BUFFER:
@@ -166,22 +304,80 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
                 break;
             default:
                 assert(false);
-                return ret;
+                return {};
                 break;
         }
     }
     VkMemoryAllocateInfo vk_allocateInfo = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO, &vk_allocateFlagsInfo};
-    vk_allocateInfo.allocationSize = info.size;
+    vk_allocateInfo.allocationSize = info.allocationSize;
     vk_allocateInfo.memoryTypeIndex = info.memoryTypeIndex;
 
     VkDeviceMemory vk_deviceMemory;
     auto vk_res = m_devf.vk.vkAllocateMemory(m_vkdev, &vk_allocateInfo, nullptr, &vk_deviceMemory);
     if (vk_res!=VK_SUCCESS)
-        return ret;
+        return {};
+
+    const bool exported = info.externalHandleTypes && !info.importHandle;
+
+    if (exported)
+    {
+
+        /*
+            For handle types defined as NT handles, 
+            the handles returned by vkGetMemoryWin32HandleKHR are owned by the application 
+            and hold a reference to their payload. To avoid leaking resources, 
+            the application must release ownership of them 
+            using the CloseHandle system call when they are no longer needed.
+        */
+        auto bits = static_cast<VkExternalMemoryHandleTypeFlags>(info.externalHandleTypes.value);
+        const auto handleCount = hlsl::bitCount(bits);
+        externalHandles = std::make_unique<system::external_handle_t[]>(handleCount);
+
+        auto handleIndex = 0;
+        while (bits)
+        {
+            const auto lsbIndex = nbl::hlsl::findLSB(bits);
+            const auto handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(1u << lsbIndex);
+
+#ifdef _WIN32
+            VkMemoryGetWin32HandleInfoKHR 
+#else
+            VkMemoryGetFdInfoKHR
+#endif
+            handleInfo = { .sType = 
+#ifdef _WIN32
+                VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR,
+#else 
+                VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR,
+#endif
+                .memory = vk_deviceMemory,
+                .handleType = handleType,
+            };
+
+            if (VK_SUCCESS != m_devf.vk.
+#ifdef _WIN32
+                vkGetMemoryWin32HandleKHR
+#else
+                vkGetMemoryFdKHR
+#endif
+                (m_vkdev, &handleInfo, &externalHandles[handleIndex]))
+            {
+                m_devf.vk.vkFreeMemory(m_vkdev, vk_deviceMemory, nullptr);
+                return {};
+            }
+
+            bits &= bits - 1;
+            handleIndex++;
+        }
+
+
+    }
 
     // automatically allocation goes out of scope and frees itself if no success later on
     const auto memoryPropertyFlags = m_physicalDevice->getMemoryProperties().memoryTypes[info.memoryTypeIndex].propertyFlags;
-    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this,info.size,allocateFlags,memoryPropertyFlags,info.dedication,vk_deviceMemory);
+    CVulkanMemoryAllocation::SCreationParams params = { info, memoryPropertyFlags, !!info.dedication };
+    IDeviceMemoryAllocator::SAllocation ret = {};
+    ret.memory = core::make_smart_refctd_ptr<CVulkanMemoryAllocation>(this, vk_deviceMemory, std::move(externalHandles), std::move(params));
     ret.offset = 0ull; // LogicalDevice doesn't suballocate, so offset is always 0, if you want to suballocate, write/use an allocator
     if(info.dedication)
     {
@@ -299,11 +495,17 @@ bool CVulkanLogicalDevice::bindImageMemory_impl(const uint32_t count, const SBin
 }
 
 
-core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams)
+core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams, bool dedicatedOnly)
 {
+
+    VkExternalMemoryBufferCreateInfo externalMemoryInfo = {
+       .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_BUFFER_CREATE_INFO,
+       .handleTypes = creationParams.externalHandleTypes.value,
+    };
+
     VkBufferCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     // VkBufferDeviceAddressCreateInfoEXT, VkExternalMemoryBufferCreateInfo, VkVideoProfileKHR, or VkVideoProfilesKHR
-    vk_createInfo.pNext = nullptr;
+    vk_createInfo.pNext = creationParams.externalHandleTypes.value ? &externalMemoryInfo : nullptr;
     vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
     vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
     vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
@@ -319,7 +521,7 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUB
     VkBuffer vk_buffer;
     if (m_devf.vk.vkCreateBuffer(m_vkdev,&vk_createInfo,nullptr,&vk_buffer)!=VK_SUCCESS)
         return nullptr;
-    return core::make_smart_refctd_ptr<CVulkanBuffer>(this,std::move(creationParams),vk_buffer);
+    return core::make_smart_refctd_ptr<CVulkanBuffer>(this, std::move(creationParams), dedicatedOnly, vk_buffer);
 }
 
 core::smart_refctd_ptr<IGPUBufferView> CVulkanLogicalDevice::createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt)
@@ -338,8 +540,14 @@ core::smart_refctd_ptr<IGPUBufferView> CVulkanLogicalDevice::createBufferView_im
     return nullptr;
 }
 
-core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUImage::SCreationParams&& params)
+core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUImage::SCreationParams&& params, bool dedicatedOnly)
 {
+    if (!params.valid())
+    {
+        m_logger.log("Invalid params were given", system::ILogger::ELL_ERROR);
+        return nullptr;
+    }
+
     const bool hasStencil = asset::isDepthOrStencilFormat(params.format) && !asset::isDepthOnlyFormat(params.format);
     VkImageStencilUsageCreateInfo vk_stencilUsage = { VK_STRUCTURE_TYPE_IMAGE_STENCIL_USAGE_CREATE_INFO, nullptr };
     vk_stencilUsage.stencilUsage = getVkImageUsageFlagsFromImageUsageFlags(params.actualStencilUsage().value,true);
@@ -354,7 +562,14 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUIma
         vk_formatList[vk_formatListStruct.viewFormatCount++] = getVkFormatFromFormat(static_cast<asset::E_FORMAT>(fmt));
     vk_formatListStruct.pViewFormats = vk_formatList.data();
 
+    const bool external = params.externalHandleTypes.value;
+    VkExternalMemoryImageCreateInfo  externalMemoryInfo = {
+        .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+        .handleTypes = params.externalHandleTypes.value,
+    };
+
     VkImageCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, &vk_formatListStruct };
+    vk_createInfo.pNext = external ? &externalMemoryInfo : nullptr;
     vk_createInfo.flags = static_cast<VkImageCreateFlags>(params.flags.value);
     vk_createInfo.imageType = static_cast<VkImageType>(params.type);
     vk_createInfo.format = getVkFormatFromFormat(params.format);
@@ -372,12 +587,12 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUIma
     vk_createInfo.sharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
-    vk_createInfo.initialLayout = params.preinitialized ? VK_IMAGE_LAYOUT_PREINITIALIZED:VK_IMAGE_LAYOUT_UNDEFINED;
+    vk_createInfo.initialLayout = params.preinitialized ? VK_IMAGE_LAYOUT_PREINITIALIZED : VK_IMAGE_LAYOUT_UNDEFINED;
 
     VkImage vk_image;
     if (m_devf.vk.vkCreateImage(m_vkdev,&vk_createInfo,nullptr,&vk_image)!=VK_SUCCESS)
         return nullptr;
-    return core::make_smart_refctd_ptr<CVulkanImage>(this,std::move(params),vk_image);
+    return core::make_smart_refctd_ptr<CVulkanImage>(this, std::move(params), dedicatedOnly, vk_image);
 }
 
 core::smart_refctd_ptr<IGPUImageView> CVulkanLogicalDevice::createImageView_impl(IGPUImageView::SCreationParams&& params)
@@ -548,7 +763,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
         vkDescSetLayoutBinding.stageFlags = getVkShaderStageFlagsFromShaderStage(binding.stageFlags);
         vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
 
-        if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers and binding.count)
+        if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER || binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) && binding.immutableSamplers && binding.count)
         {
             // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
             // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.
