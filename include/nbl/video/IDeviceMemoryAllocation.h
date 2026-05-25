@@ -88,13 +88,15 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 
         static inline bool validateExternalHandleTypes(core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes)
         {
-          // https://docs.vulkan.org/spec/latest/chapters/synchronization.html#VUID-VkSemaphoreGetWin32HandleInfoKHR-handleType-01131
-          if (externalHandleTypes.value == IDeviceMemoryAllocation::EHT_NONE) return true;
+            if (externalHandleTypes.value == IDeviceMemoryAllocation::EHT_NONE) return true;
+
             static constexpr auto ValidExternalHandleTypes =
 #ifdef _WIN32
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkMemoryGetWin32HandleInfoKHR.html#VUID-VkMemoryGetWin32HandleInfoKHR-handleType-00664
             core::bitflag<E_EXTERNAL_HANDLE_TYPE>(EHT_OPAQUE_WIN32 | EHT_OPAQUE_WIN32_KMT | EHT_D3D11_TEXTURE | EHT_D3D11_TEXTURE_KMT | EHT_D3D12_HEAP | EHT_D3D12_RESOURCE);
 #else
-            core::bitflag<E_EXTERNAL_HANDLE_TYPE>(EHT_OPAQUE_FD);
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkMemoryGetFdInfoKHR.html#VUID-VkMemoryGetFdInfoKHR-handleType-00672
+            core::bitflag<E_EXTERNAL_HANDLE_TYPE>(EHT_OPAQUE_FD | EHT_DMA_BUF);
 #endif
             return ValidExternalHandleTypes.hasFlags(externalHandleTypes);
         }
