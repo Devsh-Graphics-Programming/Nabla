@@ -37,9 +37,7 @@ class ISemaphore : public IBackendObject
 #else
             core::bitflag<E_EXTERNAL_HANDLE_TYPE>(EHT_OPAQUE_FD | EHT_SYNC_FD);
 #endif
-            return ValidExternalHandleTypes.hasFlags(externalHandleTypes) &&
-              // Ask(kevin): Should we support more than one handle type? If yes, then we have to store all the handle for each handle type. Each handle type need to be closed. Is there a possibility that we want a semaphore to be shared by both Vulkan, CUDA and D3D12? Or we can always use OPAQUE_WIN32 on windows when sharing with multiple api. From doc, it seems that using D3D12_FENCE handle is faster for the driver.
-              hlsl::isPoT(static_cast<std::underlying_type_t<E_EXTERNAL_HANDLE_TYPE>>(externalHandleTypes.value));
+            return ValidExternalHandleTypes.hasFlags(externalHandleTypes);
         }
 
         //!

@@ -96,9 +96,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 #else
             core::bitflag<E_EXTERNAL_HANDLE_TYPE>(EHT_OPAQUE_FD);
 #endif
-            return ValidExternalHandleTypes.hasFlags(externalHandleTypes) &&
-              // Ask(kevin): same question as shared semaphore
-              hlsl::isPoT(static_cast<std::underlying_type_t<E_EXTERNAL_HANDLE_TYPE>>(externalHandleTypes.value));
+            return ValidExternalHandleTypes.hasFlags(externalHandleTypes);
         }
 
         //
