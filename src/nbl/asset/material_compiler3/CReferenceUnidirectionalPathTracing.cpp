@@ -7,9 +7,9 @@
 namespace nbl::asset::material_compiler3
 {
 
-CReferenceUnidirectionalPathTracing::CResult CReferenceUnidirectionalPathTracing::compile(const CTrueIR* ir, const std::span<const CTrueIR::SMaterialHandle> materialHandles)
+    core::smart_refctd_ptr<CReferenceUnidirectionalPathTracing::CResult> CReferenceUnidirectionalPathTracing::compile(const CTrueIR* ir, const std::span<const CTrueIR::SMaterialHandle> materialHandles)
 {
-    CResult res;
+    auto res = core::make_smart_refctd_ptr<CResult>();
 
     // TODO: handle textures somehow
     // TODO: templated structs for types in certain functions, e.g. cache (generate + quotient)
@@ -100,7 +100,7 @@ CReferenceUnidirectionalPathTracing::CResult CReferenceUnidirectionalPathTracing
     // each layer/node writes as string its own code? or just hash
     // 8 functions each node: albedo, normal, aov_throughput, transparency, generate, quotientAndWeight, evalAndWeight, emission
 
-    res.fragmentShaderSource = code.str();
+    res->fragmentShaderSource = code.str();
 
     return res;
 }
@@ -147,8 +147,7 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
             sstr << "spectral_t btdf = albedo<" << childBtdfHash << ">();\n";
         }
 
-        // TODO: mix result
-        sstr << "spectral_t retval = (brdf + btdf) * 0.5;\n";
+        sstr << "spectral_t retval = brdf + btdf;\n";
         sstr << "return retval;\n}\n";
         break;
     }
@@ -174,8 +173,7 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
             // TODO: what to do with child caches?
         }
 
-        // TODO: weight sample
-        sstr << "spectral_t retval = (product + rest) * 0.5;\n";
+        sstr << "spectral_t retval = product + rest;\n";
         sstr << "return retval;\n}\n";
         break;
     }
@@ -197,24 +195,18 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
 
         const auto hashString = getHashAs4UintsString(node, ir);
         sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
-
-        auto roughness = oren_nayar->ndfParams.getRougness();
-        sstr << "using oren_nayar_t = bxdf::reflection::SOrenNayar<iso_config_t>;\n";
-        sstr << "using creation_t = typename oren_nayar_t::creation_type;\n";
-        sstr << "creation_t params;\nparams.A = " << roughness.data()[0].scale << ";\n";
-        sstr << "oren_nayar_t bxdf = diffuse_op_type::create(params);\n";
-
-        sstr << "typename oren_nayar_t::anisocache_type bxdf_cache;\n";
-        sstr << "sample_t _sample = bxdf.generate(inter, xi, bxdf_cache);\n";
-        // TODO: what to do with child caches?
-
-        sstr << "return hlsl::promote<spectral_t>();\n}\n";
-        break;
+        sstr << "return hlsl::promote<spectral_t>(0.0);\n}\n";
         break;
     }
     case CTrueIR::INode::EFinalType::CCookTorrance:
     {
-        // TODO
+        const auto* cook_torrance = dynamic_cast<const CTrueIR::CCookTorrance*>(node);
+        if (!cook_torrance)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
+        sstr << "return hlsl::promote<spectral_t>(0.0);\n}\n";
         break;
     }
     default:

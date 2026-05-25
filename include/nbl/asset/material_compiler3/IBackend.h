@@ -9,15 +9,15 @@
 namespace nbl::asset::material_compiler3
 {
 
-class IBackend
+class IBackend : public core::IReferenceCounted
 {
 public:
-    struct IResult// : public core::IReferenceCounted
+    class IResult : public core::IReferenceCounted
     {
         
     };
 
-    IResult compile(const CTrueIR*, const std::span<const CTrueIR::SMaterialHandle>);
+    core::smart_refctd_ptr<IResult> compile(const CTrueIR*, const std::span<const CTrueIR::SMaterialHandle>);
 };
 
 }

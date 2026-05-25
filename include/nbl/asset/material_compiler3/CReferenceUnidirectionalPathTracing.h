@@ -8,43 +8,18 @@
 
 namespace nbl::asset::material_compiler3
 {
-    
-//template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>
-struct OrientedMaterial
-{
-    uint32_t emitter_id;
-    uint32_t prefetch_offset;
-    uint32_t prefetch_count;
-    uint32_t instr_offset;
-    uint32_t rem_pdf_count;
-    uint32_t nprecomp_count;
-    uint32_t genchoice_count;
 
-    core::blake3_hash_t hash;
-
-    struct stream_t
-    {
-        uint32_t first;
-        uint32_t count;
-    };
-    stream_t get_rem_and_pdf() const { return { instr_offset, rem_pdf_count }; }
-    stream_t get_gen_choice() const { return { instr_offset + rem_pdf_count, genchoice_count }; }
-    stream_t get_norm_precomp() const { return { instr_offset + rem_pdf_count + genchoice_count, nprecomp_count }; }
-    stream_t get_tex_prefetch() const { return { prefetch_offset, prefetch_count }; }
-};
-
-class CReferenceUnidirectionalPathTracing : public IBackend
+class CReferenceUnidirectionalPathTracing final : public IBackend
 {
 public:
-    struct CResult : public IBackend::IResult
+    class CResult final : public IBackend::IResult
     {
-        //has to go after #version and before required user-provided descriptors and functions
+    public:
         std::string fragmentShaderSource_declarations;
-        //has to go after required user-provided descriptors and functions and before the rest of shader (especially entry point function)
         std::string fragmentShaderSource;
     };
 
-    CResult compile(const CTrueIR* ir, const std::span<const CTrueIR::SMaterialHandle> materials);
+    core::smart_refctd_ptr<CResult> compile(const CTrueIR* ir, const std::span<const CTrueIR::SMaterialHandle> materials);
 
 private:
     std::string getHashAs4UintsString(const CTrueIR::INode* node, const CTrueIR* ir, const std::string& separator = ",") const;
