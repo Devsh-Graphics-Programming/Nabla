@@ -27,7 +27,7 @@ class ISemaphore : public IBackendObject
             EHT_SYNC_FD = 0x00000010,
         };
 
-        static inline bool isValidExternalHandleTypes(core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes)
+        static inline bool validateExternalHandleTypes(core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes)
         {
             // https://docs.vulkan.org/spec/latest/chapters/synchronization.html#VUID-VkSemaphoreGetWin32HandleInfoKHR-handleType-01131
             if (externalHandleTypes.value == IDeviceMemoryAllocation::EHT_NONE) return true;

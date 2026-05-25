@@ -86,7 +86,7 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             EHT_SCREEN_BUFFER_QNX = 0x00004000,
         };
 
-        static inline bool isValidExternalHandleTypes(core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes)
+        static inline bool validateExternalHandleTypes(core::bitflag<E_EXTERNAL_HANDLE_TYPE> externalHandleTypes)
         {
           // https://docs.vulkan.org/spec/latest/chapters/synchronization.html#VUID-VkSemaphoreGetWin32HandleInfoKHR-handleType-01131
           if (externalHandleTypes.value == IDeviceMemoryAllocation::EHT_NONE) return true;

@@ -93,7 +93,7 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
     {
       const auto handleCount = hlsl::bitCount(creationParams.externalHandleTypes.value);
       externalHandles = std::make_unique<system::external_handle_t[]>(handleCount);
-      const auto isValidHandleType = ISemaphore::isValidExternalHandleTypes(creationParams.externalHandleTypes);
+      const auto isValidHandleType = ISemaphore::validateExternalHandleTypes(creationParams.externalHandleTypes);
 
         if (!isValidHandleType)
         {
@@ -136,7 +136,6 @@ core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(ISemaph
                 return nullptr;
             }
 #endif
-
             bits &= bits - 1;
             handleIndex++;
         }
@@ -228,7 +227,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
         vk_allocateFlagsInfo.deviceMask = 0u; // unused: for now
     }
     VkMemoryDedicatedAllocateInfo vk_dedicatedInfo = {VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO, nullptr};
-    const auto isValidHandleType = IDeviceMemoryAllocation::isValidExternalHandleTypes(info.externalHandleTypes);
+    const auto isValidHandleType = IDeviceMemoryAllocation::validateExternalHandleTypes(info.externalHandleTypes);
 #ifdef _WIN32
     if (!isValidHandleType)
     {

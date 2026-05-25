@@ -50,7 +50,7 @@ bool CAssetConverter::patch_impl_t<ICPUBuffer>::valid(const ILogicalDevice* devi
 		return false;
 	if (usage.hasFlags(usage_flags_t::EUF_SHADER_BINDING_TABLE_BIT) && !features.rayTracingPipeline)
 		return false;
-	if (!IDeviceMemoryAllocation::isValidExternalHandleTypes(externalHandleTypes))
+	if (!IDeviceMemoryAllocation::validateExternalHandleTypes(externalHandleTypes))
 		return false;
 	// good default
 	usage |= usage_flags_t::EUF_INLINE_UPDATE_VIA_CMDBUF;
