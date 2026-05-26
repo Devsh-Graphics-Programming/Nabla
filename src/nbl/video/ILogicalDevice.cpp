@@ -630,6 +630,109 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
     return true;
 }
 
+bool ILogicalDevice::validateImageCreationAgainstDevice(const IGPUImage::SCreationParams& creationParams)
+{
+    const auto imageUsages = creationParams.usage | creationParams.stencilUsage;
+    if (imageUsages.hasFlags(IGPUImage::EUF_HOST_TRANSFER_BIT))
+    {
+        const auto* physDev = getPhysicalDevice();
+        if (!physDev->getLimits().hostImageCopy)
+        {
+            NBL_LOG_ERROR("Failed to create Image, `EUF_HOST_TRANSFER_BIT` requires `hostImageCopy` support!");
+            return false;
+        }
+        if (!physDev->getImageFormatUsages(creationParams.tiling)[creationParams.format].hostImageTransfer)
+        {
+            NBL_LOG_ERROR("Failed to create Image, `EUF_HOST_TRANSFER_BIT` requires `hostImageTransfer` format support!");
+            return false;
+        }
+    }
+    return true;
+}
+
+bool ILogicalDevice::copyMemoryToImage(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions)
+{
+    if (!getPhysicalDevice()->getLimits().hostImageCopy)
+    {
+        NBL_LOG_ERROR("`hostImageCopy` feature is not enabled");
+        return false;
+    }
+    if (!dstImage || !dstImage->wasCreatedBy(this))
+    {
+        NBL_LOG_ERROR("`dstImage` was not created by this device");
+        return false;
+    }
+    const auto& params = dstImage->getCreationParameters();
+    const auto imageUsages = params.usage | params.stencilUsage;
+    if (!imageUsages.hasFlags(IGPUImage::EUF_HOST_TRANSFER_BIT))
+    {
+        NBL_LOG_ERROR("`dstImage` was not created with `EUF_HOST_TRANSFER_BIT` usage");
+        return false;
+    }
+    if (regions.empty())
+    {
+        NBL_LOG_ERROR("`regions` must not be empty");
+        return false;
+    }
+
+    const bool memcpy = flags.hasFlags(IGPUImage::EHICF_MEMCPY_BIT);
+    for (size_t i=0u; i<regions.size(); ++i)
+    {
+        const auto& r = regions[i];
+        if (!r.isValid())
+        {
+            NBL_LOG_ERROR("Invalid region (regions[%zu])", i);
+            return false;
+        }
+        if (r.imageSubresource.mipLevel >= params.mipLevels)
+        {
+            NBL_LOG_ERROR("`imageSubresource.mipLevel` out of bounds (regions[%zu])", i);
+            return false;
+        }
+        if (r.imageSubresource.baseArrayLayer + r.imageSubresource.layerCount > params.arrayLayers)
+        {
+            NBL_LOG_ERROR("`imageSubresource.baseArrayLayer + layerCount` out of bounds (regions[%zu])", i);
+            return false;
+        }
+        const auto mipSize = dstImage->getMipSize(r.imageSubresource.mipLevel);
+        if (r.imageOffset.x + r.imageExtent.width > mipSize.x ||
+            r.imageOffset.y + r.imageExtent.height > mipSize.y ||
+            r.imageOffset.z + r.imageExtent.depth > mipSize.z)
+        {
+            NBL_LOG_ERROR("`imageOffset + imageExtent` exceeds mip extent (regions[%zu])", i);
+            return false;
+        }
+        // MEMCPY_BIT VUIDs: offset must be zero, extent must cover the full selected subresource,
+        // and memoryRowLength/memoryImageHeight must both be zero.
+        if (memcpy)
+        {
+            if (r.imageOffset.x!=0u || r.imageOffset.y!=0u || r.imageOffset.z!=0u)
+            {
+                NBL_LOG_ERROR("`EHICF_MEMCPY_BIT` requires `imageOffset` to be zero (regions[%zu])", i);
+                return false;
+            }
+            if (r.imageExtent.width!=mipSize.x || r.imageExtent.height!=mipSize.y || r.imageExtent.depth!=mipSize.z)
+            {
+                NBL_LOG_ERROR("`EHICF_MEMCPY_BIT` requires `imageExtent` to match the full mip extent (regions[%zu])", i);
+                return false;
+            }
+            if (r.memoryRowLength != 0u)
+            {
+                NBL_LOG_ERROR("`EHICF_MEMCPY_BIT` requires `memoryRowLength` to be zero (regions[%zu])", i);
+                return false;
+            }
+
+            if (r.memoryImageHeight != 0u)
+            {
+                NBL_LOG_ERROR("`EHICF_MEMCPY_BIT` requires `memoryImageHeight` to be zero (regions[%zu])", i);
+                return false;
+            }
+        }
+    }
+
+    return copyMemoryToImage_impl(dstImage, dstImageLayout, flags, regions);
+}
+
 core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IGPURenderpass::SCreationParams& params)
 {
     IGPURenderpass::SCreationParamValidationResult validation = IGPURenderpass::validateCreationParams(params);

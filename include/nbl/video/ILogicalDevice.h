@@ -361,7 +361,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 m_logger.log("Failed to create Image, queue family count %d for concurrent sharing larger than our max %d!",system::ILogger::ELL_ERROR,creationParams.queueFamilyIndexCount,MaxQueueFamilies);
                 return nullptr;
             }
-            // TODO: validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage docs
+            if (!validateImageCreationAgainstDevice(creationParams))
+                return nullptr;
             return createImage_impl(std::move(creationParams));
         }
         // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
@@ -822,6 +823,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
 
+        // https://docs.vulkan.org/refpages/latest/refpages/source/vkCopyMemoryToImage.html
+        bool copyMemoryToImage(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions);
 
         //! Shaders
         struct SShaderCreationParameters
@@ -1134,6 +1137,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams) = 0;
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) = 0;
+        bool validateImageCreationAgainstDevice(const IGPUImage::SCreationParams& creationParams);
         virtual core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
@@ -1178,6 +1182,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, const asset::SBufferBinding<asset::ICPUBuffer>& dst) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const asset::SBufferBinding<const asset::ICPUBuffer>& src, IGPUAccelerationStructure* dst) = 0;
+
+        virtual bool copyMemoryToImage_impl(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions) = 0;
 
         constexpr static inline auto MaxStagesPerPipeline = 6u;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) = 0;

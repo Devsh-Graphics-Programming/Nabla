@@ -443,7 +443,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     storageImageLoadWithoutFormat(0),
                     storageImageStoreWithoutFormat(0),
                     depthCompareSampledImage(0),
-                    hostImageTransfer(0),
+                    hostImageTransfer(usages.hasFlags(IGPUImage::EUF_HOST_TRANSFER_BIT)),
                     log2MaxSamples(0)
                 {}
 
@@ -455,6 +455,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                         retval |= usage_flags_t::EUF_SAMPLED_BIT;
                     if (storageImage)
                         retval |= usage_flags_t::EUF_STORAGE_BIT;
+                    if (hostImageTransfer)
+                        retval |= usage_flags_t::EUF_HOST_TRANSFER_BIT;
                     if (attachment || blitDst) // does also src imply?
                         retval |= usage_flags_t::EUF_RENDER_ATTACHMENT_BIT;
                     if (blitSrc || transferSrc)

@@ -527,7 +527,31 @@ auto CVulkanLogicalDevice::copyAccelerationStructureFromMemory_impl(IDeferredOpe
     return getDeferrableResultFrom(m_devf.vk.vkCopyMemoryToAccelerationStructureKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info));
 }
 
+bool CVulkanLogicalDevice::copyMemoryToImage_impl(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions)
+{
+    core::vector<VkMemoryToImageCopy> vk_regions(regions.size(),{VK_STRUCTURE_TYPE_MEMORY_TO_IMAGE_COPY,nullptr});
+    for (size_t i=0u; i<regions.size(); ++i)
+    {
+        vk_regions[i].pHostPointer = regions[i].hostPointer;
+        vk_regions[i].memoryRowLength = regions[i].memoryRowLength;
+        vk_regions[i].memoryImageHeight = regions[i].memoryImageHeight;
+        vk_regions[i].imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(regions[i].imageSubresource.aspectMask.value);
+        vk_regions[i].imageSubresource.mipLevel = regions[i].imageSubresource.mipLevel;
+        vk_regions[i].imageSubresource.baseArrayLayer = regions[i].imageSubresource.baseArrayLayer;
+        vk_regions[i].imageSubresource.layerCount = regions[i].imageSubresource.layerCount;
+        vk_regions[i].imageOffset = { static_cast<int32_t>(regions[i].imageOffset.x), static_cast<int32_t>(regions[i].imageOffset.y), static_cast<int32_t>(regions[i].imageOffset.z) };
+        vk_regions[i].imageExtent = { regions[i].imageExtent.width, regions[i].imageExtent.height, regions[i].imageExtent.depth };
+    }
 
+    VkCopyMemoryToImageInfoEXT info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO,nullptr };
+    info.flags = static_cast<VkHostImageCopyFlagsEXT>(flags.value);
+    info.dstImage = static_cast<CVulkanImage*>(dstImage)->getInternalObject();
+    info.dstImageLayout = getVkImageLayoutFromImageLayout(dstImageLayout);
+    info.regionCount = static_cast<uint32_t>(vk_regions.size());
+    info.pRegions = vk_regions.data();
+
+    return m_devf.vk.vkCopyMemoryToImageEXT(m_vkdev,&info) == VK_SUCCESS;
+}
 
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount)
 {
