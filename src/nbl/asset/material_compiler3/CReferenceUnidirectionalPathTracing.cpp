@@ -16,28 +16,13 @@ namespace nbl::asset::material_compiler3
     // TODO: where do all the type aliases come from? e.g. sample_t, vector3_t, etc.
     std::ostringstream code;
 
-    // define templates of node functions + util structs
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nstruct gen_cache;\n"; // cache struct
+    code << R"===(
+template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>
+struct gen_cache;
 
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nspectral_t albedo();\n"; // TODO: might add interaction arg
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nvector3_t normal(NBL_CONST_REF_ARG(aniso_interaction_t) inter);\n";
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nvector3_t aov_throughput();\n";  // TODO: confirm return value is vec3, what args needed? uv?
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nvector3_t transparency();\n";  // TODO: return value is vec3? what args needed?
-    
-    // TODO: check how many rand numbers, might need to declare template functions by node type as well (because rand numbers vary by generate, etc.)
-    // if the above is the case, will have to check whether the node-specific template function declaration is included yet, then add before function definition
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\n"
-        << "sample_t generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, "
-        << "NBL_REF_ARG(gen_cache<hash0, hash1, hash2, hash3, hash4, hash5, hash6, hash7>) cache);\n";
-
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\n"
-        << "quotient_weight_t quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, "
-        << "NBL_REF_ARG(gen_cache<hash0, hash1, hash2, hash3, hash4, hash5, hash6, hash7>) cache);\n";
-
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\n"
-        << "eval_weight_t evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter);\n";
-
-    code << "template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>\nspectral_t emission();\n";  // TODO: what args needed?
+template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>
+struct OrientedMaterial;
+)===";
 
     // loop through layers in IR and construct materials map? maybe just node map is fine
     core::vector<CTrueIR::typed_pointer_type<const CTrueIR::INode>> nodeStack;
@@ -57,14 +42,7 @@ namespace nbl::asset::material_compiler3
             if (!node)
                 continue;
 
-            getAlbedoHLSLCode(code, node, ir);
-            getNormalHLSLCode(code, node, ir);
-            getAOVThroughputHLSLCode(code, node, ir);
-            getTransparencyHLSLCode(code, node, ir);
-            getGenerateHLSLCode(code, node, ir);
-            getEvalWeightHLSLCode(code, node, ir);
-            getQuotientWeightHLSLCode(code, node, ir);
-            getEmissionHLSLCode(code, node, ir);
+            getMaterialDeclarationCode(code, node, ir);
 
             // TODO: might need to do children first or forward declare function signatures
             const auto childCount = node->getChildCount();
@@ -81,6 +59,19 @@ namespace nbl::asset::material_compiler3
                     }
                 }
             }
+        }
+
+        for (const auto& nodeHandle : visitedNodes)
+        {
+            const auto* node = pool.deref(nodeHandle);
+            getAlbedoHLSLCode(code, node, ir);
+            getNormalHLSLCode(code, node, ir);
+            getAOVThroughputHLSLCode(code, node, ir);
+            getTransparencyHLSLCode(code, node, ir);
+            getGenerateHLSLCode(code, node, ir);
+            getEvalWeightHLSLCode(code, node, ir);
+            getQuotientWeightHLSLCode(code, node, ir);
+            getEmissionHLSLCode(code, node, ir);
         }
         };
 
@@ -100,7 +91,8 @@ namespace nbl::asset::material_compiler3
     // each layer/node writes as string its own code? or just hash
     // 8 functions each node: albedo, normal, aov_throughput, transparency, generate, quotientAndWeight, evalAndWeight, emission
 
-    res->fragmentShaderSource = code.str();
+    res->fragmentShaderSource_common = code.str();
+    // TODO: set entry points in raytracingPipeline
 
     return res;
 }
@@ -123,6 +115,30 @@ std::string CReferenceUnidirectionalPathTracing::getHashAs4UintsString(const CTr
     return hashString.str();
 }
 
+void CReferenceUnidirectionalPathTracing::getMaterialDeclarationCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+{
+    // define templates of node material structs
+    const auto hashString = getHashAs4UintsString(node, ir);
+    
+    // TODO: specialize gen_cache struct
+
+    sstr << R"===(
+template<>
+struct OrientedMaterial<)===" << hashString << R"===(>
+{
+    static spectral_t albedo();
+    static vector3_t normal(NBL_CONST_REF_ARG(aniso_interaction_t) inter);
+    static spectral_t aov_throughput();
+    static scalar_t transparency();
+    static sample_t generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache);
+    static quotient_weight_t quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache);
+    static eval_weight_t evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache);
+    static spectral_t emission();
+}
+)===";
+
+}
+
 void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
 {
     switch (node->getFinalType())
@@ -134,7 +150,10 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
             break;
 
         const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
+{
+)===";
 
         if (auto childBrdf = ir->getObjectPool().deref(layer->brdfTop); childBrdf)
         {
@@ -158,7 +177,10 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
             break;
 
         const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
+{
+)===";
 
         if (auto childProduct = ir->getObjectPool().deref(sum->product); childProduct)
         {
@@ -182,7 +204,10 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
             break;
 
         const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
+{
+)===";
 
         const auto childCount = combiner->getChildCount();
 
@@ -209,7 +234,10 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
             break;
 
         const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
+{
+)===";
 
         if (auto childContrib = ir->getObjectPool().deref(contrib->contributor); childContrib)
         {
@@ -233,7 +261,10 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
             break;
 
         const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
+{
+)===";
 
         if (auto child = ir->getObjectPool().deref(transmission->btdf); child)
         {
@@ -268,7 +299,10 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
 
         auto bins = spectral->getSpectralBins();
         const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
+{
+)===";
         if (bins > 1)
         {
             sstr << "return spectral_t(";
@@ -291,16 +325,16 @@ void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& 
     case CTrueIR::INode::EFinalType::CFresnel:
         [[fallthrough]]
     case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
-    {
-        const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\n";   // TODO: what args needed? uv?
-        sstr << "return hlsl::promote<spectral_t>(0.0);\n}\n";
-        break;
-    }
+        [[fallthrough]]
     default:
     {
         const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nspectral_t albedo<" << hashString << ">()\n{\nreturn hlsl::promote<spectral_t>(0);\n}\n";   // TODO: what args needed? uv?
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
+{
+    return hlsl::promote<spectral_t>(0.0);
+}
+)===";
     }
     }
 }
@@ -337,8 +371,7 @@ void CReferenceUnidirectionalPathTracing::getNormalHLSLCode(std::ostringstream& 
     {
         const auto hashString = getHashAs4UintsString(node, ir);
         sstr << R"===(
-template<>
-vector3_t normal<)===" << hashString << R"===(>(NBL_CONST_REF_ARG(aniso_interaction_t) inter)
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::normal(NBL_CONST_REF_ARG(aniso_interaction_t) inter)
 {
     return inter.getN();
 }

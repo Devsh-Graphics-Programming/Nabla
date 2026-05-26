@@ -15,14 +15,16 @@ public:
     class CResult final : public IBackend::IResult
     {
     public:
-        std::string fragmentShaderSource_declarations;
-        std::string fragmentShaderSource;
+        std::string fragmentShaderSource_common;
+        std::string fragmentShaderSource_raytracingPipeline;    // only maps entry point to templated funcs
     };
 
     core::smart_refctd_ptr<CResult> compile(const CTrueIR* ir, const std::span<const CTrueIR::SMaterialHandle> materials);
 
 private:
     std::string getHashAs4UintsString(const CTrueIR::INode* node, const CTrueIR* ir, const std::string& separator = ",") const;
+
+    void getMaterialDeclarationCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
 
     void getAlbedoHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
 
