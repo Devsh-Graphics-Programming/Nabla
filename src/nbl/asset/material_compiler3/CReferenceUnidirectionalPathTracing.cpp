@@ -44,7 +44,6 @@ struct OrientedMaterial;
 
             getMaterialDeclarationCode(code, node, ir);
 
-            // TODO: might need to do children first or forward declare function signatures
             const auto childCount = node->getChildCount();
             if (childCount)
             {
@@ -158,12 +157,12 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
         if (auto childBrdf = ir->getObjectPool().deref(layer->brdfTop); childBrdf)
         {
             const auto childBrdfHash = getHashAs4UintsString(childBrdf, ir);
-            sstr << "spectral_t brdf = albedo<" << childBrdfHash << ">();\n";
+            sstr << "spectral_t brdf = OrientedMaterial<" << childBrdfHash << ">::albedo();\n";
         }
         if (auto childBtdf = ir->getObjectPool().deref(layer->firstTransmission); childBtdf)
         {
             const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
-            sstr << "spectral_t btdf = albedo<" << childBtdfHash << ">();\n";
+            sstr << "spectral_t btdf = OrientedMaterial<" << childBtdfHash << ">::albedo();\n";
         }
 
         sstr << "spectral_t retval = brdf + btdf;\n";
@@ -185,12 +184,12 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
         if (auto childProduct = ir->getObjectPool().deref(sum->product); childProduct)
         {
             const auto childProductHash = getHashAs4UintsString(childProduct, ir);
-            sstr << "spectral_t product = albedo<" << childProductHash << ">();\n";
+            sstr << "spectral_t product = OrientedMaterial<" << childProductHash << ">::albedo();\n";
         }
         if (auto childRest = ir->getObjectPool().deref(sum->rest); childRest)
         {
             const auto childRestHash = getHashAs4UintsString(childRest, ir);
-            sstr << "spectral_t rest = albedo<" << childRestHash << ">();\n";
+            sstr << "spectral_t rest = OrientedMaterial<" << childRestHash << ">::albedo();\n";
         }
 
         sstr << "spectral_t retval = product + rest;\n";
@@ -216,7 +215,7 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
             if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
             {
                 const auto childHash = getHashAs4UintsString(child, ir);
-                sstr << "spectral_t child" << static_cast<uint32_t>(i) << " = albedo<" << childHash << ">();\n";
+                sstr << "spectral_t child" << static_cast<uint32_t>(i) << " = OrientedMaterial<" << childHash << ">::albedo();\n";
             }
         }
 
@@ -242,12 +241,12 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
         if (auto childContrib = ir->getObjectPool().deref(contrib->contributor); childContrib)
         {
             const auto childContribHash = getHashAs4UintsString(childContrib, ir);
-            sstr << "spectral_t contributor = albedo<" << childContribHash << ">();\n";
+            sstr << "spectral_t contributor = OrientedMaterial<" << childContribHash << ">::albedo();\n";
         }
         if (auto childFactor = ir->getObjectPool().deref(contrib->factor); childFactor)
         {
             const auto childFactorHash = getHashAs4UintsString(childFactor, ir);
-            sstr << "spectral_t factor = albedo<" << childFactorHash << ">();\n";
+            sstr << "spectral_t factor = OrientedMaterial<" << childFactorHash << ">::albedo();\n";
         }
 
         sstr << "spectral_t retval = contributor + factor;\n";
@@ -269,22 +268,22 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
         if (auto child = ir->getObjectPool().deref(transmission->btdf); child)
         {
             const auto childHash = getHashAs4UintsString(child, ir);
-            sstr << "spectral_t btdf = albedo<" << childHash << ">();\n";
+            sstr << "spectral_t btdf = OrientedMaterial<" << childHash << ">::albedo();\n";
         }
         if (auto child = ir->getObjectPool().deref(transmission->brdfBottom); child)
         {
             const auto childHash = getHashAs4UintsString(child, ir);
-            sstr << "spectral_t brdf = albedo<" << childHash << ">();\n";
+            sstr << "spectral_t brdf = OrientedMaterial<" << childHash << ">::albedo();\n";
         }
         if (auto child = ir->getObjectPool().deref(transmission->coated); child)
         {
             const auto childHash = getHashAs4UintsString(child, ir);
-            sstr << "spectral_t coated = albedo<" << childHash << ">();\n";
+            sstr << "spectral_t coated = OrientedMaterial<" << childHash << ">::albedo();\n";
         }
         if (auto child = ir->getObjectPool().deref(transmission->next); child)
         {
             const auto childHash = getHashAs4UintsString(child, ir);
-            sstr << "spectral_t next = albedo<" << childHash << ">();\n";
+            sstr << "spectral_t next = OrientedMaterial<" << childHash << ">::albedo();\n";
         }
 
         sstr << "spectral_t retval = btdf + brdf + coated + next;\n";
@@ -391,22 +390,27 @@ void CReferenceUnidirectionalPathTracing::getGenerateHLSLCode(std::ostringstream
             break;
 
         const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nsample_t generate<" << hashString;
-        sstr << ">(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<"	// TODO: class type specific cache
-            << hashString << ">) cache)\n{\n";
+        sstr << R"===(
+static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+)===";
 
         if (auto childBrdf = ir->getObjectPool().deref(layer->brdfTop); childBrdf)
         {
             const auto childBrdfHash = getHashAs4UintsString(childBrdf, ir);
-            sstr << "gen_cache<" << childBrdfHash << "> brdf_cache;\n";
-            sstr << "sample_t brdf = generate<" << childBrdfHash << ">(inter, xi, brdf_cache);\n";
+            sstr << R"===(
+gen_cache<)===" << childBrdfHash << R"===(> brdf_cache;
+sample_t brdf = OrientedMaterial<)===" << childBrdfHash << R"===(>::generate(inter, xi, xi_extra, brdf_cache);
+)===";
             // TODO: what to do with child caches?
         }
         if (auto childBtdf = ir->getObjectPool().deref(layer->firstTransmission); childBtdf)
         {
             const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
-            sstr << "gen_cache<" << childBtdfHash << "> btdf_cache;\n";
-            sstr << "sample_t btdf = generate<" << childBtdfHash << ">(inter, xi_extra, btdf_cache);\n";
+            sstr << R"===(
+gen_cache<)===" << childBtdfHash << R"===(> btdf_cache;
+sample_t btdf = OrientedMaterial<)===" << childBtdfHash << R"===(>::generate(inter, xi, xi_extra, btdf_cache);
+)===";
             // TODO: what to do with child caches?
         }
 
@@ -422,9 +426,10 @@ void CReferenceUnidirectionalPathTracing::getGenerateHLSLCode(std::ostringstream
             break;
 
         const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nsample_t generate<" << hashString;
-        sstr << ">(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(gen_cache<"
-            << hashString << ">) cache)\n{\n";
+        sstr << R"===(
+static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+)===";
 
         sstr << "uint16_t chosenLobe = 0;\npdf_t choiceRcpPdf = 1.f;\n";
 
@@ -432,14 +437,14 @@ void CReferenceUnidirectionalPathTracing::getGenerateHLSLCode(std::ostringstream
         {
             const auto childProductHash = getHashAs4UintsString(childProduct, ir);
             sstr << "gen_cache<" << childProductHash << "> product_cache;\n";
-            sstr << "sample_t product = generate<" << childProductHash << ">(inter, xi, product_cache);\n";
+            sstr << "sample_t product = OrientedMaterial<" << childProductHash << ">::generate(inter, xi, xi_extra, product_cache);\n";
             // TODO: what to do with child caches?
         }
         if (auto childRest = ir->getObjectPool().deref(sum->rest); childRest)
         {
             const auto childRestHash = getHashAs4UintsString(childRest, ir);
             sstr << "gen_cache<" << childRestHash << "> rest_cache;\n";
-            sstr << "sample_t rest = generate<" << childRestHash << ">(inter, xi, rest_cache);\n";
+            sstr << "sample_t rest = OrientedMaterial<" << childRestHash << ">::generate(inter, xi_extra, xi, rest_cache);\n";
             // TODO: what to do with child caches?
         }
 
@@ -465,9 +470,10 @@ void CReferenceUnidirectionalPathTracing::getGenerateHLSLCode(std::ostringstream
             break;
 
         const auto hashString = getHashAs4UintsString(node, ir);
-        sstr << "template<>\nsample_t generate<" << hashString;
-        sstr << ">(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(gen_cache<"
-            << hashString << ">) cache)\n{\n";
+        sstr << R"===(
+static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+)===";
 
         auto roughness = oren_nayar->ndfParams.getRougness();
         sstr << "using oren_nayar_t = bxdf::reflection::SOrenNayar<iso_config_t>;\n";
@@ -480,7 +486,6 @@ void CReferenceUnidirectionalPathTracing::getGenerateHLSLCode(std::ostringstream
         // TODO: what to do with child caches?
 
         sstr << "return _sample;\n}\n";
-        break;
         break;
     }
     case CTrueIR::INode::EFinalType::CCookTorrance:
