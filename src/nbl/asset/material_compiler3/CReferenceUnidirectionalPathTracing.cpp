@@ -165,8 +165,10 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
             sstr << "spectral_t btdf = OrientedMaterial<" << childBtdfHash << ">::albedo();\n";
         }
 
-        sstr << "spectral_t retval = brdf + btdf;\n";
-        sstr << "return retval;\n}\n";
+        sstr << R"===(
+    return brdf + btdf;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CContributorSum:
@@ -192,8 +194,10 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
             sstr << "spectral_t rest = OrientedMaterial<" << childRestHash << ">::albedo();\n";
         }
 
-        sstr << "spectral_t retval = product + rest;\n";
-        sstr << "return retval;\n}\n";
+        sstr << R"===(
+    return product + rest;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CFactorCombiner:
@@ -222,8 +226,10 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
         sstr << "spectral_t retval = ";
         for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
             sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? " + " : "");
-        sstr << ";\n";
-        sstr << "return retval;\n}\n";
+        sstr << R"===(;
+    return retval;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CWeightedContributor:
@@ -249,8 +255,10 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
             sstr << "spectral_t factor = OrientedMaterial<" << childFactorHash << ">::albedo();\n";
         }
 
-        sstr << "spectral_t retval = contributor * factor;\n";
-        sstr << "return retval;\n}\n";
+        sstr << R"===(
+    return contributor * factor;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CCorellatedTransmission:
@@ -286,8 +294,10 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
             sstr << "spectral_t next = OrientedMaterial<" << childHash << ">::albedo();\n";
         }
 
-        sstr << "spectral_t retval = btdf + brdf + coated + next;\n";
-        sstr << "return retval;\n}\n";
+        sstr << R"===(
+    return btdf + brdf + coated + next;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CSpectralVariable:
@@ -831,8 +841,8 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
         {
             const auto childBrdfHash = getHashAs4UintsString(childBrdf, ir);
             sstr << R"===(
-gen_cache<)===" << childBrdfHash << R"===(> brdf_cache;
-sample_t brdf = OrientedMaterial<)===" << childBrdfHash << R"===(>::generate(inter, xi, xi_extra, brdf_cache);
+    gen_cache<)===" << childBrdfHash << R"===(> brdf_cache;
+    sample_t brdf = OrientedMaterial<)===" << childBrdfHash << R"===(>::generate(inter, xi, xi_extra, brdf_cache);
 )===";
             // TODO: what to do with child caches?
         }
@@ -840,15 +850,18 @@ sample_t brdf = OrientedMaterial<)===" << childBrdfHash << R"===(>::generate(int
         {
             const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
             sstr << R"===(
-gen_cache<)===" << childBtdfHash << R"===(> btdf_cache;
-sample_t btdf = OrientedMaterial<)===" << childBtdfHash << R"===(>::generate(inter, xi, xi_extra, btdf_cache);
+    gen_cache<)===" << childBtdfHash << R"===(> btdf_cache;
+    sample_t btdf = OrientedMaterial<)===" << childBtdfHash << R"===(>::generate(inter, xi, xi_extra, btdf_cache);
 )===";
             // TODO: what to do with child caches?
         }
 
         // TODO: do resampled importance sampling HLSL code
 
-        sstr << "return retval;\n}\n";
+        sstr << R"===(
+    return retval;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CContributorSum:
@@ -861,28 +874,35 @@ sample_t btdf = OrientedMaterial<)===" << childBtdfHash << R"===(>::generate(int
         sstr << R"===(
 static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
 {
+    uint16_t chosenLobe = 0;
+    pdf_t choiceRcpPdf = 1.f;
 )===";
-
-        sstr << "uint16_t chosenLobe = 0;\npdf_t choiceRcpPdf = 1.f;\n";
 
         if (auto childProduct = ir->getObjectPool().deref(sum->product); childProduct)
         {
             const auto childProductHash = getHashAs4UintsString(childProduct, ir);
-            sstr << "gen_cache<" << childProductHash << "> product_cache;\n";
-            sstr << "sample_t product = OrientedMaterial<" << childProductHash << ">::generate(inter, xi, xi_extra, product_cache);\n";
+            sstr << R"===(
+    gen_cache<)===" << childProductHash << R"===(> product_cache;
+    sample_t product = OrientedMaterial<)===" << childProductHash << R"===(>::generate(inter, xi, xi_extra, product_cache);
+)===";
             // TODO: what to do with child caches?
         }
         if (auto childRest = ir->getObjectPool().deref(sum->rest); childRest)
         {
             const auto childRestHash = getHashAs4UintsString(childRest, ir);
-            sstr << "gen_cache<" << childRestHash << "> rest_cache;\n";
-            sstr << "sample_t rest = OrientedMaterial<" << childRestHash << ">::generate(inter, xi_extra, xi, rest_cache);\n";
+            sstr << R"===(
+    gen_cache<)===" << childRestHash << R"===(> rest_cache;
+    sample_t rest = OrientedMaterial<)===" << childRestHash << R"===(>::generate(inter, xi_extra, xi, rest_cache);
+)===";
             // TODO: what to do with child caches?
         }
 
         // TODO: weight sample
 
-        sstr << "return retval;\n}\n";
+        sstr << R"===(
+    return retval;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CWeightedContributor:
@@ -902,22 +922,21 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
             break;
 
         const auto hashString = getHashAs4UintsString(node, ir);
+        auto roughness = oren_nayar->ndfParams.getRougness();
         sstr << R"===(
 static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
 {
+    using oren_nayar_t = bxdf::reflection::SOrenNayar<iso_config_t>;
+    using creation_t = typename oren_nayar_t::creation_type;
+    creation_t params;
+    params.A = )===" << roughness.data()[0].scale << R"===(;
+    oren_nayar_t bxdf = diffuse_op_type::create(params);
+    typename oren_nayar_t::anisocache_type bxdf_cache;
+    sample_t _sample = bxdf.generate(inter, xi, bxdf_cache);
+    return _sample;
+}
 )===";
-
-        auto roughness = oren_nayar->ndfParams.getRougness();
-        sstr << "using oren_nayar_t = bxdf::reflection::SOrenNayar<iso_config_t>;\n";
-        sstr << "using creation_t = typename oren_nayar_t::creation_type;\n";
-        sstr << "creation_t params;\nparams.A = " << roughness.data()[0].scale << ";\n";
-        sstr << "oren_nayar_t bxdf = diffuse_op_type::create(params);\n";
-
-        sstr << "typename oren_nayar_t::anisocache_type bxdf_cache;\n";
-        sstr << "sample_t _sample = bxdf.generate(inter, xi, bxdf_cache);\n";
         // TODO: what to do with child caches?
-
-        sstr << "return _sample;\n}\n";
         break;
     }
     case CTrueIR::INode::EFinalType::CCookTorrance:
