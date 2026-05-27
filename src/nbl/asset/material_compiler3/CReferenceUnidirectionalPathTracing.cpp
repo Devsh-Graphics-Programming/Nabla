@@ -127,7 +127,7 @@ struct OrientedMaterial<)===" << hashString << R"===(>
 {
     static spectral_t albedo();
     static vector3_t normal(NBL_CONST_REF_ARG(aniso_interaction_t) inter);
-    static spectral_t aov_throughput();
+    static spectral_t aovThroughput();
     static scalar_t transparency();
     static sample_t generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache);
     static quotient_weight_t quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache);
@@ -379,6 +379,222 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::normal(NBL_CO
     }
 }
 
+void CReferenceUnidirectionalPathTracing::getAOVThroughputHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+{
+    switch (node->getFinalType())
+    {
+    case CTrueIR::INode::EFinalType::COrientedLayer:
+    {
+        const auto* layer = dynamic_cast<const CTrueIR::COrientedLayer*>(node);
+        if (!layer)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput()
+{
+)===";
+
+        if (auto childBrdf = ir->getObjectPool().deref(layer->brdfTop); childBrdf)
+        {
+            const auto childBrdfHash = getHashAs4UintsString(childBrdf, ir);
+            sstr << "spectral_t brdf = OrientedMaterial<" << childBrdfHash << ">::aovThroughput();\n";
+        }
+        if (auto childBtdf = ir->getObjectPool().deref(layer->firstTransmission); childBtdf)
+        {
+            const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
+            sstr << "spectral_t btdf = OrientedMaterial<" << childBtdfHash << ">::aovThroughput();\n";
+        }
+
+        sstr << R"===(
+    return brdf + btdf;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CContributorSum:
+    {
+        const auto* sum = dynamic_cast<const CTrueIR::CContributorSum*>(node);
+        if (!sum)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput()
+{
+)===";
+
+        if (auto childProduct = ir->getObjectPool().deref(sum->product); childProduct)
+        {
+            const auto childProductHash = getHashAs4UintsString(childProduct, ir);
+            sstr << "spectral_t product = OrientedMaterial<" << childProductHash << ">::aovThroughput();\n";
+        }
+        if (auto childRest = ir->getObjectPool().deref(sum->rest); childRest)
+        {
+            const auto childRestHash = getHashAs4UintsString(childRest, ir);
+            sstr << "spectral_t rest = OrientedMaterial<" << childRestHash << ">::aovThroughput();\n";
+        }
+
+        sstr << R"===(
+    return product + rest;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CFactorCombiner:
+    {
+        const auto* combiner = dynamic_cast<const CTrueIR::CFactorCombiner*>(node);
+        if (!combiner)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput()
+{
+)===";
+
+        const auto childCount = combiner->getChildCount();
+
+        for (uint8_t i = 0; i < childCount; i++)
+        {
+            if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
+            {
+                const auto childHash = getHashAs4UintsString(child, ir);
+                sstr << "spectral_t child" << static_cast<uint32_t>(i) << " = OrientedMaterial<" << childHash << ">::aovThroughput();\n";
+            }
+        }
+
+        sstr << "spectral_t retval = ";
+        for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
+            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? " + " : "");
+        sstr << R"===(;
+    return retval;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CWeightedContributor:
+    {
+        const auto* contrib = dynamic_cast<const CTrueIR::CWeightedContributor*>(node);
+        if (!contrib)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput()
+{
+)===";
+
+        if (auto childContrib = ir->getObjectPool().deref(contrib->contributor); childContrib)
+        {
+            const auto childContribHash = getHashAs4UintsString(childContrib, ir);
+            sstr << "spectral_t contributor = OrientedMaterial<" << childContribHash << ">::aovThroughput();\n";
+        }
+        if (auto childFactor = ir->getObjectPool().deref(contrib->factor); childFactor)
+        {
+            const auto childFactorHash = getHashAs4UintsString(childFactor, ir);
+            sstr << "spectral_t factor = OrientedMaterial<" << childFactorHash << ">::aovThroughput();\n";
+        }
+
+        sstr << R"===(
+    return contributor * factor;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CCorellatedTransmission:
+    {
+        const auto* transmission = dynamic_cast<const CTrueIR::CCorellatedTransmission*>(node);
+        if (!transmission)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput()
+{
+)===";
+
+        if (auto child = ir->getObjectPool().deref(transmission->btdf); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "spectral_t btdf = OrientedMaterial<" << childHash << ">::aovThroughput();\n";
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->brdfBottom); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "spectral_t brdf = OrientedMaterial<" << childHash << ">::aovThroughput();\n";
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->coated); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "spectral_t coated = OrientedMaterial<" << childHash << ">::aovThroughput();\n";
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->next); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "spectral_t next = OrientedMaterial<" << childHash << ">::aovThroughput();\n";
+        }
+
+        sstr << R"===(
+    return btdf + brdf + coated + next;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CCookTorrance: // only cook torrance btdf
+    {
+        const auto* btdf = dynamic_cast<const CTrueIR::CCookTorrance*>(node);
+        if (!btdf)
+            break;
+
+        const auto transparency = hlsl::pow(btdf->ndfParams.getRougness()[0].scale, 0.001f);
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput()
+{
+    return )===" << transparency << R"===(;
+}
+)===";
+    }
+    case CTrueIR::INode::EFinalType::CDeltaTransmission:
+    {
+        const auto* transmission = dynamic_cast<const CTrueIR::CDeltaTransmission*>(node);
+        if (!transmission)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput()
+{
+    return hlsl::promote<spectral_t>(1.0);
+}
+)===";
+    }
+    case CTrueIR::INode::EFinalType::CSpectralVariable:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CEmitter:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::COrenNayar:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CBeer:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CFresnel:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
+        [[fallthrough]]
+    default:
+    {
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static scalar_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput()
+{
+    return hlsl::promote<spectral_t>(0.0);
+}
+)===";
+    }
+    }
+}
+
 void CReferenceUnidirectionalPathTracing::getTransparencyHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
 {
     switch (node->getFinalType())
@@ -406,8 +622,10 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
             sstr << "scalar_t btdf = OrientedMaterial<" << childBtdfHash << ">::transparency();\n";
         }
 
-        sstr << "scalar_t retval = brdf + btdf;\n";
-        sstr << "return retval;\n}\n";
+        sstr << R"===(
+    return brdf + btdf;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CContributorSum:
@@ -433,8 +651,10 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
             sstr << "scalar_t rest = OrientedMaterial<" << childRestHash << ">::transparency();\n";
         }
 
-        sstr << "scalar_t retval = product + rest;\n";
-        sstr << "return retval;\n}\n";
+        sstr << R"===(
+    return product + rest;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CFactorCombiner:
@@ -463,8 +683,10 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
         sstr << "scalar_t retval = ";
         for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
             sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? " + " : "");
-        sstr << ";\n";
-        sstr << "return retval;\n}\n";
+        sstr << R"===(;
+    return retval;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CWeightedContributor:
@@ -490,8 +712,10 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
             sstr << "scalar_t factor = OrientedMaterial<" << childFactorHash << ">::transparency();\n";
         }
 
-        sstr << "scalar_t retval = contributor * factor;\n";
-        sstr << "return retval;\n}\n";
+        sstr << R"===(
+    return contributor * factor;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CCorellatedTransmission:
@@ -519,16 +743,18 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
         if (auto child = ir->getObjectPool().deref(transmission->coated); child)
         {
             const auto childHash = getHashAs4UintsString(child, ir);
-            sstr << "scalar_t coated = OrientedMaterial<" << childHash << ">::albedo();\n";
+            sstr << "scalar_t coated = OrientedMaterial<" << childHash << ">::transparency();\n";
         }
         if (auto child = ir->getObjectPool().deref(transmission->next); child)
         {
             const auto childHash = getHashAs4UintsString(child, ir);
-            sstr << "scalar_t next = OrientedMaterial<" << childHash << ">::albedo();\n";
+            sstr << "scalar_t next = OrientedMaterial<" << childHash << ">::transparency();\n";
         }
 
-        sstr << "scalar_t retval = btdf + brdf + coated + next;\n";
-        sstr << "return retval;\n}\n";
+        sstr << R"===(
+    return btdf + brdf + coated + next;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CCookTorrance: // only cook torrance btdf
@@ -556,7 +782,7 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
         sstr << R"===(
 static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
 {
-    return hlsl::promote<spectral_t>(1.0);
+    return 1.0;
 }
 )===";
     }
@@ -578,7 +804,7 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
         sstr << R"===(
 static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
 {
-    return hlsl::promote<spectral_t>(0.0);
+    return 0.0;
 }
 )===";
     }
