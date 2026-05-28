@@ -925,6 +925,9 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
         if (!oren_nayar)
             break;
 
+        // TODO: config type alias from where (also allow aniso
+        // TODO: also might be btdf
+
         const auto hashString = getHashAs4UintsString(node, ir);
         auto roughness = oren_nayar->ndfParams.getRougness();
         sstr << R"===(
@@ -934,7 +937,7 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
     using creation_t = typename oren_nayar_t::creation_type;
     creation_t params;
     params.A = )===" << roughness.data()[0].scale << R"===(;
-    oren_nayar_t bxdf = diffuse_op_type::create(params);
+    oren_nayar_t bxdf = oren_nayar_t::create(params);
     typename oren_nayar_t::anisocache_type bxdf_cache;
     sample_t _sample = bxdf.generate(inter, xi, bxdf_cache);
     return _sample;
@@ -945,7 +948,61 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
     }
     case CTrueIR::INode::EFinalType::CCookTorrance:
     {
-        // TODO
+        const auto* cook_torrance = dynamic_cast<const CTrueIR::CCookTorrance*>(node);
+        if (!cook_torrance)
+            break;
+
+        // TODO: config type alias from where
+        // TODO: handle anisotropic types
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        const auto roughness = cook_torrance->ndfParams.getRougness();
+        
+        std::string bxdf_type;
+        std::string fresnel_create;
+        if (cook_torrance->orientedRealEta)
+        {
+            // btdf
+            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
+                bxdf_type = "bxdf::transmission::SGGXDielectricIsotropic<iso_microfacet_config_t>";
+            else
+                bxdf_type = "bxdf::transmission::SBeckmannDielectricIsotropic<iso_microfacet_config_t>";
+
+            const auto eta = ir->getObjectPool().deref(cook_torrance->orientedRealEta)->getParameter(0).scale;
+            fresnel_create = R"===(
+    bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type>::create(1.0, hlsl::promote<typename cook_torrance_t::monochrome_type>()===" + std::to_string(eta) + R"===());
+    bxdf.fresnel = cook_torrance_t::fresnel_type::create(orientedEta);
+)===";
+        }
+        else
+        {
+            // brdf
+            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
+                bxdf_type = "bxdf::reflection::SGGXIsotropic<iso_microfacet_config_t>";
+            else
+                bxdf_type = "bxdf::reflection::SBeckmannIsotropic<iso_microfacet_config_t>";
+            
+            const auto etaNode = ir->getObjectPool().deref(cook_torrance->orientedRealEta);
+            const auto eta = etaNode->getParameter(0).scale;
+            const auto etak = etaNode->getParameter(1).scale;   // TODO: double check how eta is stored
+            fresnel_create = R"===(
+    bxdf.fresnel = cook_torrance_t::fresnel_type::create()===" + std::to_string(eta) + ", " +  std::to_string(etak) + R"===();
+)===";
+        }
+
+        sstr << R"===(
+static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+    using cook_torrance_t = )===" << bxdf_type << R"===(;
+    cook_torrance_t bxdf;
+    bxdf.ndf = cook_torrance_t::ndf_type::create()===" << roughness.data()[0].scale << R"===();
+)===" << fresnel_create << R"===(
+    typename cook_torrance_t::anisocache_type bxdf_cache;
+    sample_t _sample = bxdf.generate(inter, xi, bxdf_cache);
+    return _sample;
+}
+)===";
+        // TODO: what to do with child caches?
         break;
     }
     default:
