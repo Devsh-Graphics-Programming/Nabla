@@ -839,33 +839,35 @@ void CReferenceUnidirectionalPathTracing::getGenerateHLSLCode(std::ostringstream
         sstr << R"===(
 static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
 {
+    uint16_t chosenLobe = 0;
+    pdf_t choiceRcpPdf = 1.f;
+
+    spectral_t lumaContrib = inter.getLuminosityContributionHint();
 )===";
 
-        if (auto childBrdf = ir->getObjectPool().deref(layer->brdfTop); childBrdf)
-        {
-            const auto childBrdfHash = getHashAs4UintsString(childBrdf, ir);
-            sstr << R"===(
-    gen_cache<)===" << childBrdfHash << R"===(> brdf_cache;
-    sample_t brdf = OrientedMaterial<)===" << childBrdfHash << R"===(>::generate(inter, xi, xi_extra, brdf_cache);
-)===";
-            // TODO: what to do with child caches?
-        }
-        if (auto childBtdf = ir->getObjectPool().deref(layer->firstTransmission); childBtdf)
-        {
-            const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
-            sstr << R"===(
-    gen_cache<)===" << childBtdfHash << R"===(> btdf_cache;
-    sample_t btdf = OrientedMaterial<)===" << childBtdfHash << R"===(>::generate(inter, xi, xi_extra, btdf_cache);
-)===";
-            // TODO: what to do with child caches?
-        }
+        const auto childBrdf = ir->getObjectPool().deref(layer->brdfTop);
+        const auto childBtdf = ir->getObjectPool().deref(layer->firstTransmission);
+        // TODO: what if either node (or both) not available?
 
-        // TODO: do resampled importance sampling HLSL code
+        const auto childBrdfHash = getHashAs4UintsString(childBrdf, ir);
+        const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
 
         sstr << R"===(
-    return retval;
-}
+    scalar_t prob = 1.0 / (1.0 + hlsl::dot(lumaContrib, OrientedMaterial<)===" << childBtdfHash << R"===(>::albedo()) / hlsl::dot(lumaContrib, OrientedMaterial<)===" << childBrdfHash << R"===(>::albedo()));
+    if (u.x < prob)
+    {
+        chosenLobe = 0;
+        gen_cache<)===" << childBrdfHash << R"===(> brdf_cache;
+        return OrientedMaterial<)===" << childBrdfHash << R"===(>::generate(inter, xi, xi_extra, brdf_cache);
+    }
+    else
+    {
+        chosenLobe = 1;
+        gen_cache<)===" << childBtdfHash << R"===(> btdf_cache;
+        return OrientedMaterial<)===" << childBtdfHash << R"===(>::generate(inter, xi, xi_extra, btdf_cache);
+    }
 )===";
+        // TODO: chosenLobe goes into cache to use in quotient
         break;
     }
     case CTrueIR::INode::EFinalType::CContributorSum:
@@ -880,43 +882,115 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
 {
     uint16_t chosenLobe = 0;
     pdf_t choiceRcpPdf = 1.f;
+
+    spectral_t lumaContrib = inter.getLuminosityContributionHint();
 )===";
 
-        if (auto childProduct = ir->getObjectPool().deref(sum->product); childProduct)
-        {
-            const auto childProductHash = getHashAs4UintsString(childProduct, ir);
-            sstr << R"===(
-    gen_cache<)===" << childProductHash << R"===(> product_cache;
-    sample_t product = OrientedMaterial<)===" << childProductHash << R"===(>::generate(inter, xi, xi_extra, product_cache);
-)===";
-            // TODO: what to do with child caches?
-        }
-        if (auto childRest = ir->getObjectPool().deref(sum->rest); childRest)
-        {
-            const auto childRestHash = getHashAs4UintsString(childRest, ir);
-            sstr << R"===(
-    gen_cache<)===" << childRestHash << R"===(> rest_cache;
-    sample_t rest = OrientedMaterial<)===" << childRestHash << R"===(>::generate(inter, xi_extra, xi, rest_cache);
-)===";
-            // TODO: what to do with child caches?
-        }
+        const auto childProduct = ir->getObjectPool().deref(sum->product);
+        const auto childRest = ir->getObjectPool().deref(sum->rest);
+        // TODO: what if either node (or both) not available?
 
-        // TODO: weight sample
+        const auto childProductHash = getHashAs4UintsString(childProduct, ir);
+        const auto childRestHash = getHashAs4UintsString(childRest, ir);
 
         sstr << R"===(
-    return retval;
-}
+    scalar_t prob = 1.0 / (1.0 + hlsl::dot(lumaContrib, OrientedMaterial<)===" << childRestHash << R"===(>::albedo()) / hlsl::dot(lumaContrib, OrientedMaterial<)===" << childProductHash << R"===(>::albedo()));
+    if (u.x < prob)
+    {
+        chosenLobe = 0;
+        gen_cache<)===" << childProductHash << R"===(> brdf_cache;
+        return OrientedMaterial<)===" << childProductHash << R"===(>::generate(inter, xi, xi_extra, brdf_cache);
+    }
+    else
+    {
+        chosenLobe = 1;
+        gen_cache<)===" << childRestHash << R"===(> btdf_cache;
+        return OrientedMaterial<)===" << childRestHash << R"===(>::generate(inter, xi, xi_extra, btdf_cache);
+    }
 )===";
+        // TODO: chosenLobe goes into cache to use in quotient
         break;
     }
     case CTrueIR::INode::EFinalType::CWeightedContributor:
     {
-        // TODO
+        const auto* contrib = dynamic_cast<const CTrueIR::CWeightedContributor*>(node);
+        if (!contrib)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+)===";
+
+        if (auto child = ir->getObjectPool().deref(contrib->contributor); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << R"===(
+    gen_cache<)===" << childHash << R"===(> contrib_cache;
+    sample_t contrib = OrientedMaterial<)===" << childHash << R"===(>::generate(inter, xi, xi_extra, contrib_cache);
+)===";
+            // TODO: what to do with child caches?
+        }
+
+        sstr << R"===(
+    return contrib;
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CCorellatedTransmission:
     {
-        // TODO
+        const auto* transmission = dynamic_cast<const CTrueIR::CCorellatedTransmission*>(node);
+        if (!transmission)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+    uint16_t chosenLobe = 0;
+    pdf_t choiceRcpPdf = 1.f;
+
+    spectral_t lumaContrib = inter.getLuminosityContributionHint();
+)===";
+
+        const auto childBtdf= ir->getObjectPool().deref(transmission->btdf);
+        const auto childBottom = ir->getObjectPool().deref(transmission->brdfBottom);
+        const auto childCoated= ir->getObjectPool().deref(transmission->coated);
+        // TODO: what if some nodes not available?
+
+        const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
+        const auto childBottomHash = getHashAs4UintsString(childBottom, ir);
+        const auto childCoatedHash = getHashAs4UintsString(childCoated, ir);
+
+        sstr << R"===(
+    scalar_t weightBtdf = hlsl::dot(lumaContrib, OrientedMaterial<)===" << childBtdfHash << R"===(>::albedo());
+    scalar_t weightBottom = hlsl::dot(lumaContrib, OrientedMaterial<)===" << childBottomHash << R"===(>::albedo());
+    scalar_t weightCoated = hlsl::dot(lumaContrib, OrientedMaterial<)===" << childCoatedHash << R"===(>::albedo());
+    scalar_t probA = 1.0 / (1.0 + weightBottom / weightBtdf);
+    scalar_t probB = 1.0 / (1.0 + (weightCoated + weightBtdf) / weightBottom);
+    if (u.x < probA)
+    {
+        chosenLobe = 0;
+        gen_cache<)===" << childBtdfHash << R"===(> brdf_cache;
+        return OrientedMaterial<)===" << childBtdfHash << R"===(>::generate(inter, xi, xi_extra, brdf_cache);
+    }
+    else if (u.y < probB)
+    {
+        chosenLobe = 1;
+        gen_cache<)===" << childBottomHash << R"===(> btdf_cache;
+        return OrientedMaterial<)===" << childBottomHash << R"===(>::generate(inter, xi, xi_extra, btdf_cache);
+    }
+    else
+    {
+        chosenLobe = 2;
+        gen_cache<)===" << childCoatedHash << R"===(> coated_cache;
+        return OrientedMaterial<)===" << childCoatedHash << R"===(>::generate(inter, xi, xi_extra, coated_cache);
+    }
+)===";
+        // TODO: chosenLobe goes into cache to use in quotient
+        // TODO: next node?
         break;
     }
     case CTrueIR::INode::EFinalType::COrenNayar:
@@ -925,7 +999,7 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
         if (!oren_nayar)
             break;
 
-        // TODO: config type alias from where (also allow aniso
+        // TODO: config type alias from where (also allow aniso)
         // TODO: also might be btdf
 
         const auto hashString = getHashAs4UintsString(node, ir);
@@ -1003,6 +1077,28 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
 }
 )===";
         // TODO: what to do with child caches?
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CDeltaTransmission:
+    {
+        const auto* transmission = dynamic_cast<const CTrueIR::CDeltaTransmission*>(node);
+        if (!transmission)
+            break;
+
+        // TODO: config type alias from where (also allow aniso)
+        // TODO: also might be btdf
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+    using transmission_t = bxdf::transmission::SDeltaDistribution<iso_config_t>;
+    transmission_t bxdf;
+    typename oren_nayar_t::anisocache_type bxdf_cache;
+    sample_t _sample = bxdf.generate(inter, xi, bxdf_cache);
+    return _sample;
+}
+)===";
         break;
     }
     default:
