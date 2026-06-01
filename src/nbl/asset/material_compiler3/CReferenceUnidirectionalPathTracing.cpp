@@ -131,7 +131,7 @@ struct OrientedMaterial<)===" << hashString << R"===(>
     static scalar_t transparency();
     static sample_t generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache);
     static quotient_weight_t quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache);
-    static eval_weight_t evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache);
+    static value_weight_t evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache);
     static spectral_t emission();
 }
 )===";
@@ -868,6 +868,7 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
     }
 )===";
         // TODO: chosenLobe goes into cache to use in quotient
+        // TODO: probability of lobe also goes into cache
         break;
     }
     case CTrueIR::INode::EFinalType::CContributorSum:
@@ -898,14 +899,14 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
     if (u.x < prob)
     {
         chosenLobe = 0;
-        gen_cache<)===" << childProductHash << R"===(> brdf_cache;
+        gen_cache<)===" << childProductHash << R"===(> product_cache;
         return OrientedMaterial<)===" << childProductHash << R"===(>::generate(inter, xi, xi_extra, brdf_cache);
     }
     else
     {
         chosenLobe = 1;
-        gen_cache<)===" << childRestHash << R"===(> btdf_cache;
-        return OrientedMaterial<)===" << childRestHash << R"===(>::generate(inter, xi, xi_extra, btdf_cache);
+        gen_cache<)===" << childRestHash << R"===(> rest_cache;
+        return OrientedMaterial<)===" << childRestHash << R"===(>::generate(inter, xi, xi_extra, rest_cache);
     }
 )===";
         // TODO: chosenLobe goes into cache to use in quotient
@@ -973,14 +974,14 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
     if (u.x < probA)
     {
         chosenLobe = 0;
-        gen_cache<)===" << childBtdfHash << R"===(> brdf_cache;
-        return OrientedMaterial<)===" << childBtdfHash << R"===(>::generate(inter, xi, xi_extra, brdf_cache);
+        gen_cache<)===" << childBtdfHash << R"===(> btdf_cache;
+        return OrientedMaterial<)===" << childBtdfHash << R"===(>::generate(inter, xi, xi_extra, btdf_cache);
     }
     else if (u.y < probB)
     {
         chosenLobe = 1;
-        gen_cache<)===" << childBottomHash << R"===(> btdf_cache;
-        return OrientedMaterial<)===" << childBottomHash << R"===(>::generate(inter, xi, xi_extra, btdf_cache);
+        gen_cache<)===" << childBottomHash << R"===(> bottom_cache;
+        return OrientedMaterial<)===" << childBottomHash << R"===(>::generate(inter, xi, xi_extra, bottom_cache);
     }
     else
     {
@@ -1086,7 +1087,6 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
             break;
 
         // TODO: config type alias from where (also allow aniso)
-        // TODO: also might be btdf
 
         const auto hashString = getHashAs4UintsString(node, ir);
         sstr << R"===(
@@ -1094,9 +1094,378 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
 {
     using transmission_t = bxdf::transmission::SDeltaDistribution<iso_config_t>;
     transmission_t bxdf;
-    typename oren_nayar_t::anisocache_type bxdf_cache;
+    typename transmission_t::anisocache_type bxdf_cache;
     sample_t _sample = bxdf.generate(inter, xi, bxdf_cache);
     return _sample;
+}
+)===";
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+void CReferenceUnidirectionalPathTracing::getQuotientWeightHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+{
+    const std::string combineRestWithRetValCode = R"===(
+        retval.weight += rest.weight();
+
+        constexpr bool UseMoreDiv = false;
+        if constexpr (UseMoreDiv)
+        {
+            retval.quotient /= scalar_t(1.0) + rest.weight() / chosenPdf;
+            retval.quotient += rest.value() / retval.weight();
+        }
+        else // this branch uses one less div
+        {
+            const scalar_t rcpChosenPdf = scalar_t(1.0) / chosenPdf;
+            retval.quotient += rest.value() * rcpChosenPdf;
+            retval.quotient /= scalar_t(1.0) + rest.weight() * rcpChosenPdf;
+        }
+
+        // correct for the fact that the `choiceProb` are not normalized
+        retval.quotient *= choiceSum;
+        retval.pdf /= choiceSum;
+    }
+
+    return retval;
+)===";
+
+    switch (node->getFinalType())
+    {
+    case CTrueIR::INode::EFinalType::COrientedLayer:
+    {
+        // TODO
+        const auto* layer = dynamic_cast<const CTrueIR::COrientedLayer*>(node);
+        if (!layer)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{uint16_t chosenLobe = 0;
+    pdf_t choiceProb = 1.0;
+    pdf_t choiceSum = 1.0;
+    
+)===";
+        // TODO get chosen lobe from cache
+        // TODO also get choice prob from cache
+
+        const auto childBrdf = ir->getObjectPool().deref(layer->brdfTop);
+        const auto childBtdf = ir->getObjectPool().deref(layer->firstTransmission);
+        // TODO: what if either node (or both) not available?
+
+        const auto childBrdfHash = getHashAs4UintsString(childBrdf, ir);
+        const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
+        
+        // TODO how to get child cache from generate?
+
+        sstr << R"===(
+    quotient_weight_t retval;
+    if (chosenLobe == 0)
+    {
+        gen_cache<)===" << childBrdfHash << R"===(> brdf_cache;
+        retval = OrientedMaterial<)===" << childBrdfHash << R"===(>::quotientAndWeight(_sample, inter, brdf_cache);
+    }
+    else
+    {
+        gen_cache<)===" << childBtdfHash << R"===(> btdf_cache;
+        retval = OrientedMaterial<)===" << childBtdfHash << R"===(>::quotientAndWeight(_sample, inter, btdf_cache);
+    }
+
+    if (retval.weight() < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+    {
+        const scalar_t chosenPdf = retval.weight() * choiceProb;
+        value_weight_t rest;
+
+        if (chosenLobe == 0)
+        {
+            gen_cache<)===" << childBtdfHash << R"===(> btdf_cache;
+            rest = OrientedMaterial<)===" << childBtdfHash << R"===(>::evalAndWeight(_sample, inter, btdf_cache);
+        }
+        else
+        {
+            gen_cache<)===" << childBrdfHash << R"===(> brdf_cache;
+            rest = OrientedMaterial<)===" << childBrdfHash << R"===(>::evalAndWeight(_sample, inter, brdf_cache);
+        }
+)===" << combineRestWithRetValCode;
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CContributorSum:
+    {
+        // TODO
+        const auto* sum = dynamic_cast<const CTrueIR::CContributorSum*>(node);
+        if (!sum)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+    uint16_t chosenLobe = 0;
+    pdf_t choiceProb = 1.0;
+    pdf_t choiceSum = 1.0;
+)===";
+
+        const auto childProduct = ir->getObjectPool().deref(sum->product);
+        const auto childRest = ir->getObjectPool().deref(sum->rest);
+        // TODO: what if either node (or both) not available?
+
+        const auto childProductHash = getHashAs4UintsString(childProduct, ir);
+        const auto childRestHash = getHashAs4UintsString(childRest, ir);
+
+        sstr << R"===(
+    quotient_weight_t retval;
+    if (chosenLobe == 0)
+    {
+        gen_cache<)===" << childProductHash << R"===(> product_cache;
+        retval = OrientedMaterial<)===" << childProductHash << R"===(>::quotientAndWeight(_sample, inter, product_cache);
+    }
+    else
+    {
+        gen_cache<)===" << childRestHash << R"===(> rest_cache;
+        retval = OrientedMaterial<)===" << childRestHash << R"===(>::quotientAndWeight(_sample, inter, rest_cache);
+    }
+
+    if (retval.weight() < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+    {
+        const scalar_t chosenPdf = retval.weight() * choiceProb;
+        value_weight_t rest;
+
+        if (chosenLobe == 0)
+        {
+            gen_cache<)===" << childRestHash << R"===(> rest_cache;
+            rest = OrientedMaterial<)===" << childRestHash << R"===(>::evalAndWeight(_sample, inter, rest_cache);
+        }
+        else
+        {
+            gen_cache<)===" << childProductHash << R"===(> product_cache;
+            rest = OrientedMaterial<)===" << childProductHash << R"===(>::evalAndWeight(_sample, inter, product_cache);
+        }
+)===" << combineRestWithRetValCode;
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CWeightedContributor:
+    {
+        // TODO
+        const auto* contrib = dynamic_cast<const CTrueIR::CWeightedContributor*>(node);
+        if (!contrib)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+)===";
+
+        if (auto child = ir->getObjectPool().deref(contrib->contributor); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << R"===(
+    gen_cache<)===" << childHash << R"===(> contrib_cache;
+    quotient_weight_t contrib = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, contrib_cache);
+)===";
+            // TODO: what to do with child caches?
+        }
+
+        if (auto child = ir->getObjectPool().deref(contrib->factor); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << R"===(
+    gen_cache<)===" << childHash << R"===(> factor_cache;
+    quotient_weight_t factor = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, factor_cache);
+)===";
+            // TODO: what to do with child caches?
+        }
+
+        sstr << R"===(
+    contrib.quotient *= factor.quotient();
+    contrib.weight *= factor.weight();
+    return contrib;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CCorellatedTransmission:
+    {
+        // TODO
+        const auto* transmission = dynamic_cast<const CTrueIR::CCorellatedTransmission*>(node);
+        if (!transmission)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+    uint16_t chosenLobe = 0;
+    pdf_t choiceProb = 1.0;
+    pdf_t choiceSum = 1.0;
+)===";
+
+        const auto childBtdf = ir->getObjectPool().deref(transmission->btdf);
+        const auto childBottom = ir->getObjectPool().deref(transmission->brdfBottom);
+        const auto childCoated = ir->getObjectPool().deref(transmission->coated);
+        // TODO: what if some nodes not available?
+
+        const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
+        const auto childBottomHash = getHashAs4UintsString(childBottom, ir);
+        const auto childCoatedHash = getHashAs4UintsString(childCoated, ir);
+        
+        sstr << R"===(R"===(
+    quotient_weight_t retval;
+    if (chosenLobe == 0)
+    {
+        gen_cache<)===" << childBtdfHash << R"===(> brdf_cache;
+        retval = OrientedMaterial<)===" << childBtdfHash << R"===(>::quotientAndWeight(_sample, inter, brdf_cache);
+    }
+    else if (chosenLobe == 1)
+    {
+        gen_cache<)===" << childBottomHash << R"===(> btdf_cache;
+        retval = OrientedMaterial<)===" << childBottomHash << R"===(>::quotientAndWeight(_sample, inter, btdf_cache);
+    }
+    else
+    {
+        gen_cache<)===" << childCoatedHash << R"===(> btdf_cache;
+        retval = OrientedMaterial<)===" << childCoatedHash << R"===(>::quotientAndWeight(_sample, inter, btdf_cache);
+    }
+
+    if (retval.weight() < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+    {
+        const scalar_t chosenPdf = retval.weight() * choiceProb;
+        value_weight_t rest = value_weight_t::create(0.0,0.0);
+
+        if (chosenLobe != 0)
+        {
+            gen_cache<)===" << childBtdfHash << R"===(> btdf_cache;
+            value_weight_t child = OrientedMaterial<)===" << childBtdfHash << R"===(>::evalAndWeight(_sample, inter, btdf_cache);
+            rest.value += child.value();
+            // TODO check lobe can generate then add weight
+            rest.weight += child.weight();
+        }
+        if (chosenLobe != 1)
+        {
+            gen_cache<)===" << childBottomHash << R"===(> bottom_cache;
+            value_weight_t child = OrientedMaterial<)===" << childBottomHash << R"===(>::evalAndWeight(_sample, inter, bottom_cache);
+            rest.value += child.value();
+            // TODO check lobe can generate then add weight
+            rest.weight += child.weight();
+        }
+        if (chosenLobe != 2)
+        {
+            gen_cache<)===" << childCoatedHash << R"===(> coated_cache;
+            value_weight_t child = OrientedMaterial<)===" << childCoatedHash << R"===(>::evalAndWeight(_sample, inter, coated_cache);
+            rest.value += child.value();
+            // TODO check lobe can generate then add weight
+            rest.weight += child.weight();
+        }
+)===" << combineRestWithRetValCode;
+        // TODO: next node?
+        break;
+    }
+    case CTrueIR::INode::EFinalType::COrenNayar:
+    {
+        const auto* oren_nayar = dynamic_cast<const CTrueIR::COrenNayar*>(node);
+        if (!oren_nayar)
+            break;
+
+        // TODO: config type alias from where (also allow aniso)
+        // TODO: also might be btdf
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        auto roughness = oren_nayar->ndfParams.getRougness();
+        sstr << R"===(
+static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+    using oren_nayar_t = bxdf::reflection::SOrenNayar<iso_config_t>;
+    using creation_t = typename oren_nayar_t::creation_type;
+    creation_t params;
+    params.A = )===" << roughness.data()[0].scale << R"===(;
+    oren_nayar_t bxdf = oren_nayar_t::create(params);
+    typename oren_nayar_t::anisocache_type bxdf_cache;
+    quotient_weight_t quo = bxdf.quotientAndWeight(_sample, inter, bxdf_cache);
+    return quo;
+}
+)===";
+        // TODO: what to do with child caches?
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CCookTorrance:
+    {
+        const auto* cook_torrance = dynamic_cast<const CTrueIR::CCookTorrance*>(node);
+        if (!cook_torrance)
+            break;
+
+        // TODO: config type alias from where
+        // TODO: handle anisotropic types
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        const auto roughness = cook_torrance->ndfParams.getRougness();
+
+        std::string bxdf_type;
+        std::string fresnel_create;
+        if (cook_torrance->orientedRealEta)
+        {
+            // btdf
+            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
+                bxdf_type = "bxdf::transmission::SGGXDielectricIsotropic<iso_microfacet_config_t>";
+            else
+                bxdf_type = "bxdf::transmission::SBeckmannDielectricIsotropic<iso_microfacet_config_t>";
+
+            const auto eta = ir->getObjectPool().deref(cook_torrance->orientedRealEta)->getParameter(0).scale;
+            fresnel_create = R"===(
+    bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type>::create(1.0, hlsl::promote<typename cook_torrance_t::monochrome_type>()===" + std::to_string(eta) + R"===());
+    bxdf.fresnel = cook_torrance_t::fresnel_type::create(orientedEta);
+)===";
+        }
+        else
+        {
+            // brdf
+            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
+                bxdf_type = "bxdf::reflection::SGGXIsotropic<iso_microfacet_config_t>";
+            else
+                bxdf_type = "bxdf::reflection::SBeckmannIsotropic<iso_microfacet_config_t>";
+
+            const auto etaNode = ir->getObjectPool().deref(cook_torrance->orientedRealEta);
+            const auto eta = etaNode->getParameter(0).scale;
+            const auto etak = etaNode->getParameter(1).scale;   // TODO: double check how eta is stored
+            fresnel_create = R"===(
+    bxdf.fresnel = cook_torrance_t::fresnel_type::create()===" + std::to_string(eta) + ", " + std::to_string(etak) + R"===();
+)===";
+        }
+
+        sstr << R"===(
+static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+    using cook_torrance_t = )===" << bxdf_type << R"===(;
+    cook_torrance_t bxdf;
+    bxdf.ndf = cook_torrance_t::ndf_type::create()===" << roughness.data()[0].scale << R"===();
+)===" << fresnel_create << R"===(
+    typename cook_torrance_t::anisocache_type bxdf_cache;
+    quotient_weight_t quo = bxdf.quotientAndWeight(_sample, inter, bxdf_cache);
+    return quo;
+}
+)===";
+        // TODO: what to do with child caches?
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CDeltaTransmission:
+    {
+        const auto* transmission = dynamic_cast<const CTrueIR::CDeltaTransmission*>(node);
+        if (!transmission)
+            break;
+
+        // TODO: config type alias from where (also allow aniso)
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache"
+{
+    using transmission_t = bxdf::transmission::SDeltaDistribution<iso_config_t>;
+    transmission_t bxdf;
+    typename transmission_t::anisocache_type bxdf_cache;
+    quotient_weight_t quo = bxdf.quotientAndWeight(_sample, inter, bxdf_cache);
+    return quo;
 }
 )===";
         break;
