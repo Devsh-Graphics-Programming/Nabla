@@ -1575,8 +1575,7 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
         {
             const auto childHash = getHashAs4UintsString(child, ir);
             sstr << R"===(
-    gen_cache<)===" << childHash << R"===(> contrib_cache;
-    value_weight_t contrib = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, contrib_cache);
+    value_weight_t contrib = OrientedMaterial<)===" << childHash << R"===(>::evalAndWeight(_sample, inter);
 )===";
             // TODO: what to do with child caches?
         }
@@ -1585,10 +1584,8 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
         {
             const auto childHash = getHashAs4UintsString(child, ir);
             sstr << R"===(
-    gen_cache<)===" << childHash << R"===(> factor_cache;
-    value_weight_t factor = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, factor_cache);
+    value_weight_t factor = OrientedMaterial<)===" << childHash << R"===(>::evalAndWeight(_sample, inter);
 )===";
-            // TODO: what to do with child caches?
         }
 
         sstr << R"===(
@@ -1678,7 +1675,6 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     return quo;
 }
 )===";
-        // TODO: what to do with child caches?
         break;
     }
     case CTrueIR::INode::EFinalType::CCookTorrance:
@@ -1736,7 +1732,6 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     return quo;
 }
 )===";
-        // TODO: what to do with child caches?
         break;
     }
     case CTrueIR::INode::EFinalType::CDeltaTransmission:
