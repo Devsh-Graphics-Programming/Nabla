@@ -207,10 +207,19 @@ struct FFT<SubgroupSize, false, Scalar, device_capabilities>
             [unroll]
             for (uint32_t threadStride = SubgroupSize >> 1; threadStride > 0; threadStride >>= 1)
             {
-                const vector <Scalar, 2> toTrade = vector <Scalar, 2>(twiddle.real(), twiddle.imag());
-                const vector <Scalar, 2> otherTwiddle = glsl::subgroupShuffle< vector <Scalar, 2> >(toTrade, (glsl::gl_SubgroupInvocationID() << 1) & (SubgroupSize - 1));
-                twiddle.real(otherTwiddle.x);
-                twiddle.imag(otherTwiddle.y);
+                // Compiler probably can't constant fold this one, so done by hand
+                if (threadStride > 1)
+                {
+                    const vector <Scalar, 2> toTrade = vector <Scalar, 2>(twiddle.real(), twiddle.imag());
+                    const vector <Scalar, 2> otherTwiddle = glsl::subgroupShuffle< vector <Scalar, 2> >(toTrade, (glsl::gl_SubgroupInvocationID() << 1) & (SubgroupSize - 1));
+                    twiddle.real(otherTwiddle.x);
+                    twiddle.imag(otherTwiddle.y);
+                }
+                else
+                {
+                    twiddle.real(Scalar(1.0));
+                    twiddle.imag(Scalar(0.0));
+                }
                 FFT_loop(threadStride, lowChannel, highChannel, twiddle, loAccessor, hiAccessor);
                 iteration++;
             }
@@ -333,10 +342,19 @@ struct FFT<SubgroupSize, true, Scalar, device_capabilities>
             [unroll]
             for (uint32_t threadStride = 1; threadStride < SubgroupSize; threadStride <<= 1)
             {
-                const vector <Scalar, 2> toTrade = vector <Scalar, 2>(ownedTwiddle.real(), ownedTwiddle.imag());
-                const vector <Scalar, 2> otherTwiddle = glsl::subgroupShuffle< vector <Scalar, 2> >(toTrade, (glsl::gl_SubgroupInvocationID() & (threadStride - 1)) * reverseStride);
-                const complex_t<Scalar> twiddle = { otherTwiddle.x , otherTwiddle.y };
-                FFT_loop(threadStride, lowChannel, highChannel, twiddle, loAccessor, hiAccessor);
+                // Compiler probably can't constant fold this one out
+                if (threadStride > 1)
+                {
+                    const vector <Scalar, 2> toTrade = vector <Scalar, 2>(ownedTwiddle.real(), ownedTwiddle.imag());
+                    const vector <Scalar, 2> otherTwiddle = glsl::subgroupShuffle< vector <Scalar, 2> >(toTrade, (glsl::gl_SubgroupInvocationID() & (threadStride - 1)) * reverseStride);
+                    const complex_t<Scalar> twiddle = { otherTwiddle.x , otherTwiddle.y };
+                    FFT_loop(threadStride, lowChannel, highChannel, twiddle, loAccessor, hiAccessor);
+                }
+                else
+                {
+                    const complex_t<Scalar> twiddle = { Scalar(1.0), Scalar(0.0) };
+                    FFT_loop(threadStride, lowChannel, highChannel, twiddle, loAccessor, hiAccessor);
+                }
                 reverseStride >>= 1;
             }
         }

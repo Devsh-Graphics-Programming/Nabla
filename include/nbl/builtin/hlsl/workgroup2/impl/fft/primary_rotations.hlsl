@@ -19,10 +19,10 @@ namespace fft
 namespace impl
 {
 
-template <uint16_t HalfN, uint16_t NumSubgroupsLog2, typename Scalar>
+template <uint16_t HalfN, uint16_t NumVirtualSubgroupsLog2, typename Scalar>
 struct CheaperTwiddlesPrimaryRotation
 {
-	NBL_CONSTEXPR_STATIC_INLINE complex_t<Scalar> Rotations[NumSubgroupsLog2];
+	NBL_CONSTEXPR_STATIC_INLINE complex_t<Scalar> Rotations[NumVirtualSubgroupsLog2];
 };
 
 #define CHEAPER_TWIDDLES_PRIMARY_ROTATION_4_1(SCALAR)\
