@@ -24,7 +24,11 @@ public:
 private:
     std::string getHashAs4UintsString(const CTrueIR::INode* node, const CTrueIR* ir, const std::string& separator = ",") const;
 
+    bool isNodeTypeContributor(CTrueIR::INode::EFinalType type) const;
+
     void getMaterialDeclarationCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
+
+    void getCacheDefineCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
 
     void getAlbedoHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
 
