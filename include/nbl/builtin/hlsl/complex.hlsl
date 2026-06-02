@@ -564,6 +564,34 @@ LOGN_11_ROOT(float64_t)
 
 #undef LOGN_11_ROOT
 
+// ------------------------------------------------------------------------------------------ logN = 12 ----------------------------------------------------------------------------------------
+
+#define LOGN_12_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<12, false, SCALAR > = {SCALAR(0.9999988234517019),SCALAR(-0.0015339801862847655)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<12, true, SCALAR > = {SCALAR(0.9999988234517019),SCALAR(0.0015339801862847655)};
+
+LOGN_12_ROOT(float16_t)
+LOGN_12_ROOT(float32_t)
+LOGN_12_ROOT(float64_t)
+
+#undef LOGN_12_ROOT
+
+// ------------------------------------------------------------------------------------------ logN = 13 ----------------------------------------------------------------------------------------
+
+#define LOGN_13_ROOT(SCALAR)\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<13, false, SCALAR > = {SCALAR(0.9999997058628822),SCALAR(-0.0007669903187427045)};\
+template<>\
+NBL_CONSTEXPR_STATIC complex_t< SCALAR > PrimitiveRootOfUnity<13, true, SCALAR > = {SCALAR(0.9999997058628822),SCALAR(0.0007669903187427045)};
+
+LOGN_13_ROOT(float16_t)
+LOGN_13_ROOT(float32_t)
+LOGN_13_ROOT(float64_t)
+
+#undef LOGN_13_ROOT
+
 } //namespace hlsl
 } //namespace nbl
 

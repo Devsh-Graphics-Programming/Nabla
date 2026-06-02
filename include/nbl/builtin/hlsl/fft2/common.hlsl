@@ -122,22 +122,27 @@ inline uint64_t getOutputBufferSizeConvolution(
     return numberOfComplexElements * (halfFloats ? sizeof(complex_t<float16_t>) : sizeof(complex_t<float32_t>));
 }
 
-
-// Computes the kth element in the group of N roots of unity
-// Notice 0 <= k < N/2, rotating counterclockwise in the forward (DIF) transform and clockwise in the inverse (DIT)
 template<bool inverse, typename Scalar>
-complex_t<Scalar> twiddle(uint32_t k, uint32_t halfN)
+complex_t<Scalar> twiddle(Scalar angleRadians)
 {
     complex_t<Scalar> retVal;
-    const Scalar kthRootAngleRadians = numbers::pi<Scalar> * Scalar(k) / Scalar(halfN);
-    Scalar cosine = nbl::hlsl::cos<Scalar>(kthRootAngleRadians);
-    Scalar sine   = nbl::hlsl::sin<Scalar>(kthRootAngleRadians);
+    Scalar cosine = nbl::hlsl::cos<Scalar>(angleRadians);
+    Scalar sine = nbl::hlsl::sin<Scalar>(angleRadians);
     retVal.real(cosine);
     if (!inverse)
         retVal.imag(-sine);
     else
         retVal.imag(sine);
     return retVal;
+}
+
+// Computes the kth element in the group of N roots of unity
+// Notice 0 <= k < N/2, rotating counterclockwise in the forward (DIF) transform and clockwise in the inverse (DIT)
+template<bool inverse, typename Scalar>
+complex_t<Scalar> twiddle(uint32_t k, uint32_t halfN)
+{
+    const Scalar kthRootAngleRadians = numbers::pi<Scalar> * Scalar(k) / Scalar(halfN);
+    return twiddle<inverse, Scalar>(kthRootAngleRadians);
 }
 
 template<bool inverse, typename Scalar>

@@ -1,6 +1,7 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/fft2/common.hlsl>
+#include <nbl/builtin/hlsl/workgroup2/impl/fft.hlsl>
 
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP2_FFT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP2_FFT_INCLUDED_
@@ -97,7 +98,7 @@ struct DivisionConstants
 
 } //namespace impl
 
-template<uint16_t _ElementsPerInvocationPerChannel, uint16_t _Channels, uint16_t _SubgroupSizeLog2, uint16_t _WorkgroupSizeLog2, uint16_t _ShuffledVirtualChannelsPerRound, bool _Interleaved, bool _ShareTwiddles, bool _CheaperTwiddles, uint16_t _DivisionPolicy, typename _Scalar> //NBL_PRIMARY_REQUIRES(_ElementsPerInvocation > 1 && !(_ElementsPerInvocation & 1) && _WorkgroupSizeLog2 >= 5)
+template<uint16_t _ElementsPerInvocationPerChannel, uint16_t _Channels, uint16_t _SubgroupSizeLog2, uint16_t _WorkgroupSizeLog2, uint16_t _ShuffledVirtualChannelsPerRound, bool _Interleaved, bool _ShareTwiddles, bool _CheaperTwiddles, bool _PrecomputedTwiddles, bool _FloatAngle, uint16_t _DivisionPolicy, typename _Scalar> //NBL_PRIMARY_REQUIRES(_ElementsPerInvocation > 1 && !(_ElementsPerInvocation & 1) && _WorkgroupSizeLog2 >= 5)
 struct ConstevalParameters
 {
     using scalar_t = _Scalar;
@@ -116,8 +117,10 @@ struct ConstevalParameters
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ShuffleRounds = mpl::ceil_div_v<InnerVirtualChannels, ShuffledVirtualChannelsPerRound>;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = ShuffledVirtualChannelsPerRound * ((sizeof(complex_t<scalar_t>) / sizeof(uint32_t)) << (WorkgroupSizeLog2 + (_Interleaved ? 1 : 0)));
 
+    NBL_CONSTEXPR_STATIC_INLINE bool PrecomputedTwiddles = _PrecomputedTwiddles;
     NBL_CONSTEXPR_STATIC_INLINE bool ShareTwiddles = _ShareTwiddles;
     NBL_CONSTEXPR_STATIC_INLINE bool CheaperTwiddles = _CheaperTwiddles;
+    NBL_CONSTEXPR_STATIC_INLINE bool FloatAngle = _FloatAngle;
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t DivisionPolicy = _DivisionPolicy;
 };
@@ -392,10 +395,10 @@ template<bool Inverse, typename inner_consteval_params_t, class device_capabilit
 struct InnerFFT;
 
 // Non-interleaved (shuffle after every butterfly) inner (post thread-local butterflies) forward FFT
-template<uint16_t ElementsPerInvocationPerChannel, uint16_t Channels, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledVirtualChannelsPerRound, bool ShareTwiddles, bool CheaperTwiddles, uint16_t DivisionPolicy, typename Scalar, class device_capabilities>
-struct InnerFFT<false, fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, CheaperTwiddles, DivisionPolicy, Scalar>, device_capabilities>
+template<uint16_t ElementsPerInvocationPerChannel, uint16_t Channels, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledVirtualChannelsPerRound, bool ShareTwiddles, bool CheaperTwiddles, bool PrecomputedTwiddles, bool FloatAngle, uint16_t DivisionPolicy, typename Scalar, class device_capabilities>
+struct InnerFFT<false, fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, CheaperTwiddles, PrecomputedTwiddles, FloatAngle, DivisionPolicy, Scalar>, device_capabilities>
 {
-    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, CheaperTwiddles, DivisionPolicy, Scalar>;
+    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, CheaperTwiddles, PrecomputedTwiddles, FloatAngle, DivisionPolicy, Scalar>;
     using scalar_t = typename consteval_parameters_t::scalar_t;
 
     template<typename InvocationElementsAccessor, typename SharedMemoryAdaptor>
@@ -443,7 +446,7 @@ struct InnerFFT<false, fft::ConstevalParameters<ElementsPerInvocationPerChannel,
         const uint32_t threadID = uint32_t(workgroup::SubgroupContiguousIndex());
 
         // Needs to survive until later in case you're using cheaper twiddles
-        complex_t<scalar_t> twiddle = hlsl::fft::twiddle<false, scalar_t>(threadID, WorkgroupSize); // First twiddle, unless also precomputed earlier (another flag!)
+        complex_t<scalar_t> twiddle; // If precomputed (coming from outerFFT) need to consider that
         // If for some reason you're running a small FFT, skip all the bigger-than-subgroup steps
         if (WorkgroupSize > SubgroupSize)
         {
@@ -455,17 +458,38 @@ struct InnerFFT<false, fft::ConstevalParameters<ElementsPerInvocationPerChannel,
             uint32_t ownedSmemIndex = threadID;
             if (!CheaperTwiddles)
             {
-                // NOT unrolling this loop increases register pressure????
-                [unroll]
-                for (uint32_t stride = WorkgroupSize; stride > SubgroupSize; stride >>= 1)
+                if (FloatAngle)
                 {
-                    // Get twiddle with k = threadID mod stride, halfN = stride
-                    const complex_t<scalar_t> twiddle = hlsl::fft::twiddle<false, scalar_t>(threadID & (stride - 1), stride);
-                    FFT_loop(stride, threadID, twiddle, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
+                    scalar_t angleRadians = numbers::pi<scalar_t> * scalar_t(threadID) / scalar_t(WorkgroupSize);
+                    // NOT unrolling this loop increases register pressure????
+                    [unroll]
+                    for (uint32_t stride = WorkgroupSize; stride > SubgroupSize; stride >>= 1)
+                    {
+                        // Get twiddle with k = threadID mod stride, halfN = stride
+                        const complex_t<scalar_t> twiddle = hlsl::fft2::twiddle<false, scalar_t>(angleRadians);
+                        FFT_loop(stride, threadID, twiddle, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
+                        angleRadians = scalar_t(2) * angleRadians;
+                        // TODO: Keeping a counter here increases register pressure even further. One must determine the worst-case discriminant for the WorkgroupSize and SubgroupSize here and check this is safe
+                        // For now this magic number is hardcoded, it's meant to make sure that angles that should be PI with perfect arithmetic do indeed get reset to 0
+                        if (angleRadians > numbers::pi<scalar_t> - scalar_t(0.0001))
+                            angleRadians = angleRadians - numbers::pi<scalar_t>;
+                    }
+                }
+                else
+                {
+                    // NOT unrolling this loop increases register pressure????
+                    [unroll]
+                    for (uint32_t stride = WorkgroupSize; stride > SubgroupSize; stride >>= 1)
+                    {
+                        // Get twiddle with k = threadID mod stride, halfN = stride
+                        const complex_t<scalar_t> twiddle = hlsl::fft2::twiddle<false, scalar_t>(threadID & (stride - 1), stride);
+                        FFT_loop(stride, threadID, twiddle, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
+                    }
                 }
             }
             else
             {
+                twiddle = hlsl::fft2::twiddle<false, scalar_t>(threadID, WorkgroupSize); // First twiddle, unless also precomputed earlier (another flag!)
                 // NOT unrolling this loop increases register pressure????
                 [unroll]
                 for (uint32_t stride = WorkgroupSize; stride > SubgroupSize; stride >>= 1)
@@ -505,17 +529,17 @@ struct InnerFFT<false, fft::ConstevalParameters<ElementsPerInvocationPerChannel,
 
         // Subgroup-sized FFT
         if (!CheaperTwiddles)
-            subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, VirtualChannels - 1, loAccessor, hiAccessor);
+            subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, PrecomputedTwiddles, InvocationElementsAccessor>(0, VirtualChannels - 1, loAccessor, hiAccessor);
         else
             subgroup2::FFT<SubgroupSize, false, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, VirtualChannels - 1, loAccessor, hiAccessor, twiddle);
     }
 };
 
 // Non-interleaved (shuffle after every butterfly) inner (post thread-local butterflies) inverse FFT
-template<uint16_t ElementsPerInvocationPerChannel, uint16_t Channels, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledVirtualChannelsPerRound, bool ShareTwiddles, bool CheaperTwiddles, uint16_t DivisionPolicy, typename Scalar, class device_capabilities>
-struct InnerFFT<true, fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, CheaperTwiddles, DivisionPolicy, Scalar>, device_capabilities>
+template<uint16_t ElementsPerInvocationPerChannel, uint16_t Channels, uint16_t SubgroupSizeLog2, uint16_t WorkgroupSizeLog2, uint16_t ShuffledVirtualChannelsPerRound, bool ShareTwiddles, bool CheaperTwiddles, bool PrecomputedTwiddles, bool FloatAngle, uint16_t DivisionPolicy, typename Scalar, class device_capabilities>
+struct InnerFFT<true, fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, CheaperTwiddles, PrecomputedTwiddles, FloatAngle, DivisionPolicy, Scalar>, device_capabilities>
 {
-    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, CheaperTwiddles, DivisionPolicy, Scalar>;
+    using consteval_parameters_t = fft::ConstevalParameters<ElementsPerInvocationPerChannel, Channels, SubgroupSizeLog2, WorkgroupSizeLog2, ShuffledVirtualChannelsPerRound, false, ShareTwiddles, CheaperTwiddles, PrecomputedTwiddles, FloatAngle, DivisionPolicy, Scalar>;
     using scalar_t = typename consteval_parameters_t::scalar_t;
 
     template<typename InvocationElementsAccessor, typename SharedMemoryAdaptor>
@@ -529,22 +553,22 @@ struct InnerFFT<true, fft::ConstevalParameters<ElementsPerInvocationPerChannel, 
         for (uint32_t round = 0; round < ShuffleRounds; round++)
         {
             if (round)
-                pingPong = !pingPong; // ping pong on sharedmem to avoid barriering - this eploits that we XOR with the same stride every consecutive round
+                pingPong = !pingPong; // ping pong on sharedmem to avoid barriering - this exploits that we XOR with the same stride every consecutive round
             const uint32_t lowChannel = round * ShuffledVirtualChannelsPerRound;
             const uint32_t highChannel = min(VirtualChannels, lowChannel + ShuffledVirtualChannelsPerRound) - 1;
 
             fft::impl::exchangeValues<consteval_parameters_t::WorkgroupSize, SharedMemoryAdaptor, scalar_t, InvocationElementsAccessor>::__call(threadID, ownedSmemIndex, lowChannel, highChannel, loAccessor, hiAccessor, stride, sharedmemAdaptor, pingPong);
+        }
 
-            [unroll]
-            for (uint32_t channel = lowChannel; channel <= highChannel; channel++)
-            {
-                complex_t<scalar_t> lo, hi;
-                loAccessor.get(channel, lo);
-                hiAccessor.get(channel, hi);
-                fft2::DIT<scalar_t>::radix2(twiddle, lo, hi);
-                loAccessor.set(channel, lo);
-                hiAccessor.set(channel, hi);
-            }
+        [unroll]
+        for (uint32_t channel = 0; channel <= VirtualChannels; channel++)
+        {
+            complex_t<scalar_t> lo, hi;
+            loAccessor.get(channel, lo);
+            hiAccessor.get(channel, hi);
+            fft2::DIT<scalar_t>::radix2(twiddle, lo, hi);
+            loAccessor.set(channel, lo);
+            hiAccessor.set(channel, hi);
         }
         // After the last exchangeValues, the memory we just read from is now owned by us, so update
         ownedSmemIndex = pingPong ? ownedSmemIndex : ownedSmemIndex ^ (stride >> 1);
@@ -558,9 +582,8 @@ struct InnerFFT<true, fft::ConstevalParameters<ElementsPerInvocationPerChannel, 
         const uint16_t WorkgroupSize = consteval_parameters_t::WorkgroupSize;
 
         // Subgroup-sized FFT at the start
-        subgroup2::FFT<SubgroupSize, true, Scalar, device_capabilities>::template __call<ShareTwiddles, InvocationElementsAccessor>(0, VirtualChannels - 1, loAccessor, hiAccessor);
-        // Twiddle computed by SubgroupFFT, this isn't recomputed but resident in a register at this stage due to CSE optimization
-        complex_t<Scalar> twiddle = fft2::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID(), SubgroupSize);
+        complex_t<Scalar> twiddle;
+        subgroup2::FFT<SubgroupSize, true, Scalar, device_capabilities>::template __call<ShareTwiddles, PrecomputedTwiddles, InvocationElementsAccessor>(0, VirtualChannels - 1, loAccessor, hiAccessor, twiddle);
 
         const float64_t DivisionFactor = (DivisionPolicy == fft::DivisionPolicy::DivByFullSizeHalfway ? consteval_parameters_t::DivisionConstants::InvFFTLength
                                        : (DivisionPolicy == fft::DivisionPolicy::DivBySqrtHalfway ? consteval_parameters_t::DivisionConstants::InvSqrtFFTLength
@@ -594,17 +617,56 @@ struct InnerFFT<true, fft::ConstevalParameters<ElementsPerInvocationPerChannel, 
             uint32_t ownedSmemIndex = threadID;
             if (!CheaperTwiddles)
             {
-                [unroll]
-                for (uint32_t stride = SubgroupSize; stride < WorkgroupSize; stride <<= 1)
+                if (FloatAngle)
                 {
-                    // Get twiddle with k = threadID mod stride, halfN = stride
-                    const complex_t<scalar_t> twiddle = hlsl::fft::twiddle<true, scalar_t>(threadID & ((stride << 1) - 1), stride << 1);
-                    FFT_loop(stride, threadID, twiddle, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
+                    const scalar_t topHalfRotation = numbers::pi<scalar_t> * scalar_t(0.5);
+                    scalar_t angleRadians = numbers::pi<scalar_t> * scalar_t(threadID & ((SubgroupSize << 1) - 1)) / scalar_t(SubgroupSize << 1);
+                    // NOT unrolling this loop increases register pressure????
+                    [unroll]
+                    for (uint32_t stride = SubgroupSize; stride < WorkgroupSize; stride <<= 1)
+                    {
+                        // Get twiddle with k = threadID mod stride, halfN = stride
+                        const complex_t<scalar_t> twiddle = hlsl::fft2::twiddle<true, scalar_t>(angleRadians);
+                        FFT_loop(stride, threadID, twiddle, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
+                        angleRadians = Scalar(0.5) * angleRadians;
+                        const bool topHalf = bool(threadID & (stride << 1));
+                        if (topHalf)
+                            angleRadians = angleRadians + topHalfRotation;
+                    }
+                }
+                else
+                {
+                    [unroll]
+                    for (uint32_t stride = SubgroupSize; stride < WorkgroupSize; stride <<= 1)
+                    {
+                        // Get twiddle with k = threadID mod stride, halfN = stride
+                        const complex_t<scalar_t> twiddle = hlsl::fft2::twiddle<true, scalar_t>(threadID & ((stride << 1) - 1), stride << 1);
+                        FFT_loop(stride, threadID, twiddle, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
+                    }
                 }
             }
             else
             {
-                // Cheaper twiddles requires some extra subgroup work. Namely, it needs to track an inverse multiplier constantly. 
+                uint32_t it = 0;
+                const uint32_t maxIt = WorkgroupSizeLog2 - SubgroupSizeLog2 - 1;
+                [unroll]
+                for (uint32_t stride = SubgroupSize; stride < WorkgroupSize; stride <<= 1)
+                {
+                    // Get the twiddle from the first half of threads in the subgroup
+                    vector<scalar_t, 2> toShuffle = { twiddle.real(), twiddle.imag() };
+                    toShuffle = glsl::subgroupShuffle(toShuffle, glsl::gl_SubgroupInvocationID() >> 1);
+                    twiddle.real(toShuffle.x);
+                    twiddle.imag(toShuffle.y);
+                    // apply the big secondary rotation
+                    const uint32_t mask = (1u << (it + 1)) - 1;
+                    // TODO: Use actual halfN and numvirtualsubgroups here
+                    twiddle = twiddle * fft::impl::CheaperTwiddlesSecondaryRotation<WorkgroupSize, 1u << (WorkgroupSizeLog2 - SubgroupSizeLog2), scalar_t>::Rotations[(glsl::gl_SubgroupID() & mask) << (maxIt - it)];
+                    // apply the smaller primary rotation only if the thread index is odd
+                    if (glsl::gl_SubgroupInvocationID() & 1)
+                        twiddle = twiddle * fft::impl::CheaperTwiddlesPrimaryRotation<WorkgroupSize, WorkgroupSizeLog2 - SubgroupSizeLog2, scalar_t>::Rotations[it];
+                    FFT_loop(stride, threadID, twiddle, ownedSmemIndex, loAccessor, hiAccessor, sharedmemAdaptor);
+                    it++;
+                }
             }
 
             // Remember to update the accessor's state
