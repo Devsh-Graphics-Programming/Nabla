@@ -143,6 +143,8 @@ struct OrientedMaterial<)===" << hashString << R"===(>
     static quotient_weight_t quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache);
     static value_weight_t evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter);
     static spectral_t emission();
+
+    static bool canGenerate();
 };
 )===";
 
@@ -1260,12 +1262,23 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
     if (retval.weight() < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
     {
         const scalar_t chosenPdf = retval.weight() * choiceProb;
-        value_weight_t rest;
+        value_weight_t rest = value_weight_t::create(0.0, 0.0);
+        value_weight_t other;
 
         if (chosenLobe == 0)
-            rest = OrientedMaterial<)===" << childBtdfHash << R"===(>::evalAndWeight(_sample, inter);
+        {
+            other = OrientedMaterial<)===" << childBtdfHash << R"===(>::evalAndWeight(_sample, inter);
+            rest.value = other.value();
+            if (OrientedMaterial<)===" << childBtdfHash << R"===(>::canGenerate())
+                rest.weight = other.weight();
+        }
         else
-            rest = OrientedMaterial<)===" << childBrdfHash << R"===(>::evalAndWeight(_sample, inter);
+        {
+            other = OrientedMaterial<)===" << childBrdfHash << R"===(>::evalAndWeight(_sample, inter);
+            rest.value = other.value();
+            if (OrientedMaterial<)===" << childBrdfHash << R"===(>::canGenerate())
+                rest.weight = other.weight();
+        }
 )===" << combineRestWithRetValCode;
         break;
     }
@@ -1302,12 +1315,23 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
     if (retval.weight() < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
     {
         const scalar_t chosenPdf = retval.weight() * choiceProb;
-        value_weight_t rest;
+        value_weight_t rest = value_weight_t::create(0.0, 0.0);
+        value_weight_t other;
 
         if (chosenLobe == 0)
-            rest = OrientedMaterial<)===" << childRestHash << R"===(>::evalAndWeight(_sample, inter);
+        {
+            other = OrientedMaterial<)===" << childRestHash << R"===(>::evalAndWeight(_sample, inter);
+            rest.value = other.value();
+            if (OrientedMaterial<)===" << childRestHash << R"===(>::canGenerate())
+                rest.weight = other.weight();
+        }
         else
-            rest = OrientedMaterial<)===" << childProductHash << R"===(>::evalAndWeight(_sample, inter);
+        {
+            other = OrientedMaterial<)===" << childProductHash << R"===(>::evalAndWeight(_sample, inter);
+            rest.value = other.value();
+            if (OrientedMaterial<)===" << childProductHash << R"===(>::canGenerate())
+                rest.weight = other.weight();
+        }
 )===" << combineRestWithRetValCode;
         break;
     }
@@ -1337,12 +1361,14 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
             sstr << R"===(
     gen_cache<)===" << childHash << R"===(> factor_cache;
     quotient_weight_t factor = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, factor_cache);
+    bool factorHasWeight = OrientedMaterial<)===" << childHash << R"===(>::canGenerate();
 )===";
         }
 
         sstr << R"===(
     contrib.quotient *= factor.quotient();
-    contrib.weight *= factor.weight();
+    if (factorHasWeight)
+        contrib.weight *= factor.weight();
     return contrib;
 }
 )===";
@@ -1390,22 +1416,22 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
         {
             value_weight_t child = OrientedMaterial<)===" << childBtdfHash << R"===(>::evalAndWeight(_sample, inter);
             rest.value += child.value();
-            // TODO check lobe can generate then add weight
-            rest.weight += child.weight();
+            if (OrientedMaterial<)===" << childBtdfHash << R"===(>::canGenerate())
+                rest.weight += child.weight();
         }
         if (chosenLobe != 1)
         {
             value_weight_t child = OrientedMaterial<)===" << childBottomHash << R"===(>::evalAndWeight(_sample, inter);
             rest.value += child.value();
-            // TODO check lobe can generate then add weight
-            rest.weight += child.weight();
+            if (OrientedMaterial<)===" << childBottomHash << R"===(>::canGenerate())
+                rest.weight += child.weight();
         }
         if (chosenLobe != 2)
         {
             value_weight_t child = OrientedMaterial<)===" << childCoatedHash << R"===(>::evalAndWeight(_sample, inter);
             rest.value += child.value();
-            // TODO check lobe can generate then add weight
-            rest.weight += child.weight();
+            if (OrientedMaterial<)===" << childCoatedHash << R"===(>::canGenerate())
+                rest.weight += child.weight();
         }
 )===" << combineRestWithRetValCode;
         // TODO: next node?
@@ -1553,18 +1579,22 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     {
         value_weight_t lobe = OrientedMaterial<)===" << childBrdfHash << R"===(>::evalAndWeight(_sample, inter);
         retval.value += lobe.value();
-        // TODO check lobe can generate
-        const scalar_t target = lobe.choiceTarget(interaction);
-        targetSum += target;
-        retval.weight += lobe.weight() * target;
+        if (OrientedMaterial<)===" << childBrdfHash << R"===(>::canGenerate())
+        {
+            const scalar_t target = lobe.choiceTarget(inter);
+            targetSum += target;
+            retval.weight += lobe.weight() * target;
+        }
     }
     {
         retval = OrientedMaterial<)===" << childBtdfHash << R"===(>::evalAndWeight(_sample, inter);
         retval.value += lobe.value();
-        // TODO check lobe can generate
-        const scalar_t target = lobe.choiceTarget(interaction);
-        targetSum += target;
-        retval.weight += lobe.weight() * target;
+        if (OrientedMaterial<)===" << childBtdfHash << R"===(>::canGenerate())
+        {
+            const scalar_t target = lobe.choiceTarget(inter);
+            targetSum += target;
+            retval.weight += lobe.weight() * target;
+        }
     }
 
     retval.weight /= targetSum;
@@ -1598,18 +1628,22 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     {
         value_weight_t lobe = OrientedMaterial<)===" << childProductHash << R"===(>::evalAndWeight(_sample, inter);
         retval.value += lobe.value();
-        // TODO check lobe can generate
-        const scalar_t target = lobe.choiceTarget(interaction);
-        targetSum += target;
-        retval.weight += lobe.weight() * target;
+        if (OrientedMaterial<)===" << childProductHash << R"===(>::canGenerate())
+        {
+            const scalar_t target = lobe.choiceTarget(inter);
+            targetSum += target;
+            retval.weight += lobe.weight() * target;
+        }
     }
     {
         value_weight_t lobe = OrientedMaterial<)===" << childRestHash << R"===(>::evalAndWeight(_sample, inter);
         retval.value += lobe.value();
-        // TODO check lobe can generate
-        const scalar_t target = lobe.choiceTarget(interaction);
-        targetSum += target;
-        retval.weight += lobe.weight() * target;
+        if (OrientedMaterial<)===" << childRestHash << R"===(>::canGenerate())
+        {
+            const scalar_t target = lobe.choiceTarget(inter);
+            targetSum += target;
+            retval.weight += lobe.weight() * target;
+        }
     }
 
     retval.weight /= targetSum;
@@ -1644,12 +1678,14 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
             const auto childHash = getHashAs4UintsString(child, ir);
             sstr << R"===(
     value_weight_t factor = OrientedMaterial<)===" << childHash << R"===(>::evalAndWeight(_sample, inter);
+    bool factorHasWeight = OrientedMaterial<)===" << childHash << R"===(>::canGenerate();
 )===";
         }
 
         sstr << R"===(
     contrib.quotient *= factor.quotient();
-    contrib.weight *= factor.weight();
+    if (factorHasWeight)
+        contrib.weight *= factor.weight();
     return contrib;
 }
 )===";
@@ -1683,26 +1719,32 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     {
         value_weight_t lobe = OrientedMaterial<)===" << childBtdfHash << R"===(>::evalAndWeight(_sample, inter);
         retval.value += lobe.value();
-        // TODO check lobe can generate
-        const scalar_t target = lobe.choiceTarget(interaction);
-        targetSum += target;
-        retval.weight += lobe.weight() * target;
+        if (OrientedMaterial<)===" << childBtdfHash << R"===(>::canGenerate())
+        {
+            const scalar_t target = lobe.choiceTarget(inter);
+            targetSum += target;
+            retval.weight += lobe.weight() * target;
+        }
     }
     {
         value_weight_t lobe = OrientedMaterial<)===" << childBottomHash << R"===(>::evalAndWeight(_sample, inter);
         retval.value += lobe.value();
-        // TODO check lobe can generate
-        const scalar_t target = lobe.choiceTarget(interaction);
-        targetSum += target;
-        retval.weight += lobe.weight() * target;
+        if (OrientedMaterial<)===" << childBottomHash << R"===(>::canGenerate())
+        {
+            const scalar_t target = lobe.choiceTarget(inter);
+            targetSum += target;
+            retval.weight += lobe.weight() * target;
+        }
     }
     {
         value_weight_t lobe = OrientedMaterial<)===" << childCoatedHash << R"===(>::evalAndWeight(_sample, inter);
         retval.value += lobe.value();
-        // TODO check lobe can generate
-        const scalar_t target = lobe.choiceTarget(interaction);
-        targetSum += target;
-        retval.weight += lobe.weight() * target;
+        if (OrientedMaterial<)===" << childCoatedHash << R"===(>::canGenerate())
+        {
+            const scalar_t target = lobe.choiceTarget(inter);
+            targetSum += target;
+            retval.weight += lobe.weight() * target;
+        }
     }
 
     retval.weight /= targetSum;
@@ -2017,6 +2059,206 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::emission()
 static scalar_t OrientedMaterial<)===" << hashString << R"===(>::emission()
 {
     return hlsl::promote<spectral_t>(0.0);
+}
+)===";
+    }
+    }
+}
+
+void CReferenceUnidirectionalPathTracing::getCanGenerateHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+{
+    switch (node->getFinalType())
+    {
+    case CTrueIR::INode::EFinalType::COrientedLayer:
+    {
+        const auto* layer = dynamic_cast<const CTrueIR::COrientedLayer*>(node);
+        if (!layer)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static bool OrientedMaterial<)===" << hashString << R"===(>::canGenerate()
+{
+)===";
+
+        if (auto childBrdf = ir->getObjectPool().deref(layer->brdfTop); childBrdf)
+        {
+            const auto childBrdfHash = getHashAs4UintsString(childBrdf, ir);
+            sstr << "bool brdf = OrientedMaterial<" << childBrdfHash << ">::canGenerate();\n";
+        }
+        if (auto childBtdf = ir->getObjectPool().deref(layer->firstTransmission); childBtdf)
+        {
+            const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
+            sstr << "bool btdf = OrientedMaterial<" << childBtdfHash << ">::canGenerate();\n";
+        }
+
+        sstr << R"===(
+    return brdf || btdf;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CContributorSum:
+    {
+        const auto* sum = dynamic_cast<const CTrueIR::CContributorSum*>(node);
+        if (!sum)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static bool OrientedMaterial<)===" << hashString << R"===(>::canGenerate()
+{
+)===";
+
+        if (auto childProduct = ir->getObjectPool().deref(sum->product); childProduct)
+        {
+            const auto childProductHash = getHashAs4UintsString(childProduct, ir);
+            sstr << "bool product = OrientedMaterial<" << childProductHash << ">::canGenerate();\n";
+        }
+        if (auto childRest = ir->getObjectPool().deref(sum->rest); childRest)
+        {
+            const auto childRestHash = getHashAs4UintsString(childRest, ir);
+            sstr << "bool rest = OrientedMaterial<" << childRestHash << ">::canGenerate();\n";
+        }
+
+        sstr << R"===(
+    return product || rest;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CFactorCombiner:
+    {
+        const auto* combiner = dynamic_cast<const CTrueIR::CFactorCombiner*>(node);
+        if (!combiner)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static bool OrientedMaterial<)===" << hashString << R"===(>::canGenerate()
+{
+)===";
+
+        const auto childCount = combiner->getChildCount();
+
+        for (uint8_t i = 0; i < childCount; i++)
+        {
+            if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
+            {
+                const auto childHash = getHashAs4UintsString(child, ir);
+                sstr << "bool child" << static_cast<uint32_t>(i) << " = OrientedMaterial<" << childHash << ">::canGenerate();\n";
+            }
+        }
+
+        sstr << "bool retval = ";
+        for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
+            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? " || " : "");
+        sstr << R"===(;
+    return retval;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CWeightedContributor:
+    {
+        const auto* contrib = dynamic_cast<const CTrueIR::CWeightedContributor*>(node);
+        if (!contrib)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static bool OrientedMaterial<)===" << hashString << R"===(>::canGenerate()
+{
+)===";
+
+        if (auto childContrib = ir->getObjectPool().deref(contrib->contributor); childContrib)
+        {
+            const auto childContribHash = getHashAs4UintsString(childContrib, ir);
+            sstr << "bool contributor = OrientedMaterial<" << childContribHash << ">::canGenerate();\n";
+        }
+        if (auto childFactor = ir->getObjectPool().deref(contrib->factor); childFactor)
+        {
+            const auto childFactorHash = getHashAs4UintsString(childFactor, ir);
+            sstr << "bool factor = OrientedMaterial<" << childFactorHash << ">::canGenerate();\n";
+        }
+
+        sstr << R"===(
+    return contributor || factor;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CCorellatedTransmission:
+    {
+        const auto* transmission = dynamic_cast<const CTrueIR::CCorellatedTransmission*>(node);
+        if (!transmission)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static bool OrientedMaterial<)===" << hashString << R"===(>::canGenerate()
+{
+)===";
+
+        if (auto child = ir->getObjectPool().deref(transmission->btdf); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "bool btdf = OrientedMaterial<" << childHash << ">::canGenerate();\n";
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->brdfBottom); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "bool brdf = OrientedMaterial<" << childHash << ">::canGenerate();\n";
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->coated); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "bool coated = OrientedMaterial<" << childHash << ">::canGenerate();\n";
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->next); child)
+        {
+            const auto childHash = getHashAs4UintsString(child, ir);
+            sstr << "bool next = OrientedMaterial<" << childHash << ">::canGenerate();\n";
+        }
+
+        sstr << R"===(
+    return btdf || brdf || coated || next;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::COrenNayar:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CCookTorrance:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CDeltaTransmission:
+    {
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static bool OrientedMaterial<)===" << hashString << R"===(>::canGenerate()
+{
+    return true;
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CSpectralVariable:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CEmitter:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CBeer:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CFresnel:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
+        [[fallthrough]]
+    default:
+    {
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static bool OrientedMaterial<)===" << hashString << R"===(>::canGenerate()
+{
+    return false;
 }
 )===";
     }
