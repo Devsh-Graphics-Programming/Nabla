@@ -38,6 +38,7 @@ private:
     void getEmissionHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
 
     void getCanGenerateHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
+    void getChoiceTargetHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
 };
 
 }
