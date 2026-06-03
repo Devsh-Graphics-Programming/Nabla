@@ -166,6 +166,12 @@ struct ProjectedSphericalRectangle
       return backwardWeight(cache.L);
    }
 
+   // Unimplemented
+   density_type backwardPdf(const codomain_type L) NBL_CONST_MEMBER_FUNC
+   {
+      return hlsl::numeric_limits<density_type>::quiet_NaN;
+   }
+
    weight_type backwardWeight(const codomain_type L) NBL_CONST_MEMBER_FUNC
    {
       NBL_IF_CONSTEXPR(UsePdfAsWeight)

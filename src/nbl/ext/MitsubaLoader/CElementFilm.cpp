@@ -113,7 +113,7 @@ auto CElementFilm::compAddPropertyMap() -> AddPropertyMap<CElementFilm>
 	});
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("bloomFilePath",STRING)
 		{
-			setLimitedString("bloomFilePath",_this->denoiserTonemapperArgs,_property,logger); return true;
+			setLimitedString("bloomFilePath",_this->denoiserBloomFilePath,_property,logger); return true;
 		}
 	});
 	NBL_EXT_MITSUBA_LOADER_REGISTER_ADD_PROPERTY("tonemapper",STRING)

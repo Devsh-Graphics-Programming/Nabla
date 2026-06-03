@@ -25,13 +25,14 @@ inline SphericalRectangle<float32_t> buildInner(float32_t3x3 basis, float32_t2 r
    return SphericalRectangle<float32_t>::create(basis, float32_t3(r0, 1.0f), ext);
 }
 
-inline ProjectedSphericalRectangle<float32_t> buildInner(float32_t3x3 basis, float32_t2 r0, float32_t2 ext, ProjectedSphericalRectangle<float32_t> /*tag*/)
+template<bool UsePdfAsWeight>
+inline ProjectedSphericalRectangle<float32_t, UsePdfAsWeight> buildInner(float32_t3x3 basis, float32_t2 r0, float32_t2 ext, ProjectedSphericalRectangle<float32_t, UsePdfAsWeight> /*tag*/)
 {
    shapes::CompressedSphericalRectangle<float32_t> compressed;
    compressed.origin = basis[0] * r0.x + basis[1] * r0.y + basis[2];
    compressed.right  = basis[0] * ext.x;
    compressed.up     = basis[1] * ext.y;
-   return ProjectedSphericalRectangle<float32_t>::create(compressed, float32_t3(0.0f, 0.0f, 0.0f), float32_t3(0.0f, 0.0f, 1.0f), false);
+   return ProjectedSphericalRectangle<float32_t, UsePdfAsWeight>::create(compressed, float32_t3(0.0f, 0.0f, 0.0f), float32_t3(0.0f, 0.0f, 1.0f), false);
 }
 
 // Spherical Pyramid: gnomonic bounding rectangle for silhouette sampling.
@@ -355,7 +356,7 @@ struct SphericalPyramid
    // from the silhouette, build the pyramid, then construct the InnerSampler
    // via tag-dispatched buildInner. Local rect data dies at end-of-scope; only
    // the inner sampler retains a copy.
-   static SphericalPyramid<UseCaliper, InnerSampler> create(NBL_CONST_REF_ARG(shapes::ClippedSilhouette) silhouette, shapes::OBBView<float32_t> view)
+   static SphericalPyramid<UseCaliper, InnerSampler> create(NBL_CONST_REF_ARG(shapes::ClippedSilhouette) silhouette, NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view)
    {
       float32_t3 vertices[shapes::MaxOBBSilhouetteVertices];
       silhouette.materialize(view, vertices);
@@ -387,8 +388,48 @@ struct SphericalPyramid
    }
 
    density_type forwardPdf(domain_type u, cache_type cache) NBL_CONST_MEMBER_FUNC { return cache.pdf; }
-   weight_type  forwardWeight(domain_type u, cache_type cache) NBL_CONST_MEMBER_FUNC { return cache.pdf; }
-   uint32_t     selectedIdx(cache_type cache) NBL_CONST_MEMBER_FUNC { return 0u; }
+   // The MIS weight at the generated sample. Mirrors backwardWeight (the inner sampler's weight, e.g.
+   // cos/projSolidAngle for ProjectedSphericalRectangle<.,false>), NOT cache.pdf -- those differ when
+   // the inner's weight != its pdf. Gated by the same silhouette/horizon validity generate() baked
+   // into cache.pdf, so an out-of-support sample weighs 0.
+   weight_type forwardWeight(domain_type u, cache_type cache) NBL_CONST_MEMBER_FUNC { return cache.pdf > scalar_type(0) ? inner.forwardWeight(u, cache.inner) : scalar_type(0); }
+   uint32_t    selectedIdx(cache_type cache) NBL_CONST_MEMBER_FUNC { return 0u; }
+
+   // Horizon + silhouette-polygon test shared by the backward queries: `dir` lies
+   // inside the support generate() can produce iff it is above the pyramid horizon
+   // (pz > 0) and inside the silhouette polygon. `dir` is in the same frame as the
+   // OBBView/silhouette the pyramid was created from (typically the shading tangent frame).
+   bool __backwardValid(codomain_type dir) NBL_CONST_MEMBER_FUNC
+   {
+      const codomain_type axis3 = cross(axis1, axis2);
+      const scalar_type   pz    = dot(dir, axis3);
+      if (!(pz > scalar_type(0)))
+         return false;
+      const scalar_type rcpZ   = scalar_type(1) / pz;
+      const scalar_type localX = dot(dir, axis1) * rcpZ;
+      const scalar_type localY = dot(dir, axis2) * rcpZ;
+      return silEdgeNormals.isInsideLocal(localX, localY);
+   }
+
+   // backwardPdf(dir): pdf this pyramid would assign to an arbitrary direction (no cache, no rng),
+   // for MIS where the BSDF technique sampled `dir`. Matches generate(): the inner pdf inside the
+   // silhouette polygon (and above the horizon), 0 elsewhere. Only meaningful when the inner sampler
+   // is invertible (uniform SphericalRectangle, where it equals 1/solidAngle); the projected inner has
+   // no invertible warp, so its inner.backwardPdf is a NaN sentinel that propagates here -- use
+   // backwardWeight (analytic cos/projSolidAngle) for projected MIS instead.
+   density_type backwardPdf(codomain_type dir) NBL_CONST_MEMBER_FUNC
+   {
+      return __backwardValid(dir) ? inner.backwardPdf(dir) : scalar_type(0);
+   }
+
+   // backwardWeight(dir): the inner sampler's backward weight, clipped to the same
+   // support as backwardPdf. For ProjectedSphericalRectangle<.,false> this is the
+   // analytic projected density cos/projSolidAngle, the only closed form available
+   // without an inverse warp; for the uniform SphericalRectangle it equals backwardPdf.
+   weight_type backwardWeight(codomain_type dir) NBL_CONST_MEMBER_FUNC
+   {
+      return __backwardValid(dir) ? inner.backwardWeight(dir) : scalar_type(0);
+   }
 };
 
 }
