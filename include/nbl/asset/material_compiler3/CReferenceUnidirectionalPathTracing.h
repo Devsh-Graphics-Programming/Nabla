@@ -39,6 +39,8 @@ private:
 
     void getCanGenerateHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
     void getChoiceTargetHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
+
+    void getCookTorranceBxDFHLSLCode(const CTrueIR::CCookTorrance* cook_torrance, const CTrueIR* ir, std::string& bxdf_type, std::string& fresnel_create);
 };
 
 }

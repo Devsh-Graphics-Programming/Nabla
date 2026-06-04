@@ -179,23 +179,11 @@ struct gen_cache<)===" << hashString << R"===(>
         case CTrueIR::INode::EFinalType::CCookTorrance:
         {
             const auto cook_torrance = dynamic_cast<const CTrueIR::CCookTorrance*>(node);
+
             std::string bxdf_type;
-            if (cook_torrance->orientedRealEta)
-            {
-                // btdf
-                if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
-                    bxdf_type = "bxdf::transmission::SGGXDielectricIsotropic<iso_microfacet_config_t>";
-                else
-                    bxdf_type = "bxdf::transmission::SBeckmannDielectricIsotropic<iso_microfacet_config_t>";
-            }
-            else
-            {
-                // brdf
-                if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
-                    bxdf_type = "bxdf::reflection::SGGXIsotropic<iso_microfacet_config_t>";
-                else
-                    bxdf_type = "bxdf::reflection::SBeckmannIsotropic<iso_microfacet_config_t>";
-            }
+            std::string fresnel_create;
+            getCookTorranceBxDFHLSLCode(cook_torrance, ir, bxdf_type, fresnel_create);
+
             sstr << R"===(
 template<>
 struct gen_cache<)===" << hashString << R"===(>
@@ -1119,42 +1107,13 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
             break;
 
         // TODO: config type alias from where
-        // TODO: handle anisotropic types
 
         const auto hashString = getHashAs4UintsString(node, ir);
         const auto roughness = cook_torrance->ndfParams.getRougness();
-        
+
         std::string bxdf_type;
         std::string fresnel_create;
-        if (cook_torrance->orientedRealEta)
-        {
-            // btdf
-            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
-                bxdf_type = "bxdf::transmission::SGGXDielectricIsotropic<iso_microfacet_config_t>";
-            else
-                bxdf_type = "bxdf::transmission::SBeckmannDielectricIsotropic<iso_microfacet_config_t>";
-
-            const auto eta = ir->getObjectPool().deref(cook_torrance->orientedRealEta)->getParameter(0).scale;
-            fresnel_create = R"===(
-    bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type>::create(1.0, hlsl::promote<typename cook_torrance_t::monochrome_type>()===" + std::to_string(eta) + R"===());
-    bxdf.fresnel = cook_torrance_t::fresnel_type::create(orientedEta);
-)===";
-        }
-        else
-        {
-            // brdf
-            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
-                bxdf_type = "bxdf::reflection::SGGXIsotropic<iso_microfacet_config_t>";
-            else
-                bxdf_type = "bxdf::reflection::SBeckmannIsotropic<iso_microfacet_config_t>";
-            
-            const auto etaNode = ir->getObjectPool().deref(cook_torrance->orientedRealEta);
-            const auto eta = etaNode->getParameter(0).scale;
-            const auto etak = etaNode->getParameter(1).scale;   // TODO: double check how eta is stored
-            fresnel_create = R"===(
-    bxdf.fresnel = cook_torrance_t::fresnel_type::create()===" + std::to_string(eta) + ", " +  std::to_string(etak) + R"===();
-)===";
-        }
+        getCookTorranceBxDFHLSLCode(cook_torrance, ir, bxdf_type, fresnel_create);
 
         sstr << R"===(
 static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache)
@@ -1461,42 +1420,13 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
             break;
 
         // TODO: config type alias from where
-        // TODO: handle anisotropic types
 
         const auto hashString = getHashAs4UintsString(node, ir);
         const auto roughness = cook_torrance->ndfParams.getRougness();
 
         std::string bxdf_type;
         std::string fresnel_create;
-        if (cook_torrance->orientedRealEta)
-        {
-            // btdf
-            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
-                bxdf_type = "bxdf::transmission::SGGXDielectricIsotropic<iso_microfacet_config_t>";
-            else
-                bxdf_type = "bxdf::transmission::SBeckmannDielectricIsotropic<iso_microfacet_config_t>";
-
-            const auto eta = ir->getObjectPool().deref(cook_torrance->orientedRealEta)->getParameter(0).scale;
-            fresnel_create = R"===(
-    bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type>::create(1.0, hlsl::promote<typename cook_torrance_t::monochrome_type>()===" + std::to_string(eta) + R"===());
-    bxdf.fresnel = cook_torrance_t::fresnel_type::create(orientedEta);
-)===";
-        }
-        else
-        {
-            // brdf
-            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
-                bxdf_type = "bxdf::reflection::SGGXIsotropic<iso_microfacet_config_t>";
-            else
-                bxdf_type = "bxdf::reflection::SBeckmannIsotropic<iso_microfacet_config_t>";
-
-            const auto etaNode = ir->getObjectPool().deref(cook_torrance->orientedRealEta);
-            const auto eta = etaNode->getParameter(0).scale;
-            const auto etak = etaNode->getParameter(1).scale;   // TODO: double check how eta is stored
-            fresnel_create = R"===(
-    bxdf.fresnel = cook_torrance_t::fresnel_type::create()===" + std::to_string(eta) + ", " + std::to_string(etak) + R"===();
-)===";
-        }
+        getCookTorranceBxDFHLSLCode(cook_torrance, ir, bxdf_type, fresnel_create);
 
         sstr << R"===(
 static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache)
@@ -1741,42 +1671,13 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
             break;
 
         // TODO: config type alias from where
-        // TODO: handle anisotropic types
 
         const auto hashString = getHashAs4UintsString(node, ir);
         const auto roughness = cook_torrance->ndfParams.getRougness();
 
         std::string bxdf_type;
         std::string fresnel_create;
-        if (cook_torrance->orientedRealEta)
-        {
-            // btdf
-            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
-                bxdf_type = "bxdf::transmission::SGGXDielectricIsotropic<iso_microfacet_config_t>";
-            else
-                bxdf_type = "bxdf::transmission::SBeckmannDielectricIsotropic<iso_microfacet_config_t>";
-
-            const auto eta = ir->getObjectPool().deref(cook_torrance->orientedRealEta)->getParameter(0).scale;
-            fresnel_create = R"===(
-    bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type>::create(1.0, hlsl::promote<typename cook_torrance_t::monochrome_type>()===" + std::to_string(eta) + R"===());
-    bxdf.fresnel = cook_torrance_t::fresnel_type::create(orientedEta);
-)===";
-        }
-        else
-        {
-            // brdf
-            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
-                bxdf_type = "bxdf::reflection::SGGXIsotropic<iso_microfacet_config_t>";
-            else
-                bxdf_type = "bxdf::reflection::SBeckmannIsotropic<iso_microfacet_config_t>";
-
-            const auto etaNode = ir->getObjectPool().deref(cook_torrance->orientedRealEta);
-            const auto eta = etaNode->getParameter(0).scale;
-            const auto etak = etaNode->getParameter(1).scale;   // TODO: double check how eta is stored
-            fresnel_create = R"===(
-    bxdf.fresnel = cook_torrance_t::fresnel_type::create()===" + std::to_string(eta) + ", " + std::to_string(etak) + R"===();
-)===";
-        }
+        getCookTorranceBxDFHLSLCode(cook_torrance, ir, bxdf_type, fresnel_create);
 
         sstr << R"===(
 static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter)
@@ -2334,6 +2235,60 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(NB
         [[fallthrough]]
     default:
         break;
+    }
+}
+
+void CReferenceUnidirectionalPathTracing::getCookTorranceBxDFHLSLCode(const CTrueIR::CCookTorrance* cook_torrance, const CTrueIR* ir,
+    std::string& bxdf_type, std::string& fresnel_create)
+{
+    if (cook_torrance->orientedRealEta)
+    {
+        // btdf
+        if (cook_torrance->ndfParams.definitelyIsotropic())
+        {
+            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
+                bxdf_type = "bxdf::transmission::SGGXDielectricIsotropic<aniso_microfacet_config_t>";
+            else
+                bxdf_type = "bxdf::transmission::SBeckmannDielectricIsotropic<aniso_microfacet_config_t>";
+        }
+        else
+        {
+            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
+                bxdf_type = "bxdf::transmission::SGGXDielectricAnisotropic<iso_microfacet_config_t>";
+            else
+                bxdf_type = "bxdf::transmission::SBeckmannDielectricAnisotropic<iso_microfacet_config_t>";
+        }
+
+        const auto eta = ir->getObjectPool().deref(cook_torrance->orientedRealEta)->getParameter(0).scale;
+        fresnel_create = R"===(
+    bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type> orientedEta = bxdf::fresnel::OrientedEtas<typename cook_torrance_t::monochrome_type>::create(1.0, hlsl::promote<typename cook_torrance_t::monochrome_type>()===" + std::to_string(eta) + R"===());
+    bxdf.fresnel = cook_torrance_t::fresnel_type::create(orientedEta);
+)===";
+    }
+    else
+    {
+        // brdf
+        if (cook_torrance->ndfParams.definitelyIsotropic())
+        {
+            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
+                bxdf_type = "bxdf::reflection::SGGXIsotropic<iso_microfacet_config_t>";
+            else
+                bxdf_type = "bxdf::reflection::SBeckmannIsotropic<iso_microfacet_config_t>";
+        }
+        else
+        {
+            if (cook_torrance->ndfParams.getDistribution() == CTrueIR::SBasicNDFParams::EDistribution::GGX)
+                bxdf_type = "bxdf::reflection::SGGXAnisotropic<aniso_microfacet_config_t>";
+            else
+                bxdf_type = "bxdf::reflection::SBeckmannAnisotropic<aniso_microfacet_config_t>";
+        }
+
+        const auto etaNode = ir->getObjectPool().deref(cook_torrance->orientedRealEta);
+        const auto eta = etaNode->getParameter(0).scale;
+        const auto etak = etaNode->getParameter(1).scale;   // TODO: double check how eta is stored
+        fresnel_create = R"===(
+    bxdf.fresnel = cook_torrance_t::fresnel_type::create()===" + std::to_string(eta) + ", " + std::to_string(etak) + R"===();
+)===";
     }
 }
 
