@@ -12,7 +12,6 @@ core::smart_refctd_ptr<CReferenceUnidirectionalPathTracing::CResult> CReferenceU
     auto res = core::make_smart_refctd_ptr<CResult>();
 
     // TODO: handle textures somehow
-    // TODO: templated structs for types in certain functions, e.g. cache (generate + quotient)
     // TODO: where do all the type aliases come from? e.g. sample_t, vector3_t, etc.
     std::ostringstream code;
 
@@ -73,6 +72,8 @@ struct OrientedMaterial;
             getEvalWeightHLSLCode(code, node, ir);
             getQuotientWeightHLSLCode(code, node, ir);
             getEmissionHLSLCode(code, node, ir);
+            getCanGenerateHLSLCode(code, node, ir);
+            getChoiceTargetHLSLCode(code, node, ir);
         }
         };
 
@@ -974,7 +975,6 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
         return OrientedMaterial<)===" << childBtdfHash << R"===(>::generate(inter, xi, xi_extra, cache.child1);
     }
 )===";
-        // TODO: probability of lobe also goes into cache
         break;
     }
     case CTrueIR::INode::EFinalType::CContributorSum:
@@ -1083,7 +1083,6 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
         return OrientedMaterial<)===" << childCoatedHash << R"===(>::generate(inter, xi, xi_extra, cache.child2);
     }
 )===";
-        // TODO: chosenLobe goes into cache to use in quotient
         // TODO: next node?
         break;
     }
@@ -1168,7 +1167,6 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
     return _sample;
 }
 )===";
-        // TODO: what to do with child caches?
         break;
     }
     case CTrueIR::INode::EFinalType::CDeltaTransmission:
@@ -1239,7 +1237,6 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
     scalar_t choiceSum;
     scalar_t choiceProb = OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(inter, chosenLobe, choiceSum);
 )===";
-        // TODO also get choice prob from cache
 
         const auto childBrdf = ir->getObjectPool().deref(layer->brdfTop);
         const auto childBtdf = ir->getObjectPool().deref(layer->firstTransmission);
@@ -1280,7 +1277,6 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
     }
     case CTrueIR::INode::EFinalType::CContributorSum:
     {
-        // TODO
         const auto* sum = dynamic_cast<const CTrueIR::CContributorSum*>(node);
         if (!sum)
             break;
@@ -1456,7 +1452,6 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
     return quo;
 }
 )===";
-        // TODO: what to do with child caches?
         break;
     }
     case CTrueIR::INode::EFinalType::CCookTorrance:
@@ -1514,7 +1509,6 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
     return quo;
 }
 )===";
-        // TODO: what to do with child caches?
         break;
     }
     case CTrueIR::INode::EFinalType::CDeltaTransmission:
@@ -1548,7 +1542,6 @@ void CReferenceUnidirectionalPathTracing::getEvalWeightHLSLCode(std::ostringstre
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
     {
-        // TODO
         const auto* layer = dynamic_cast<const CTrueIR::COrientedLayer*>(node);
         if (!layer)
             break;
@@ -1567,7 +1560,6 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
         const auto childBtdfHash = getHashAs4UintsString(childBtdf, ir);
 
         // TODO defensive sampler
-        // TODO check lobe can generate
 
         sstr << R"===(
     value_weight_t retval = value_weight_t::create(0.0,0.0);
@@ -1592,7 +1584,6 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     }
     case CTrueIR::INode::EFinalType::CContributorSum:
     {
-        // TODO
         const auto* sum = dynamic_cast<const CTrueIR::CContributorSum*>(node);
         if (!sum)
             break;
@@ -1633,7 +1624,6 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     }
     case CTrueIR::INode::EFinalType::CWeightedContributor:
     {
-        // TODO
         const auto* contrib = dynamic_cast<const CTrueIR::CWeightedContributor*>(node);
         if (!contrib)
             break;
@@ -1650,7 +1640,6 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
             sstr << R"===(
     value_weight_t contrib = OrientedMaterial<)===" << childHash << R"===(>::evalAndWeight(_sample, inter);
 )===";
-            // TODO: what to do with child caches?
         }
 
         if (auto child = ir->getObjectPool().deref(contrib->factor); child)
@@ -1673,7 +1662,6 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     }
     case CTrueIR::INode::EFinalType::CCorellatedTransmission:
     {
-        // TODO
         const auto* transmission = dynamic_cast<const CTrueIR::CCorellatedTransmission*>(node);
         if (!transmission)
             break;
