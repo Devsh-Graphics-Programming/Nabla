@@ -26,6 +26,7 @@ struct OrientedMaterial;
     // loop through layers in IR and construct materials map? maybe just node map is fine
     core::vector<CTrueIR::typed_pointer_type<const CTrueIR::INode>> nodeStack;
     core::unordered_set<CTrueIR::typed_pointer_type<const CTrueIR::INode>> visitedNodes;
+    core::unordered_map<CTrueIR::typed_pointer_type<const CTrueIR::INode>, TraversalNodeInfo> nodeInfos;
     auto compileBSDFRootNode = [&](CTrueIR::typed_pointer_type<const CTrueIR::INode> rootHandle) -> void {
         nodeStack.clear();
         visitedNodes.clear();
@@ -324,8 +325,9 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
         }
 
         sstr << "spectral_t retval = ";
+        const std::string op = (combiner->getState().type == CTrueIR::CFactorCombiner::Type::Mul) ? " * " : " + ";
         for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
-            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? " + " : "");
+            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? op : "");
         sstr << R"===(;
     return retval;
 }
@@ -579,8 +581,9 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput
         }
 
         sstr << "spectral_t retval = ";
+        const std::string op = (combiner->getState().type == CTrueIR::CFactorCombiner::Type::Mul) ? " * " : " + ";
         for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
-            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? " + " : "");
+            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? op : "");
         sstr << R"===(;
     return retval;
 }
@@ -795,8 +798,9 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
         }
 
         sstr << "scalar_t retval = ";
+        const std::string op = (combiner->getState().type == CTrueIR::CFactorCombiner::Type::Mul) ? " * " : " + ";
         for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
-            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? " + " : "");
+            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? op : "");
         sstr << R"===(;
     return retval;
 }
@@ -998,6 +1002,51 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
         cache.chosenLobe = 1;
         return OrientedMaterial<)===" << childRestHash << R"===(>::generate(inter, xi, xi_extra, cache.child1);
     }
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CFactorCombiner:
+    {
+        const auto* combiner = dynamic_cast<const CTrueIR::CFactorCombiner*>(node);
+        if (!combiner)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache)
+{
+)===";
+
+        const auto childCount = combiner->getChildCount();
+
+        for (uint8_t i = 0; i < childCount; i++)
+        {
+            if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
+            {
+                const auto childHash = getHashAs4UintsString(child, ir);
+                if (i < childCount - 1)
+                    sstr << R"===(
+    {
+        scalar_t dummy;
+        scalar_t prob = OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(inter, )===" << static_cast<uint32_t>(i) << R"===(, dummy);
+        if (u.x < prob)
+        {
+            cache.chosenLobe = )===" << static_cast<uint32_t>(i) << R"===(;
+            return OrientedMaterial<)===" << childHash << R"===(>::generate(inter, xi, xi_extra, cache.child)===" << static_cast<uint32_t>(i) << R"===();
+        }
+    }
+)===";
+                else
+                    sstr << R"===(
+    {
+        cache.chosenLobe = )===" << static_cast<uint32_t>(i) << R"===(;
+        return OrientedMaterial<)===" << childHash << R"===(>::generate(inter, xi, xi_extra, cache.child)===" << static_cast<uint32_t>(i) << R"===();
+    }
+)===";
+            }
+        }
+        sstr << R"===(
+}
 )===";
         break;
     }
@@ -1286,6 +1335,69 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
 )===" << combineRestWithRetValCode;
         break;
     }
+    case CTrueIR::INode::EFinalType::CFactorCombiner:
+    {
+        const auto* combiner = dynamic_cast<const CTrueIR::CFactorCombiner*>(node);
+        if (!combiner)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache)
+{
+    uint8_t chosenLobe = cache.chosenLobe;
+    scalar_t choiceSum;
+    scalar_t choiceProb = OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(inter, chosenLobe, choiceSum);
+
+    quotient_weight_t retval;
+)===";
+
+        const auto childCount = combiner->getChildCount();
+
+        for (uint8_t i = 0; i < childCount; i++)
+        {
+            if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
+            {
+                const auto childHash = getHashAs4UintsString(child, ir);
+                if (i < childCount - 1)
+                    sstr << R"===(
+    if (chosenLobe ==  )===" << static_cast<uint32_t>(i) << R"===(
+        retval = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, cache.child)===" << static_cast<uint32_t>(i) << R"===();
+)===";
+                else
+                    sstr << R"===(
+    else
+        retval = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, cache.child)===" << static_cast<uint32_t>(i) << R"===();
+)===";
+            }
+        }
+
+        sstr << R"===(
+    if (retval.weight() < bit_cast<scalar_type>(numeric_limits<scalar_type>::infinity))
+    {
+        const scalar_t chosenPdf = retval.weight() * choiceProb;
+        value_weight_t rest = value_weight_t::create(0.0,0.0);
+)===";
+
+        for (uint8_t i = 0; i < childCount; i++)
+        {
+            if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
+            {
+                const auto childHash = getHashAs4UintsString(child, ir);
+                sstr << R"===(
+        if (chosenLobe !=  )===" << static_cast<uint32_t>(i) << R"===(
+        {
+            value_weight_t child = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, cache.child)===" << static_cast<uint32_t>(i) << R"===();
+            if (OrientedMaterial<)===" << childHash << R"===(>::canGenerate())
+                rest.weight += child.weight() * OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(inter, )===" << static_cast<uint32_t>(i) << R"===(, choiceSum);
+        }
+)===";
+            }
+        }
+
+        sstr << combineRestWithRetValCode;
+        break;
+    }
     case CTrueIR::INode::EFinalType::CWeightedContributor:
     {
         const auto* contrib = dynamic_cast<const CTrueIR::CWeightedContributor*>(node);
@@ -1552,6 +1664,44 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
 )===";
         break;
     }
+    case CTrueIR::INode::EFinalType::CFactorCombiner:
+    {
+        const auto* combiner = dynamic_cast<const CTrueIR::CFactorCombiner*>(node);
+        if (!combiner)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter)
+{
+    value_weight_t retval = value_weight_t::create(0.0,0.0);
+    scalar_t targetSum;
+)===";
+
+        const auto childCount = combiner->getChildCount();
+
+        for (uint8_t i = 0; i < childCount; i++)
+        {
+            if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
+            {
+                const auto childHash = getHashAs4UintsString(child, ir);
+                    sstr << R"===(
+    {
+        value_weight_t lobe = OrientedMaterial<)===" << childHash << R"===(>::evalAndWeight(_sample, inter);
+        retval.value += lobe.value();
+        if (OrientedMaterial<)===" << childHash << R"===(>::canGenerate())
+            retval.weight += lobe.weight() * OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(inter, )===" << static_cast<uint32_t>(i) << R"===(, targetSum);
+    }
+)===";
+            }
+        }
+
+        sstr << R"===(
+    retval.weight /= targetSum;
+    return retval;
+)===";
+        break;
+    }
     case CTrueIR::INode::EFinalType::CWeightedContributor:
     {
         const auto* contrib = dynamic_cast<const CTrueIR::CWeightedContributor*>(node);
@@ -1803,8 +1953,9 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::emission()
         }
 
         sstr << "spectral_t retval = ";
+        const std::string op = (combiner->getState().type == CTrueIR::CFactorCombiner::Type::Mul) ? " * " : " + ";
         for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
-            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? " + " : "");
+            sstr << "child" << static_cast<uint32_t>(i) << (i < childCount - 1 ? op : "");
         sstr << R"===(;
     return retval;
 }
@@ -2154,6 +2305,7 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(NB
         return 1.0 / (1.0 + weightBtdf / weightBrdf);
     else
         return 1.0 / (1.0 + weightBrdf / weightBtdf);
+}
 )===";
         break;
     }
@@ -2185,6 +2337,56 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(NB
         return 1.0 / (1.0 + weightRest / weightProduct);
     else
         return 1.0 / (1.0 + weightProduct / weightRest);
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CFactorCombiner:
+    {
+        const auto* combiner = dynamic_cast<const CTrueIR::CFactorCombiner*>(node);
+        if (!combiner)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static scalar_t OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(NBL_CONST_REF_ARG(aniso_interaction_t) inter, uint8_t chosenLobe, NBL_REF_ARG(scalar_t) choiceSum)
+{
+    spectral_t lumaContrib = inter.getLuminosityContributionHint();
+)===";
+
+        const auto childCount = combiner->getChildCount();
+
+        for (uint8_t i = 0; i < childCount; i++)
+        {
+            if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
+            {
+                const auto childHash = getHashAs4UintsString(child, ir);
+                sstr << R"===(
+    scalar_t weightChild)===" << static_cast<uint32_t>(i) << R"===( = hlsl::dot(lumaContrib, OrientedMaterial<)===" << childHash << R"===(>::albedo());
+)===";
+            }
+        }
+
+        sstr << "choiceSum = ";
+        for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
+            sstr << "weightChild" << static_cast<uint32_t>(i) << (i < childCount - 1 ? " + " : "");
+
+        for (uint8_t i = 0; i < childCount; i++)    // TODO: check for invalid children?
+        {
+            if (i < childCount - 1)
+                sstr << R"===(
+    if (chosenLobe == )===" << static_cast<uint32_t>(i) << R"===()
+        return weightChild)===" << static_cast<uint32_t>(i) << R"===( / choiceSum;
+)===";
+            else
+                sstr << R"===(
+    else
+        return weightChild)===" << static_cast<uint32_t>(i) << R"===( / choiceSum;
+)===";
+        }
+      
+        sstr << R"===(
+}
 )===";
         break;
     }
@@ -2221,6 +2423,7 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(NB
         return 1.0 / (1.0 + (weightCoated + weightBtdf) / weightBottom);
     else
         return  1.0 / (1.0 + (weightBtdf + weightBottom) / weightCoated);
+}
 )===";
         // TODO: next node?
         break;
