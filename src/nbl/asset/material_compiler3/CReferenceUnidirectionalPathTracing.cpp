@@ -25,11 +25,11 @@ struct OrientedMaterial;
 
     // loop through layers in IR and construct materials map? maybe just node map is fine
     core::vector<CTrueIR::typed_pointer_type<const CTrueIR::INode>> nodeStack;
-    core::unordered_set<CTrueIR::typed_pointer_type<const CTrueIR::INode>> visitedNodes;
+    //core::unordered_set<CTrueIR::typed_pointer_type<const CTrueIR::INode>> visitedNodes;
     core::unordered_map<CTrueIR::typed_pointer_type<const CTrueIR::INode>, TraversalNodeInfo> nodeInfos;
     auto compileBSDFRootNode = [&](CTrueIR::typed_pointer_type<const CTrueIR::INode> rootHandle) -> void {
         nodeStack.clear();
-        visitedNodes.clear();
+        nodeInfos.clear();
 
         nodeStack.push_back(rootHandle);
         const auto& pool = ir->getObjectPool();
@@ -44,37 +44,22 @@ struct OrientedMaterial;
                 continue;
 
             getMaterialDeclarationCode(code, node, ir);
-
-            const auto childCount = node->getChildCount();
-            if (childCount)
-            {
-                for (auto childIx = 0; childIx < childCount; childIx++)
-                {
-                    const auto childHandle = node->getChildHandle(childIx);
-                    if (const auto child = pool.deref(childHandle); child)
-                    {
-                        const auto [unused, inserted] = visitedNodes.insert(childHandle);
-                        if (inserted)
-                            nodeStack.push_back(childHandle);
-                    }
-                }
-            }
+            traverseIRNode(node, ir, nodeStack, nodeInfos);
         }
 
-        for (const auto& nodeHandle : visitedNodes)
+        for (const auto& nodeInfo : std::views::values(nodeInfos))
         {
-            const auto* node = pool.deref(nodeHandle);
-            getCacheDefineCode(code, node, ir);
-            getAlbedoHLSLCode(code, node, ir);
-            getNormalHLSLCode(code, node, ir);
-            getAOVThroughputHLSLCode(code, node, ir);
-            getTransparencyHLSLCode(code, node, ir);
-            getGenerateHLSLCode(code, node, ir);
-            getEvalWeightHLSLCode(code, node, ir);
-            getQuotientWeightHLSLCode(code, node, ir);
-            getEmissionHLSLCode(code, node, ir);
-            getCanGenerateHLSLCode(code, node, ir);
-            getChoiceTargetHLSLCode(code, node, ir);
+            getCacheDefineCode(code, nodeInfo, ir);
+            getAlbedoHLSLCode(code, nodeInfo, ir);
+            getNormalHLSLCode(code, nodeInfo, ir);
+            getAOVThroughputHLSLCode(code, nodeInfo, ir);
+            getTransparencyHLSLCode(code, nodeInfo, ir);
+            getGenerateHLSLCode(code, nodeInfo, ir);
+            getEvalWeightHLSLCode(code, nodeInfo, ir);
+            getQuotientWeightHLSLCode(code, nodeInfo, ir);
+            getEmissionHLSLCode(code, nodeInfo, ir);
+            getCanGenerateHLSLCode(code, nodeInfo, ir);
+            getChoiceTargetHLSLCode(code, nodeInfo, ir);
         }
         };
 
@@ -98,6 +83,173 @@ struct OrientedMaterial;
     // TODO: set entry points in raytracingPipeline
 
     return res;
+}
+
+void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* node, const CTrueIR* ir,
+    core::vector<CTrueIR::typed_pointer_type<const CTrueIR::INode>>& nodeStack,
+    core::unordered_map<CTrueIR::typed_pointer_type<const CTrueIR::INode>, TraversalNodeInfo>& nodeInfos)
+{
+    auto addChildToTraverse = [&](CTrueIR::typed_pointer_type<const CTrueIR::INode> handle, const TraversalNodeInfo& info) -> void {
+        const auto [unused, inserted] = nodeInfos.insert({ handle, info });
+        if (inserted)
+            nodeStack.push_back(handle);
+        };
+
+    switch (node->getFinalType())
+    {
+    case CTrueIR::INode::EFinalType::COrientedLayer:
+    {
+        const auto* layer = dynamic_cast<const CTrueIR::COrientedLayer*>(node);
+        if (!layer)
+            break;
+
+        if (auto childBrdf = ir->getObjectPool().deref(layer->brdfTop); childBrdf)
+        {
+            TraversalNodeInfo info = {
+                .node = childBrdf,
+                .isTransmission = false
+            };
+            addChildToTraverse(layer->brdfTop, info);
+        }
+        if (auto childBtdf = ir->getObjectPool().deref(layer->firstTransmission); childBtdf)
+        {
+            TraversalNodeInfo info = {
+                .node = childBtdf,
+                .isTransmission = true
+            };
+            addChildToTraverse(layer->firstTransmission, info);
+        }
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CContributorSum:
+    {
+        const auto* sum = dynamic_cast<const CTrueIR::CContributorSum*>(node);
+        if (!sum)
+            break;
+
+        if (auto childProduct = ir->getObjectPool().deref(sum->product); childProduct)
+        {
+            TraversalNodeInfo info = {
+                .node = childProduct,
+                .isTransmission = false
+            };
+            addChildToTraverse(sum->product, info);
+        }
+        if (auto childRest = ir->getObjectPool().deref(sum->rest); childRest)
+        {
+            TraversalNodeInfo info = {
+                .node = childRest,
+                .isTransmission = false
+            };
+            addChildToTraverse(sum->rest, info);
+        }
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CFactorCombiner:
+    {
+        const auto* combiner = dynamic_cast<const CTrueIR::CFactorCombiner*>(node);
+        if (!combiner)
+            break;
+
+        const auto childCount = combiner->getChildCount();
+
+        for (uint8_t i = 0; i < childCount; i++)
+        {
+            if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
+            {
+                TraversalNodeInfo info = {
+                .node = child,
+                .isTransmission = false
+                };
+                addChildToTraverse(combiner->getChildHandle(i), info);
+            }
+        }
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CWeightedContributor:
+    {
+        const auto* contrib = dynamic_cast<const CTrueIR::CWeightedContributor*>(node);
+        if (!contrib)
+            break;
+
+        if (auto childContrib = ir->getObjectPool().deref(contrib->contributor); childContrib)
+        {
+            TraversalNodeInfo info = {
+                .node = childContrib,
+                .isTransmission = false
+            };
+            addChildToTraverse(contrib->contributor, info);
+        }
+        if (auto childFactor = ir->getObjectPool().deref(contrib->factor); childFactor)
+        {
+            TraversalNodeInfo info = {
+                .node = childFactor,
+                .isTransmission = false
+            };
+            addChildToTraverse(contrib->factor, info);
+        }
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CCorellatedTransmission:
+    {
+        const auto* transmission = dynamic_cast<const CTrueIR::CCorellatedTransmission*>(node);
+        if (!transmission)
+            break;
+
+        if (auto child = ir->getObjectPool().deref(transmission->btdf); child)
+        {
+            TraversalNodeInfo info = {
+                .node = child,
+                .isTransmission = true
+            };
+            addChildToTraverse(transmission->btdf, info);
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->brdfBottom); child)
+        {
+            TraversalNodeInfo info = {
+                .node = child,
+                .isTransmission = false
+            };
+            addChildToTraverse(transmission->brdfBottom, info);
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->coated); child)
+        {
+            TraversalNodeInfo info = {
+                .node = child,
+                .isTransmission = true  // TODO: double check this
+            };
+            addChildToTraverse(transmission->coated, info);
+        }
+        if (auto child = ir->getObjectPool().deref(transmission->next); child)
+        {
+            TraversalNodeInfo info = {
+                .node = child,
+                .isTransmission = false
+            };
+            addChildToTraverse(transmission->next, info);
+        }
+        break;
+    }
+        // these ones don't have children/have children that needs to traverse
+    case CTrueIR::INode::EFinalType::CSpectralVariable:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CEmitter:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::COrenNayar:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CCookTorrance:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CDeltaTransmission:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CBeer:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CFresnel:
+        [[fallthrough]]
+    case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
+        [[fallthrough]]
+    default:
+        break;
+    }
 }
 
 std::string CReferenceUnidirectionalPathTracing::getHashAs4UintsString(const CTrueIR::INode* node, const CTrueIR* ir, const std::string& separator) const
@@ -153,8 +305,9 @@ struct OrientedMaterial<)===" << hashString << R"===(>
 
 }
 
-void CReferenceUnidirectionalPathTracing::getCacheDefineCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getCacheDefineCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
+    const auto* node = nodeInfo.node;
     const auto hashString = getHashAs4UintsString(node, ir);
     const auto nodeType = node->getFinalType();
 
@@ -239,8 +392,9 @@ struct gen_cache<)===" << hashString << R"===(>
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
+    const auto* node = nodeInfo.node;
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
@@ -452,8 +606,9 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getNormalHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getNormalHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
+    const auto* node = nodeInfo.node;
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
@@ -495,8 +650,9 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::normal(NBL_CO
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getAOVThroughputHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getAOVThroughputHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
+    const auto* node = nodeInfo.node;
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
@@ -712,8 +868,9 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput()
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getTransparencyHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getTransparencyHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
+    const auto* node = nodeInfo.node;
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
@@ -929,8 +1086,9 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getGenerateHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getGenerateHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
+    const auto* node = nodeInfo.node;
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
@@ -1130,14 +1288,16 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
             break;
 
         // TODO: config type alias from where (also allow aniso)
-        // TODO: also might be btdf
+        std::string bxdf_type = "bxdf::reflection::SOrenNayar<iso_config_t>";
+        if (nodeInfo.isTransmission)
+            bxdf_type = "bxdf::transmission::SOrenNayar<iso_config_t>";
 
         const auto hashString = getHashAs4UintsString(node, ir);
         auto roughness = oren_nayar->ndfParams.getRougness();
         sstr << R"===(
 static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache)
 {
-    using oren_nayar_t = bxdf::reflection::SOrenNayar<iso_config_t>;
+    using oren_nayar_t = )===" << bxdf_type << R"===(;
     using creation_t = typename oren_nayar_t::creation_type;
     creation_t params;
     params.A = )===" << roughness.data()[0].scale << R"===(;
@@ -1202,7 +1362,7 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getQuotientWeightHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getQuotientWeightHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
     const std::string combineRestWithRetValCode = R"===(
         retval.weight += rest.weight();
@@ -1228,6 +1388,7 @@ void CReferenceUnidirectionalPathTracing::getQuotientWeightHLSLCode(std::ostring
     return retval;
 )===";
 
+    const auto* node = nodeInfo.node;
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
@@ -1507,14 +1668,16 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
             break;
 
         // TODO: config type alias from where (also allow aniso)
-        // TODO: also might be btdf
+        std::string bxdf_type = "bxdf::reflection::SOrenNayar<iso_config_t>";
+        if (nodeInfo.isTransmission)
+            bxdf_type = "bxdf::transmission::SOrenNayar<iso_config_t>";
 
         const auto hashString = getHashAs4UintsString(node, ir);
         auto roughness = oren_nayar->ndfParams.getRougness();
         sstr << R"===(
 static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache)
 {
-    using oren_nayar_t = bxdf::reflection::SOrenNayar<iso_config_t>;
+    using oren_nayar_t = )===" << bxdf_type << R"===(;
     using creation_t = typename oren_nayar_t::creation_type;
     creation_t params;
     params.A = )===" << roughness.data()[0].scale << R"===(;
@@ -1578,8 +1741,9 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getEvalWeightHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getEvalWeightHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
+    const auto* node = nodeInfo.node;
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
@@ -1796,14 +1960,17 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
             break;
 
         // TODO: config type alias from where (also allow aniso)
-        // TODO: also might be btdf
+
+        std::string bxdf_type = "bxdf::reflection::SOrenNayar<iso_config_t>";
+        if (nodeInfo.isTransmission)
+            bxdf_type = "bxdf::transmission::SOrenNayar<iso_config_t>";
 
         const auto hashString = getHashAs4UintsString(node, ir);
         auto roughness = oren_nayar->ndfParams.getRougness();
         sstr << R"===(
 static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter)
 {
-    using oren_nayar_t = bxdf::reflection::SOrenNayar<iso_config_t>;
+    using oren_nayar_t = )===" << bxdf_type << R"===(;
     using creation_t = typename oren_nayar_t::creation_type;
     creation_t params;
     params.A = )===" << roughness.data()[0].scale << R"===(;
@@ -1867,8 +2034,9 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getEmissionHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getEmissionHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
+    const auto* node = nodeInfo.node;
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
@@ -2073,8 +2241,9 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::emission()
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getCanGenerateHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getCanGenerateHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
+    const auto* node = nodeInfo.node;
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
@@ -2273,8 +2442,9 @@ static bool OrientedMaterial<)===" << hashString << R"===(>::canGenerate()
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getChoiceTargetHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+void CReferenceUnidirectionalPathTracing::getChoiceTargetHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
 {
+    const auto* node = nodeInfo.node;
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
