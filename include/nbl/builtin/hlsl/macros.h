@@ -37,9 +37,15 @@ inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forw
 #ifdef __HLSL_VERSION
 #define NBL_UNROLL [[unroll]]
 #define NBL_UNROLL_LIMITED(LIMIT) [unroll(LIMIT)]
+#define NBL_HLSL_LOOP [[loop]]
+#define NBL_HLSL_BRANCH [[branch]]
+#define NBL_HLSL_FLATTEN [[flatten]]
 #else
 #define NBL_UNROLL
 #define NBL_UNROLL_LIMITED(LIMIT)
+#define NBL_HLSL_LOOP
+#define NBL_HLSL_BRANCH
+#define NBL_HLSL_FLATTEN
 #endif
 
 #ifdef __HLSL_VERSION // cause DXC is insane

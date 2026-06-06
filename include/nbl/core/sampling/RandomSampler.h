@@ -11,8 +11,8 @@
 namespace nbl::core
 {
 
-class RandomSampler
-{
+	class RandomSampler
+	{
 	public:
 		RandomSampler(uint32_t _seed)
 		{
@@ -25,9 +25,24 @@ class RandomSampler
 			return mersenneTwister();
 		}
 
+		// Returns a float in [0, 1)
+		inline float nextFloat()
+		{
+			// 1 / 2^32
+			constexpr float norm = 1.0f / 4294967296.0f;
+			return mersenneTwister() * norm;
+		}
+
+		// Returns a float in [min, max)
+		inline float nextFloat(float min, float max)
+		{
+			constexpr float norm = 1.0f / 4294967296.0f;
+			return min + (mersenneTwister() * norm) * (max - min);
+		}
+
 	protected:
 		std::mt19937 mersenneTwister;
-};
+	};
 
 
 }
