@@ -271,8 +271,17 @@ SAssetBundle CMitsubaLoader::loadAsset(system::IFile* _file, const IAssetLoader:
 			instances.getInitialTransforms()[index] = shape->getTransform();
 			//
 			const core::string debugName = shape->id.empty() ? std::format("0x{:x}",ptrdiff_t(shape)):shape->id;
-			ctx.getMaterial(shape->bsdf,shape->obtainEmitter(),debugName,PrintMaterialDot3 ? m_system.get():nullptr);
-			// TODO: compile the material into the true IR and push it into the instances
+			const auto astRootH = ctx.getMaterial(shape->bsdf,shape->obtainEmitter(),debugName,PrintMaterialDot3 ? m_system.get():nullptr);
+			// TODO: get the output slot for the material in the ICPUScene from `instances.getMaterialTables()`
+			material_compiler3::CTrueIR::SMaterialHandle rMaterialHandle = {}; // instances.getMaterialTables()
+			if (astRootH)
+			{
+				// we can't batch because of how the parser works
+				const auto addedCount = ctx.getMaterialFrontend()->addMaterials({.rootNodes={&astRootH,1},.ir=ctx.scene->getMaterialPool(),.result=&rMaterialHandle,.logger=_params.logger});
+				// we could check `addedCount` but the function above does its own logging
+			}
+			else // TODO: make a special Error material
+				rMaterialHandle = material_compiler3::CTrueIR::BlackholeMaterialHandle;
 		};
 
 		// first go over all actually used shapes which are not shapegroups (regular shapes and instances)
@@ -385,7 +394,8 @@ auto SContext::getMaterial(
 	}
 	else
 		root->brdfTop = foundEmitter->second._const_cast();
-	const bool success = frontIR->addMaterial(rootH,inner.params.logger);
+	//
+	const bool success = frontIR->valid(rootH,inner.params.logger);
 	
 	auto logger = inner.params.logger;
 	if (!success)
@@ -398,13 +408,14 @@ auto SContext::getMaterial(
 		const frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer> constRootH = rootH;
 		frontend_ir_t::SDotPrinter printer = {frontIR.get(),{&constRootH,1}};
 		writeDot3File(debugFileWriter,DebugDir/"material_frontend"/(debugName+".dot"),printer);
+		debugAllMaterials.push_back(constRootH);
 	}
 
 	return rootH;
 }
 
 
-using parameter_t = asset::material_compiler3::CFrontendIR::SParameter;
+using parameter_t = asset::material_compiler3::CTrueIR::SParameter;
 parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::float32_t2x3* outUvTransform)
 {
 	parameter_t retval = {};
@@ -449,25 +460,19 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 					}
 					return tex_clamp_e::ETC_REPEAT;
 				};
-				auto& params = retval.sampler;
-				params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
-				params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
+				retval.wrapU = getWrapMode(bitmap.wrapModeU);
+				retval.wrapV = getWrapMode(bitmap.wrapModeV);
 				switch (bitmap.filterType)
 				{
 					case CElementTexture::Bitmap::FILTER_TYPE::EWA:
 						[[fallthrough]]; // we dont support this fancy stuff
 					case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
-						params.MinFilter = ISampler::ETF_LINEAR;
-						params.MaxFilter = ISampler::ETF_LINEAR;
-						params.MipmapMode = ISampler::ESMM_LINEAR;
+						retval.linearMagnification = true;
 						break;
 					default:
-						params.MinFilter = ISampler::ETF_NEAREST;
-						params.MaxFilter = ISampler::ETF_NEAREST;
-						params.MipmapMode = ISampler::ESMM_NEAREST;
+						retval.linearMagnification = false;
 						break;
 				}
-				params.AnisotropicFilter = core::max(hlsl::findMSB<uint32_t>(bitmap.maxAnisotropy),1u);
 				// TODO: embed the gamma in the material compiler Frontend
 				// or adjust gamma on pixels (painful and long process)
 				//assert(std::isnan(bitmap.gamma));
@@ -494,6 +499,7 @@ parameter_t SContext::getTexture(const CElementTexture* const rootTex, hlsl::flo
 }
 
 
+using spectral_var_t = asset::material_compiler3::CFrontendIR::CSpectralVariableExpr;
 template<int N>
 void getParameters(const std::span<parameter_t,N> out, const hlsl::vector<float32_t,N> value)
 {
@@ -505,6 +511,21 @@ void getParameters(const std::span<parameter_t> out, const float32_t value)
 	for (auto it=out.begin(); it!=out.end(); it++)
 		it->scale = value;
 }
+template<typename T> requires hlsl::concepts::FloatingPoint<T>
+void getParameters(spectral_var_t* const out, const T value)
+{
+	out->setSemantics(spectral_var_t::ESemantics::Fixed3_SRGB);
+	for (uint8_t i=0; i<out->getKnotCount(); i++)
+	{
+		parameter_t param = {};
+		if constexpr (hlsl::is_vector_v<T>)
+			getParameters({&param,1},value[i]);
+		else
+			getParameters({&param,1},value);
+		out->setParameter(i,std::move(param));
+	}
+}
+
 hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t,3> out, const CElementTexture::SpectrumOrTexture& src)
 {
 	auto retval = hlsl::math::linalg::diagonal<hlsl::float32_t2x3>(0.f);
@@ -524,8 +545,12 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t,3> out, c
 			out[c].viewChannel = param.viewChannel;
 			if (formatChannelCount>1 && src.texture->bitmap.channel==CElementTexture::Bitmap::CHANNEL::INVALID)
 				out[c].viewChannel += c;
+			out[c].linearMagnification = param.linearMagnification;
+			out[c].wrapU = param.wrapU;
+			out[c].wrapV = param.wrapV;
+			out[c].wrapW = param.wrapW;
+			out[c].borderColor = param.borderColor;
 			out[c].view = param.view;
-			out[c].sampler = param.sampler;
 		}
 	}
 	else
@@ -545,6 +570,16 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t,3> out, c
 	}
 	return retval;
 }
+void SContext::getParameters(spectral_var_t* const out, const CElementTexture::SpectrumOrTexture& src)
+{
+	assert(out->getKnotCount()==3);
+	out->setSemantics(spectral_var_t::ESemantics::Fixed3_SRGB);
+	parameter_t params[3] = {};
+	out->uvTransform() = getParameters(params,src);
+	for (uint8_t i=0; i<out->getKnotCount(); i++)
+		out->setParameter(i,std::move(params[i]));
+}
+
 hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t> out, const CElementTexture::FloatOrTexture& src)
 {
 	auto retval = hlsl::math::linalg::diagonal<hlsl::float32_t2x3>(0.f);
@@ -556,16 +591,27 @@ hlsl::float32_t2x3 SContext::getParameters(const std::span<parameter_t> out, con
 			out[c].scale = param.scale;
 			// assign same channel to everything because the `src` is monochrome
 			out[c].viewChannel = param.viewChannel;
+			out[c].linearMagnification = param.linearMagnification;
+			out[c].wrapU = param.wrapU;
+			out[c].wrapV = param.wrapV;
+			out[c].wrapW = param.wrapW;
+			out[c].borderColor = param.borderColor;
 			out[c].view = param.view;
-			out[c].sampler = param.sampler;
 		}
 	}
     else
 		MitsubaLoader::getParameters(out,src.value);
 	return retval;
 }
+void SContext::getParameters(spectral_var_t* const out, const CElementTexture::FloatOrTexture& src)
+{
+	out->setSemantics(spectral_var_t::ESemantics::Fixed3_SRGB);
+	parameter_t param = {};
+	out->uvTransform() = getParameters({&param,1},src);
+	for (uint8_t i=0; i<out->getKnotCount(); i++)
+		out->setParameter(i,std::move(param));
+}
 
-using spectral_var_t = asset::material_compiler3::CFrontendIR::CSpectralVariable;
 auto SContext::genEmitter(const CElementEmitter* _emitter, system::ISystem* debugFileWriter) -> frontend_emitter_t
 {
 	auto& frontPool = frontIR->getObjectPool();
@@ -590,26 +636,22 @@ auto SContext::genEmitter(const CElementEmitter* _emitter, system::ISystem* debu
 			emitter->profileTransform = hlsl::math::linalg::truncate<3,3>(_emitter->transform.matrix);
 		}
 	}
-	{
-		spectral_var_t::SCreationParams<3> params = {};
-		// if you wanted a textured emitter, this would be the place to do it
-		MitsubaLoader::getParameters<3>(params.knots.params,_emitter->area.radiance);
-		params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-		mul->rhs = frontPool.emplace<spectral_var_t>(std::move(params));
-	}
+	const auto varH = frontPool.emplace<spectral_var_t>(3);
+	MitsubaLoader::getParameters(frontPool.deref(varH),_emitter->area.radiance);
+	mul->rhs = varH;
 
 	if (debugFileWriter)
 	{
 		frontend_ir_t::SDotPrinter printer = {frontIR.get()};
-		printer.exprStack.push(handle);
+		printer.exprStack.push_back(handle);
 		writeDot3File(debugFileWriter,DebugDir/"material_frontend/emitters"/(debugName+".dot"),printer);
 	}
 	return handle;
 }
 
-auto SContext::genProfile(const CElementEmissionProfile* profile) -> frontend_ir_t::SParameter
+auto SContext::genProfile(const CElementEmissionProfile* profile) -> true_ir_t::SParameter
 {
-	frontend_ir_t::SParameter retval = {};
+	true_ir_t::SParameter retval = {};
 	// load it!
 	using namespace nbl::asset;
 	const CIESProfileMetadata* iesMeta = nullptr;
@@ -655,13 +697,12 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	auto logger = inner.params.logger;
 	const core::string debugName = bsdf->id.empty() ? std::format("0x{:x}",ptrdiff_t(bsdf)):bsdf->id;
 	
-	auto createFactorNode = [&](const CElementTexture::SpectrumOrTexture& factor, const ECommonDebug debug)->auto
+	auto createFactorNode = [&](const CElementTexture::SpectrumOrTexture& _factor, const ECommonDebug debug)->auto
 	{
-		spectral_var_t::SCreationParams<3> params = {};
-		params.knots.uvTransform = getParameters(params.knots.params,factor);
-		params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-		const auto factorH = frontPool.emplace<spectral_var_t>(std::move(params));
-		frontPool.deref(factorH)->debugInfo = commonDebugNames[uint16_t(debug)]._const_cast();
+		const auto factorH = frontPool.emplace<spectral_var_t>(3);
+		auto* const factor = frontPool.deref(factorH);
+		getParameters(factor,_factor);
+		factor->debugInfo = commonDebugNames[uint16_t(debug)]._const_cast();
 		return factorH;
 	};
 
@@ -678,7 +719,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 			auto* mul = frontPool.deref(mulH);
 			const auto ctH = frontPool.emplace<frontend_ir_t::CCookTorrance>();
 			{
-				using ndf_e = frontend_ir_t::CCookTorrance::NDF;
+				using ndf_e = true_ir_t::SBasicNDFParams::EDistribution;
 				constexpr ndf_e ndfMap[4] = {
 					ndf_e::Beckmann,
 					ndf_e::GGX,
@@ -690,7 +731,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 				if (base)
 				{
 					// ct->orientedRealEta gets set in the fresnel part
-					ct->ndf = ndfMap[base->distribution];
+					ct->ndParams.getDistribution() = ndfMap[base->distribution];
 					// this function sets both roughnesses to same alpha
 					ct->ndParams.uvTransform = getParameters(roughness,base->alpha);
 					if (base->alphaV.texture || !hlsl::isnan(base->alphaV.value))
@@ -816,14 +857,13 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 							roughness[0].scale = roughness[1].scale = 0.f;
 						mul->lhs = orenNayarH;
 					}
+					const auto albedoH = frontPool.emplace<spectral_var_t>(3);
 					{
-						spectral_var_t::SCreationParams<3> params = {};
-						params.knots.uvTransform = getParameters(params.knots.params,_bsdf->diffuse.reflectance);
-						params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-						const auto albedoH = frontPool.emplace<spectral_var_t>(std::move(params));
-						frontPool.deref(albedoH)->debugInfo = commonDebugNames[uint16_t(ECommonDebug::Albedo)]._const_cast();
-						mul->rhs = albedoH;
+						auto* const albedo = frontPool.deref(albedoH);
+						getParameters(albedo,_bsdf->diffuse.reflectance);
+						albedo->debugInfo = commonDebugNames[uint16_t(ECommonDebug::Albedo)]._const_cast();
 					}
+					mul->rhs = albedoH;
 				}
 				leaf->brdfTop = roughDiffuseH;
 				break;
@@ -855,18 +895,16 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					auto* const fresnel = frontPool.deref(fresnelH);
 					const float extEta = _bsdf->conductor.extEta;
 					{
-						spectral_var_t::SCreationParams<3> params = {};
+						const auto varH = frontPool.emplace<spectral_var_t>(1);
 						const hlsl::float32_t3 eta = _bsdf->conductor.eta.vvalue.xyz;
-						MitsubaLoader::getParameters<3>(params.knots.params,eta/extEta);
-						params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-						fresnel->orientedRealEta = frontPool.emplace<spectral_var_t>(std::move(params));
+						MitsubaLoader::getParameters(frontPool.deref(varH),eta/extEta);
+						fresnel->orientedRealEta = varH;
 					}
 					{
-						spectral_var_t::SCreationParams<3> params = {};
+						const auto varH = frontPool.emplace<spectral_var_t>(1);
 						const hlsl::float32_t3 k = _bsdf->conductor.k.vvalue.xyz;
-						MitsubaLoader::getParameters<3>(params.knots.params,k/extEta);
-						params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-						fresnel->orientedImagEta = frontPool.emplace<spectral_var_t>(std::move(params));
+						MitsubaLoader::getParameters(frontPool.deref(varH),k/extEta);
+						fresnel->orientedImagEta = varH;
 					}
 				}
 				else
@@ -891,7 +929,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 								{
 									auto* thinInfiniteScatter = frontPool.deref(thinInfiniteScatterH);
 									thinInfiniteScatter->reflectanceTop = fresnelH;
-									thinInfiniteScatter->reflectanceBottom = fresnelH;
+									thinInfiniteScatter->reflectanceBottom = frontIR->reciprocate(fresnelH)._const_cast();
 									// TODO: extinction
 								}
 								mul->lhs = deltaTransmission._const_cast();
@@ -947,11 +985,9 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					const CElementTexture::FloatOrTexture constZero = {0.f};
 					mul->lhs = createOrenNayar(_bsdf->difftrans.transmittance,constZero,constZero);
 					// normalize the Oren Nayar over the full sphere
-					{
-						spectral_var_t::SCreationParams<1> params = {};
-						params.knots.params[0].scale = 0.5f;
-						mul->rhs = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params));
-					}
+					const auto varH = frontPool.emplace<spectral_var_t>(1);
+					frontPool.deref(varH)->setParameter(0,{.scale=0.5f});
+					mul->rhs = varH;
 				}
 				leaf->brdfTop = diffTransH;
 				leaf->btdf = diffTransH;
@@ -1047,10 +1083,9 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						const auto beerH = hasExtinction ? frontPool.emplace<frontend_ir_t::CBeer>():frontend_ir_t::typed_pointer_type<frontend_ir_t::CBeer>{};
 						if (auto* const beer=frontPool.deref(beerH); beer)
 						{
-							spectral_var_t::SCreationParams<3> params = {};
-							params.knots.uvTransform = getParameters(params.knots.params,sigmaA);
-							params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-							beer->perpTransmittance = frontPool.emplace<spectral_var_t>(std::move(params));
+							const auto varH = frontPool.emplace<spectral_var_t>(1);
+							getParameters(frontPool.deref(varH),sigmaA);
+							beer->perpTransmittance = varH;
 						}
 						fillCoatingLayer(coating,_bsdf->coating,_bsdf->type==CElementBSDF::ROUGHCOATING,beerH);
 						// attach the nested as layer
@@ -1082,7 +1117,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 					case CElementBSDF::NORMALMAP:
 					{
 						// we basically ignore and skip because derivative map already applied
-						newMaterialH = getChildFromCache(_bsdf->mask.bsdf[0]);
+						newMaterialH = getChildFromCache(_bsdf->normalmap.bsdf[0]);
 						break;
 					}
 					case CElementBSDF::MIXTURE_BSDF:
@@ -1091,19 +1126,18 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 						auto* const mix = frontPool.deref(mixH);
 						const uint8_t realChildCount = hlsl::min<uint8_t>(childCount,_bsdf->mixturebsdf.weightCount);
 						const auto firstH = realChildCount>=1 ? getChildFromCache(_bsdf->mixturebsdf.bsdf[0]):frontend_ir_t::typed_pointer_type<frontend_ir_t::CLayer>{};
-						spectral_var_t::SCreationParams<1> firstParams = {};
-						firstParams.knots.params[0].scale = _bsdf->mixturebsdf.weights[0];
-						const auto firstWeightH = frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(firstParams));
+						const auto firstWeightH = frontPool.emplace<spectral_var_t>(1);
+						frontPool.deref(firstWeightH)->setParameter(0,{.scale=_bsdf->mixturebsdf.weights[0]});
 						if (realChildCount<2)
 							createWeightedSum(mix,firstH,firstWeightH,{},{});
 						else
 						for (uint8_t c=1; c<realChildCount; c++)
 						{
 							const auto otherH = getChildFromCache(_bsdf->mixturebsdf.bsdf[c]);
-							spectral_var_t::SCreationParams<1> params = {};
-							params.knots.params[0].scale = _bsdf->mixturebsdf.weights[c];
+							const auto weightH = frontPool.emplace<spectral_var_t>(1);
+							frontPool.deref(weightH)->setParameter(0,{.scale=_bsdf->mixturebsdf.weights[c]});
 							// don't feel like spending time on this, since its never used, trust CTrueIR optimizer to remove this during canonicalization
-							createWeightedSum(mix,mixH,unityFactor._const_cast(),otherH,frontPool.emplace<frontend_ir_t::CSpectralVariable>(std::move(params)));
+							createWeightedSum(mix,mixH,unityFactor._const_cast(),otherH,weightH);
 						}
 						newMaterialH = mixH;
 						break;
@@ -1172,7 +1206,7 @@ auto SContext::genMaterial(const CElementBSDF* bsdf, system::ISystem* debugFileW
 	auto* const root = frontPool.deref(rootH);
 	root->debugInfo = frontPool.emplace<frontend_ir_t::CDebugInfo>(debugName);
 
-	const bool success = frontIR->addMaterial(rootH,inner.params.logger);
+	const bool success = frontIR->valid(rootH,inner.params.logger);
 	if (!success)
 	{
 		logger.log("Failed to add Material for %s",LoggerError,debugName.c_str());
@@ -1281,8 +1315,7 @@ SContext::SContext(
 ) : inner(_ctx), override_(_override), meta(_metadata)
 //,ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
 {
-	auto materialPool = material_compiler3::CTrueIR::create({.composed={.blockSizeKBLog2=4}});
-	scene = ICPUScene::create(core::smart_refctd_ptr(materialPool)); // TODO: feed it max shapes per group
+	scene = ICPUScene::create(material_compiler3::CTrueIR::create({.composed={.blockSizeKBLog2=4}})); // TODO: feed it max shapes per group
 	//
 	{
 		frontIR = frontend_ir_t::create({.composed={.blockSizeKBLog2=4}});
@@ -1302,19 +1335,17 @@ SContext::SContext(
 		//
 		{
 			{
-				spectral_var_t::SCreationParams<1> params = {};
-				params.knots.params[0].scale = 1.f;
-				unityFactor = frontPool.emplace<spectral_var_t>(std::move(params));
+				unityFactor = frontPool.emplace<spectral_var_t>(1);
+				frontPool.deref(unityFactor._const_cast())->setParameter(0,{.scale=1.f});
 			}
 			deltaTransmission = frontPool.emplace<frontend_ir_t::CDeltaTransmission>();
 			const auto mulH = frontPool.emplace<frontend_ir_t::CMul>();
 			{
 				auto* const mul = frontPool.deref(mulH);
 				mul->lhs = frontPool.emplace<frontend_ir_t::COrenNayar>();
-				spectral_var_t::SCreationParams<3> params = {};
-				MitsubaLoader::getParameters<3>(params.knots.params,{1.f,0.f,1.f});
-				params.getSemantics() = spectral_var_t::Semantics::Fixed3_SRGB;
-				mul->rhs = frontPool.emplace<spectral_var_t>(std::move(params));
+				const auto varH = frontPool.emplace<spectral_var_t>(3);
+				MitsubaLoader::getParameters(frontPool.deref(varH),float32_t3(1.f,0.f,1.f));
+				mul->rhs = varH;
 			}
 			errorBRDF = mulH;
 			auto constructUnsupported = [&](const std::string_view debugName)->auto

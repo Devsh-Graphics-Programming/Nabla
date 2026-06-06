@@ -53,8 +53,8 @@ struct TypedHandle final : std::conditional_t<std::is_const_v<T>,typename _Handl
 		using base_t = std::conditional_t<IsConst,typename _Handle::const_type,_Handle>;
 
 	public:
-		inline auto operator<=>(const _Handle& other) const {return base_t::operator<=>(other);}
-		inline auto operator<=>(const typename _Handle::const_type& other) const {return base_t::operator<=>(other);}
+		// don't allow comparison with just any type pointer (might get bitten by static cast shifting around
+		inline auto operator<=>(const TypedHandle<const T,_Handle>& other) const {return base_t::operator<=>(other);}
 
 		// implicit const_cast
 		inline operator TypedHandle<const T,_Handle>() const {return {{.value=base_t::value}};}
@@ -388,8 +388,25 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 		template<typename T>
 		inline const T* deref(typed_pointer_type<T> p) const
 		{
-			std::remove_const_t<T>* mut = const_cast<this_t*>(this)->deref<std::remove_const_t<T>>(p);
+			using mut_t = std::remove_const_t<T>;
+			typed_pointer_type<mut_t> m = {}; m.value = p.value;
+			mut_t* mut = const_cast<this_t*>(this)->deref<mut_t>(m);
 			return mut;
+		}
+		template<typename T, typename U> requires (std::is_const_v<T> == std::is_const_v<U>)
+		inline typed_pointer_type<T> _dynamic_cast(typed_pointer_type<U> h) const
+		{
+			typed_pointer_type<T> retval;
+			retval.value = h.value;
+			if (h)
+			{
+				const auto* const pU = deref<const U>(h);
+				const T* pT = dynamic_cast<const T*>(pU);
+				if (!pT)
+					return {};
+				retval.value += ptrdiff_t(pT) - ptrdiff_t(pU);
+			}
+			return retval;
 		}
 
 		// deallocates everything
@@ -404,7 +421,7 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 				block_t* block = entry.second;
 				if (recycledBlocks.size()<base_t::m_initBlockCount)
 				{
-					block->addrAlloc.reset();
+					block->getAllocator().reset();
 					const auto id = m_blockIndexAlloc.alloc_addr(1,1);
 					assert(id!=block_id_alloc_t::invalid_address);
 					recycledBlocks[id] = block;
@@ -532,6 +549,33 @@ class SimpleBlockBasedAllocatorMT final
 		}
 };
 // no aliases
+
+
+// specialize the blake3 hasher
+template<typename HandleValue, HandleValue _Invalid, typename Dummy>
+struct blake3_hasher::update_impl<ConstHandle<HandleValue,_Invalid>,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const ConstHandle<HandleValue,_Invalid> input)
+	{
+		update_impl<HandleValue>::__call(hasher,input.value);
+	}
+};
+template<typename HandleValue, HandleValue _Invalid, typename Dummy>
+struct blake3_hasher::update_impl<Handle<ConstHandle<HandleValue,_Invalid> >,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const Handle<ConstHandle<HandleValue,_Invalid> > input)
+	{
+		update_impl<HandleValue>::__call(hasher,input.value);
+	}
+};
+template<typename T, typename HandleValue, HandleValue _Invalid, typename Dummy>
+struct blake3_hasher::update_impl<TypedHandle<T,Handle<ConstHandle<HandleValue,_Invalid> > >,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const TypedHandle<T,Handle<ConstHandle<HandleValue,_Invalid> > > input)
+	{
+		update_impl<HandleValue>::__call(hasher,input.value);
+	}
+};
 
 }
 

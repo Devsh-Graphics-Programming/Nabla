@@ -169,6 +169,7 @@ set(NBL_ASSET_SOURCES
 	
 # Materials
 	asset/material_compiler3/CFrontendIR.cpp
+	asset/material_compiler3/CTrueIR.cpp
 
 # Shaders
 	asset/utils/ISPIRVOptimizer.cpp
