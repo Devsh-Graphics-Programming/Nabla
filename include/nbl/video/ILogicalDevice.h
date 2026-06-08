@@ -1,4 +1,4 @@
-#ifndef _NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED_
+ #ifndef _NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED_
 #define _NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED_
 
 #include "nbl/asset/asset.h"
@@ -825,6 +825,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         // https://docs.vulkan.org/refpages/latest/refpages/source/vkCopyMemoryToImage.html
         bool copyMemoryToImage(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions);
+        // https://docs.vulkan.org/refpages/latest/refpages/source/vkTransitionImageLayout.html
+        bool transitionImageLayout(IGPUImage* const image, const IGPUImage::LAYOUT oldLayout, const IGPUImage::LAYOUT newLayout, const std::span<const IGPUImage::SSubresourceRange> subresourceRange);
 
         //! Shaders
         struct SShaderCreationParameters
@@ -1184,6 +1186,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const asset::SBufferBinding<const asset::ICPUBuffer>& src, IGPUAccelerationStructure* dst) = 0;
 
         virtual bool copyMemoryToImage_impl(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions) = 0;
+        virtual bool transitionImageLayout_impl(IGPUImage* const image, const IGPUImage::LAYOUT oldLayout, const IGPUImage::LAYOUT newLayout, const std::span<const IGPUImage::SSubresourceRange> subresourceRange) = 0;
 
         constexpr static inline auto MaxStagesPerPipeline = 6u;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) = 0;

@@ -271,6 +271,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const asset::SBufferBinding<const asset::ICPUBuffer>& src, IGPUAccelerationStructure* dst) override;
 
         virtual bool copyMemoryToImage_impl(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions) override;
+        virtual bool transitionImageLayout_impl(IGPUImage* const image, const IGPUImage::LAYOUT oldLayout, const IGPUImage::LAYOUT newLayout, const std::span<const IGPUImage::SSubresourceRange> subresourceRange) override;
 
         // layouts
         core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) override;

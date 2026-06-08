@@ -733,6 +733,243 @@ bool ILogicalDevice::copyMemoryToImage(IGPUImage* const dstImage, const IGPUImag
     return copyMemoryToImage_impl(dstImage, dstImageLayout, flags, regions);
 }
 
+bool ILogicalDevice::transitionImageLayout(IGPUImage* const image, const IGPUImage::LAYOUT oldLayout, const IGPUImage::LAYOUT newLayout, const std::span<const IGPUImage::SSubresourceRange> subresourceRange)
+{
+    const auto* physDev = getPhysicalDevice();
+    if (!physDev->getLimits().hostImageCopy)
+    {
+        NBL_LOG_ERROR("`hostImageCopy` feature is not enabled");
+        return false;
+    }
+    if (!image || !image->wasCreatedBy(this))
+    {
+        NBL_LOG_ERROR("`image` not created by this device");
+        return false;
+    }
+
+    auto validLayout = [](const IGPUImage::LAYOUT layout) -> bool
+    {
+        switch (layout)
+        {
+            case IGPUImage::LAYOUT::UNDEFINED:
+            case IGPUImage::LAYOUT::GENERAL:
+            case IGPUImage::LAYOUT::READ_ONLY_OPTIMAL:
+            case IGPUImage::LAYOUT::ATTACHMENT_OPTIMAL:
+            case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL:
+            case IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL:
+            case IGPUImage::LAYOUT::PREINITIALIZED:
+            case IGPUImage::LAYOUT::PRESENT_SRC:
+            case IGPUImage::LAYOUT::SHARED_PRESENT:
+                return true;
+            default:
+                return false;
+        }
+    };
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-oldLayout-parameter
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-newLayout-parameter
+    if (!validLayout(oldLayout) || !validLayout(newLayout))
+    {
+        NBL_LOG_ERROR("Invalid image layout");
+        return false;
+    }
+
+    const auto& params = image->getCreationParameters();
+    const auto imageUsages = params.usage | params.stencilUsage;
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-image-09055
+    if (!imageUsages.hasFlags(IGPUImage::EUF_HOST_TRANSFER_BIT))
+    {
+        NBL_LOG_ERROR("`image` lacks `EUF_HOST_TRANSFER_BIT`");
+        return false;
+    }
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkTransitionImageLayout-transitionCount-arraylength
+    if (subresourceRange.empty())
+    {
+        NBL_LOG_ERROR("`subresourceRange` must not be empty");
+        return false;
+    }
+
+    auto selectedAspectsHaveAnyUsage = [&params](const core::bitflag<IGPUImage::E_ASPECT_FLAGS> aspectMask, const core::bitflag<IGPUImage::E_USAGE_FLAGS> usages) -> bool
+    {
+        if (aspectMask.hasFlags(IGPUImage::EAF_STENCIL_BIT) && !bool(params.actualStencilUsage() & usages))
+            return false;
+        if ((aspectMask.value & (~IGPUImage::EAF_STENCIL_BIT)) && !bool(params.usage & usages))
+            return false;
+        return true;
+    };
+
+    auto validateLayoutUsage = [this,&params,&selectedAspectsHaveAnyUsage](const IGPUImage::LAYOUT layout, const core::bitflag<IGPUImage::E_ASPECT_FLAGS> aspectMask, const size_t ix) -> bool
+    {
+        switch (layout)
+        {
+            case IGPUImage::LAYOUT::READ_ONLY_OPTIMAL:
+            {
+                core::bitflag<IGPUImage::E_USAGE_FLAGS> validUsages = IGPUImage::EUF_SAMPLED_BIT;
+                validUsages |= IGPUImage::EUF_INPUT_ATTACHMENT_BIT;
+                if (asset::isDepthOrStencilFormat(params.format))
+                    validUsages |= IGPUImage::EUF_RENDER_ATTACHMENT_BIT;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-srcQueueFamilyIndex-03939
+                if (!selectedAspectsHaveAnyUsage(aspectMask,validUsages))
+                {
+                    NBL_LOG_ERROR("`READ_ONLY_OPTIMAL` requires compatible sampled/input/attachment usage (subresourceRange[%zu])", ix);
+                    return false;
+                }
+                return true;
+            }
+            case IGPUImage::LAYOUT::ATTACHMENT_OPTIMAL:
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-srcQueueFamilyIndex-03938
+                if (!selectedAspectsHaveAnyUsage(aspectMask,IGPUImage::EUF_RENDER_ATTACHMENT_BIT))
+                {
+                    NBL_LOG_ERROR("`ATTACHMENT_OPTIMAL` requires `EUF_RENDER_ATTACHMENT_BIT` usage (subresourceRange[%zu])", ix);
+                    return false;
+                }
+                return true;
+            case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL:
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-oldLayout-01212
+                if (!selectedAspectsHaveAnyUsage(aspectMask,IGPUImage::EUF_TRANSFER_SRC_BIT))
+                {
+                    NBL_LOG_ERROR("`TRANSFER_SRC_OPTIMAL` requires `EUF_TRANSFER_SRC_BIT` usage (subresourceRange[%zu])", ix);
+                    return false;
+                }
+                return true;
+            case IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL:
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-oldLayout-01213
+                if (!selectedAspectsHaveAnyUsage(aspectMask,IGPUImage::EUF_TRANSFER_DST_BIT))
+                {
+                    NBL_LOG_ERROR("`TRANSFER_DST_OPTIMAL` requires `EUF_TRANSFER_DST_BIT` usage (subresourceRange[%zu])", ix);
+                    return false;
+                }
+                return true;
+            default:
+                return true;
+        }
+    };
+
+    auto getPlanarFormatAspects = [](const asset::E_FORMAT format) -> uint32_t
+    {
+        switch (format)
+        {
+            case asset::EF_G8_B8R8_2PLANE_420_UNORM:
+            case asset::EF_G8_B8R8_2PLANE_422_UNORM:
+                return IGPUImage::EAF_PLANE_0_BIT|IGPUImage::EAF_PLANE_1_BIT;
+            case asset::EF_G8_B8_R8_3PLANE_420_UNORM:
+            case asset::EF_G8_B8_R8_3PLANE_422_UNORM:
+            case asset::EF_G8_B8_R8_3PLANE_444_UNORM:
+                return IGPUImage::EAF_PLANE_0_BIT|IGPUImage::EAF_PLANE_1_BIT|IGPUImage::EAF_PLANE_2_BIT;
+            default:
+                return 0u;
+        }
+    };
+
+    for (size_t i=0u; i<subresourceRange.size(); ++i)
+    {
+        const auto& sr = subresourceRange[i];
+        const auto aspectMask = sr.aspectMask;
+
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html#VUID-VkImageSubresourceRange-aspectMask-requiredbitmask
+        if (!aspectMask.value)
+        {
+            NBL_LOG_ERROR("`subresourceRange.aspectMask` must not be empty (subresourceRange[%zu])", i);
+            return false;
+        }
+        if (asset::isPlanarFormat(params.format))
+        {
+            const uint32_t planeAspects = getPlanarFormatAspects(params.format);
+            const uint32_t validAspects = IGPUImage::EAF_COLOR_BIT|planeAspects;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html#VUID-VkImageSubresourceRange-aspectMask-01670
+            if ((aspectMask.value & IGPUImage::EAF_COLOR_BIT) && (aspectMask.value & planeAspects))
+            {
+                NBL_LOG_ERROR("Invalid planar aspect mask (subresourceRange[%zu])", i);
+                return false;
+            }
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-image-09242
+            if (!params.flags.hasFlags(IGPUImage::ECF_DISJOINT_BIT) && aspectMask != IGPUImage::EAF_COLOR_BIT)
+            {
+                NBL_LOG_ERROR("Invalid non-disjoint planar aspect mask (subresourceRange[%zu])", i);
+                return false;
+            }
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-image-01672
+            if (params.flags.hasFlags(IGPUImage::ECF_DISJOINT_BIT) && (aspectMask.value & (~validAspects)))
+            {
+                NBL_LOG_ERROR("Invalid disjoint planar aspect mask (subresourceRange[%zu])", i);
+                return false;
+            }
+        }
+        else if (asset::isDepthOnlyFormat(params.format))
+        {
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-image-10749
+            if (aspectMask != IGPUImage::EAF_DEPTH_BIT)
+            {
+                NBL_LOG_ERROR("Invalid depth aspect mask (subresourceRange[%zu])", i);
+                return false;
+            }
+        }
+        else if (asset::isStencilOnlyFormat(params.format))
+        {
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-image-10750
+            if (aspectMask != IGPUImage::EAF_STENCIL_BIT)
+            {
+                NBL_LOG_ERROR("Invalid stencil aspect mask (subresourceRange[%zu])", i);
+                return false;
+            }
+        }
+        else if (asset::isDepthOrStencilFormat(params.format))
+        {
+            // `separateDepthStencilLayouts` is required by Nabla, so either or both depth/stencil aspects are valid.
+            constexpr auto DepthStencilAspects = IGPUImage::EAF_DEPTH_BIT|IGPUImage::EAF_STENCIL_BIT;
+            if ((aspectMask.value & (~DepthStencilAspects)) || !bool(aspectMask.value & DepthStencilAspects))
+            {
+                NBL_LOG_ERROR("Invalid depth/stencil aspect mask (subresourceRange[%zu])", i);
+                return false;
+            }
+        }
+        else if (aspectMask != IGPUImage::EAF_COLOR_BIT)
+        {
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-image-09241
+            NBL_LOG_ERROR("Invalid color aspect mask (subresourceRange[%zu])", i);
+            return false;
+        }
+        if (!validateLayoutUsage(oldLayout,aspectMask,i) || !validateLayoutUsage(newLayout,aspectMask,i))
+            return false;
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-subresourceRange-01486
+        if (sr.baseMipLevel >= params.mipLevels)
+        {
+            NBL_LOG_ERROR("`subresourceRange.baseMipLevel` out of bounds (subresourceRange[%zu])", i);
+            return false;
+        }
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html#VUID-VkImageSubresourceRange-levelCount-01720
+        if (sr.levelCount == 0u)
+        {
+            NBL_LOG_ERROR("`subresourceRange.levelCount` must not be zero (subresourceRange[%zu])", i);
+            return false;
+        }
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-subresourceRange-01724
+        if (sr.levelCount != IGPUImageView::remaining_mip_levels && sr.levelCount > params.mipLevels - sr.baseMipLevel)
+        {
+            NBL_LOG_ERROR("`subresourceRange.baseMipLevel + levelCount` out of bounds (subresourceRange[%zu])", i);
+            return false;
+        }
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-subresourceRange-01488
+        if (sr.baseArrayLayer >= params.arrayLayers)
+        {
+            NBL_LOG_ERROR("`subresourceRange.baseArrayLayer` out of bounds (subresourceRange[%zu])", i);
+            return false;
+        }
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageSubresourceRange.html#VUID-VkImageSubresourceRange-layerCount-01721
+        if (sr.layerCount == 0u)
+        {
+            NBL_LOG_ERROR("`subresourceRange.layerCount` must not be zero (subresourceRange[%zu])", i);
+            return false;
+        }
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-subresourceRange-01725
+        if (sr.layerCount != IGPUImageView::remaining_array_layers && sr.layerCount > params.arrayLayers - sr.baseArrayLayer)
+        {
+            NBL_LOG_ERROR("`subresourceRange.baseArrayLayer + layerCount` out of bounds (subresourceRange[%zu])", i);
+            return false;
+        }
+    }
+    return transitionImageLayout_impl(image, oldLayout, newLayout, subresourceRange);
+}
+
 core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IGPURenderpass::SCreationParams& params)
 {
     IGPURenderpass::SCreationParamValidationResult validation = IGPURenderpass::validateCreationParams(params);
