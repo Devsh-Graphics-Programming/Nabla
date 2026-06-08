@@ -48,7 +48,8 @@ private:
     void getCanGenerateHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir);
     void getChoiceTargetHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir);
 
-    void getCookTorranceBxDFHLSLCode(const CTrueIR::CCookTorrance* cook_torrance, const CTrueIR* ir, std::string& bxdf_type, std::string& fresnel_create);
+    void getOrenNayarBxDFHLSLCode(const TraversalNodeInfo& nodeInfo, const CTrueIR* ir, std::string& bxdf_type);
+    void getCookTorranceBxDFHLSLCode(const TraversalNodeInfo& nodeInfo, const CTrueIR* ir, std::string& bxdf_type, std::string& fresnel_create);
 };
 
 }

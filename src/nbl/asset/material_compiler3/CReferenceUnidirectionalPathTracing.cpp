@@ -1287,10 +1287,9 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
         if (!oren_nayar)
             break;
 
-        // TODO: config type alias from where (also allow aniso)
-        std::string bxdf_type = "bxdf::reflection::SOrenNayar<iso_config_t>";
-        if (nodeInfo.isTransmission)
-            bxdf_type = "bxdf::transmission::SOrenNayar<iso_config_t>";
+        // TODO: config type alias from where
+        std::string bxdf_type;
+        getOrenNayarBxDFHLSLCode(nodeInfo, ir, bxdf_type);
 
         const auto hashString = getHashAs4UintsString(node, ir);
         auto roughness = oren_nayar->ndfParams.getRougness();
@@ -1322,7 +1321,7 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
 
         std::string bxdf_type;
         std::string fresnel_create;
-        getCookTorranceBxDFHLSLCode(cook_torrance, ir, bxdf_type, fresnel_create);
+        getCookTorranceBxDFHLSLCode(nodeInfo, ir, bxdf_type, fresnel_create);
 
         sstr << R"===(
 static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(rand_t) xi, NBL_REF_ARG(rand_t) xi_extra, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache)
@@ -1667,10 +1666,9 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
         if (!oren_nayar)
             break;
 
-        // TODO: config type alias from where (also allow aniso)
-        std::string bxdf_type = "bxdf::reflection::SOrenNayar<iso_config_t>";
-        if (nodeInfo.isTransmission)
-            bxdf_type = "bxdf::transmission::SOrenNayar<iso_config_t>";
+        // TODO: config type alias from where
+        std::string bxdf_type;
+        getOrenNayarBxDFHLSLCode(nodeInfo, ir, bxdf_type);
 
         const auto hashString = getHashAs4UintsString(node, ir);
         auto roughness = oren_nayar->ndfParams.getRougness();
@@ -1701,7 +1699,7 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
 
         std::string bxdf_type;
         std::string fresnel_create;
-        getCookTorranceBxDFHLSLCode(cook_torrance, ir, bxdf_type, fresnel_create);
+        getCookTorranceBxDFHLSLCode(nodeInfo, ir, bxdf_type, fresnel_create);
 
         sstr << R"===(
 static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache)
@@ -1959,11 +1957,10 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
         if (!oren_nayar)
             break;
 
-        // TODO: config type alias from where (also allow aniso)
+        // TODO: config type alias from where
 
-        std::string bxdf_type = "bxdf::reflection::SOrenNayar<iso_config_t>";
-        if (nodeInfo.isTransmission)
-            bxdf_type = "bxdf::transmission::SOrenNayar<iso_config_t>";
+        std::string bxdf_type;
+        getOrenNayarBxDFHLSLCode(nodeInfo, ir, bxdf_type);
 
         const auto hashString = getHashAs4UintsString(node, ir);
         auto roughness = oren_nayar->ndfParams.getRougness();
@@ -1994,7 +1991,7 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
 
         std::string bxdf_type;
         std::string fresnel_create;
-        getCookTorranceBxDFHLSLCode(cook_torrance, ir, bxdf_type, fresnel_create);
+        getCookTorranceBxDFHLSLCode(nodeInfo, ir, bxdf_type, fresnel_create);
 
         sstr << R"===(
 static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter)
@@ -2611,11 +2608,28 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(NB
     }
 }
 
-void CReferenceUnidirectionalPathTracing::getCookTorranceBxDFHLSLCode(const CTrueIR::CCookTorrance* cook_torrance, const CTrueIR* ir,
-    std::string& bxdf_type, std::string& fresnel_create)
+void CReferenceUnidirectionalPathTracing::getOrenNayarBxDFHLSLCode(const TraversalNodeInfo& nodeInfo, const CTrueIR* ir, std::string& bxdf_type)
 {
-    if (cook_torrance->orientedRealEta)
+    const auto* oren_nayar = dynamic_cast<const CTrueIR::COrenNayar*>(nodeInfo.node);
+
+    // config can be iso or aniso (doesn't really matter for oren nayar)
+    std::string config = "aniso_config_t";
+    if (oren_nayar->ndfParams.definitelyIsotropic())
+        config = "iso_config_t";
+
+    if (nodeInfo.isTransmission)
+        bxdf_type = "bxdf::transmission::SOrenNayar<" + config + ">";
+    else
+        bxdf_type = "bxdf::reflection::SOrenNayar<" + config + ">";
+}
+
+void CReferenceUnidirectionalPathTracing::getCookTorranceBxDFHLSLCode(const TraversalNodeInfo& nodeInfo, const CTrueIR* ir,
+                                                                      std::string& bxdf_type, std::string& fresnel_create)
+{
+    const auto* cook_torrance = dynamic_cast<const CTrueIR::CCookTorrance*>(nodeInfo.node);
+    if (nodeInfo.isTransmission)
     {
+        assert(cook_torrance->orientedRealEta); // should exist/not be null
         // btdf
         if (cook_torrance->ndfParams.definitelyIsotropic())
         {
