@@ -318,13 +318,15 @@ void CReferenceUnidirectionalPathTracing::getCacheDefineCode(std::ostringstream&
         case CTrueIR::INode::EFinalType::COrenNayar:
         {
             // should be leaf here, so not going to try children
-            // TODO: config type alias from where (also allow aniso)
-            // TODO: also might be btdf
+            // TODO: config type alias from where
+            std::string bxdf_type;
+            getOrenNayarBxDFHLSLCode(nodeInfo, ir, bxdf_type);
+
             sstr << R"===(
 template<>
 struct gen_cache<)===" << hashString << R"===(>
 {
-    using bxdf_t = bxdf::reflection::SOrenNayar<iso_config_t>;
+    using bxdf_t = )===" << bxdf_type << R"===(;
     typename bxdf_t::anisocache_type bxdf_cache;
 };
 )===";
@@ -332,11 +334,9 @@ struct gen_cache<)===" << hashString << R"===(>
         }
         case CTrueIR::INode::EFinalType::CCookTorrance:
         {
-            const auto cook_torrance = dynamic_cast<const CTrueIR::CCookTorrance*>(node);
-
             std::string bxdf_type;
             std::string fresnel_create;
-            getCookTorranceBxDFHLSLCode(cook_torrance, ir, bxdf_type, fresnel_create);
+            getCookTorranceBxDFHLSLCode(nodeInfo, ir, bxdf_type, fresnel_create);
 
             sstr << R"===(
 template<>
