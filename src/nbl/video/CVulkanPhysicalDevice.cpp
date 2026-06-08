@@ -1339,7 +1339,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         retval.storageImageLoadWithoutFormat = anyFlag(features, VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT);
         retval.storageImageStoreWithoutFormat = anyFlag(features, VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT);
         retval.depthCompareSampledImage = anyFlag(features, VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT);
-        retval.hostImageTransfer = anyFlag(features, VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT);
         retval.hostImageTransfer = anyFlag(features, VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT_EXT);
         //retval.log2MaxSmples = ; // Todo(Erfan)
         return retval;

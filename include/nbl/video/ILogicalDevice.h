@@ -1,4 +1,4 @@
- #ifndef _NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED_
+#ifndef _NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED_
 #define _NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED_
 
 #include "nbl/asset/asset.h"
