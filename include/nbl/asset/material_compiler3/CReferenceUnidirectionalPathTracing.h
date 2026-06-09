@@ -26,6 +26,7 @@ private:
     {
         const CTrueIR::INode* node;
         bool isTransmission;
+        bool needsNeighborVdotH;
         system::logger_opt_ptr logger;
     };
 

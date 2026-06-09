@@ -108,6 +108,7 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
             TraversalNodeInfo info = {
                 .node = childBrdf,
                 .isTransmission = false,
+                .needsNeighborVdotH = false,
                 .logger = logger
             };
             addChildToTraverse(layer->brdfTop, info);
@@ -117,6 +118,7 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
             TraversalNodeInfo info = {
                 .node = childBtdf,
                 .isTransmission = true,
+                .needsNeighborVdotH = false,
                 .logger = logger
             };
             addChildToTraverse(layer->firstTransmission, info);
@@ -134,6 +136,7 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
             TraversalNodeInfo info = {
                 .node = childProduct,
                 .isTransmission = false,
+                .needsNeighborVdotH = false,
                 .logger = logger
             };
             addChildToTraverse(sum->product, info);
@@ -143,6 +146,7 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
             TraversalNodeInfo info = {
                 .node = childRest,
                 .isTransmission = false,
+                .needsNeighborVdotH = false,
                 .logger = logger
             };
             addChildToTraverse(sum->rest, info);
@@ -164,6 +168,7 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
                 TraversalNodeInfo info = {
                     .node = child,
                     .isTransmission = false,
+                    .needsNeighborVdotH = false,
                     .logger = logger
                 };
                 addChildToTraverse(combiner->getChildHandle(i), info);
@@ -177,20 +182,27 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         if (!contrib)
             break;
 
+        bool contribIsCookTorrance = false;
         if (auto childContrib = ir->getObjectPool().deref(contrib->contributor); childContrib)
         {
+            contribIsCookTorrance = childContrib->getFinalType() == CTrueIR::INode::EFinalType::CCookTorrance;
             TraversalNodeInfo info = {
                 .node = childContrib,
                 .isTransmission = false,
+                .needsNeighborVdotH = false,
                 .logger = logger
             };
             addChildToTraverse(contrib->contributor, info);
         }
+
+        // need to indicate that the fresnel needs to take VdotH value from its sibling contributor node (when contributor is cook torrance)
+        // TODO where else might fresnel node be, will need to add there
         if (auto childFactor = ir->getObjectPool().deref(contrib->factor); childFactor)
         {
             TraversalNodeInfo info = {
                 .node = childFactor,
                 .isTransmission = false,
+                .needsNeighborVdotH = contribIsCookTorrance,
                 .logger = logger
             };
             addChildToTraverse(contrib->factor, info);
@@ -208,6 +220,7 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
             TraversalNodeInfo info = {
                 .node = child,
                 .isTransmission = true,
+                .needsNeighborVdotH = false,
                 .logger = logger
             };
             addChildToTraverse(transmission->btdf, info);
@@ -217,6 +230,7 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
             TraversalNodeInfo info = {
                 .node = child,
                 .isTransmission = false,
+                .needsNeighborVdotH = false,
                 .logger = logger
             };
             addChildToTraverse(transmission->brdfBottom, info);
@@ -226,6 +240,7 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
             TraversalNodeInfo info = {
                 .node = child,
                 .isTransmission = true,  // TODO: double check this
+                .needsNeighborVdotH = false,
                 .logger = logger
             };
             addChildToTraverse(transmission->coated, info);
@@ -235,6 +250,7 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
             TraversalNodeInfo info = {
                 .node = child,
                 .isTransmission = false,
+                .needsNeighborVdotH = false,
                 .logger = logger
             };
             addChildToTraverse(transmission->next, info);
@@ -382,6 +398,13 @@ struct gen_cache<)===" << hashString << R"===(>
 {
     uint8_t chosenLobe;
 )===";
+
+        // TODO clean up into own function? maybe future node types need this as well
+        if (node->getFinalType() == CTrueIR::INode::EFinalType::CFresnel)
+            sstr << R"===(
+    scalar_t neighborVdotH;
+)===";
+
         const auto childCount = node->getChildCount();
         if (childCount)
         {
@@ -1587,20 +1610,26 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
 {
 )===";
 
+        bool contribIsCookTorrance = false;
         if (auto child = ir->getObjectPool().deref(contrib->contributor); child)
         {
+            contribIsCookTorrance = child->getFinalType() == CTrueIR::INode::EFinalType::CCookTorrance;
             const auto childHash = getHashAs4UintsString(child, ir);
             sstr << R"===(
     quotient_weight_t contrib = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, cache.child0);
 )===";
         }
-
+        
+        // TODO where else might fresnel node be, might need to handle VdotH value there too
         if (auto child = ir->getObjectPool().deref(contrib->factor); child)
         {
             const auto childHash = getHashAs4UintsString(child, ir);
+            if (child->getFinalType() == CTrueIR::INode::EFinalType::CFresnel && contribIsCookTorrance)
+                sstr << R"===(
+    cache.child1.neighborVdotH = cache.child0.bxdf_cache.getVdotH();
+)===";
             sstr << R"===(
-    gen_cache<)===" << childHash << R"===(> factor_cache;
-    quotient_weight_t factor = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, factor_cache);
+    quotient_weight_t factor = OrientedMaterial<)===" << childHash << R"===(>::quotientAndWeight(_sample, inter, cache.child1);
     bool factorHasWeight = OrientedMaterial<)===" << childHash << R"===(>::canGenerate();
 )===";
         }
@@ -1755,6 +1784,62 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
     {
         // TODO unimplemented
         nodeInfo.logger.log("CBeer node is unimplemented, not expected Ditt to use node", system::ILogger::ELL_ERROR);
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CFresnel:
+    {
+        const auto* fresnel = dynamic_cast<const CTrueIR::CFresnel*>(node);
+        if (!fresnel)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache)
+{
+)===";
+
+        const bool isConductor = bool(fresnel->orientedImagEta);
+        assert(isConductor && !nodeInfo.isTransmission);
+
+        const auto realEta = ir->getObjectPool().deref(fresnel->orientedRealEta);
+        const auto imagEta = ir->getObjectPool().deref(fresnel->orientedImagEta);
+
+        const auto realEtaHash = getHashAs4UintsString(realEta, ir);
+        const auto imagEtaHash = getHashAs4UintsString(imagEta, ir);
+
+        // TODO verify correctness
+        // expecting no pdf value from quotient_weight
+        // monochrome eta will take from x component
+        sstr << R"===(
+    quotient_weight_t orientedRealEta = OrientedMaterial<)===" << realEtaHash << R"===(>::quotientAndWeight(_sample, inter, cache.child0);
+    quotient_weight_t orientedImagEta = OrientedMaterial<)===" << imagEtaHash << R"===(>::quotientAndWeight(_sample, inter, cache.child1);
+)===";
+
+        if (isConductor)
+            sstr << R"===(
+    using fresnel_t = bxdf::fresnel::Conductor<spectral_t>;
+    fresnel_t fresnel = fresnel_t::create(orientedRealEta.quotient(), orientedImagEta.quotient());
+)===";
+        else
+            sstr << R"===(
+    using fresnel_t = fresnel::Dielectric<monochrome_t>;
+    bxdf::fresnel::OrientedEtas<monochrome_t> orientedEta = bxdf::fresnel::OrientedEtas<monochrome_t>::create(1.0, hlsl::promote<monochrome_t>(orientedRealEta.quotient().x));
+    fresnel_type fresnel = fresnel_type::create(orientedEta);
+)===";
+
+        if (nodeInfo.needsNeighborVdotH)
+            sstr << R"===(
+    spectral_t val = fresnel(cache.neighborVdotH);
+)===";
+        else
+            sstr << R"===(
+    spectral_t val = fresnel(inter.getNdotV());
+)===";
+
+        sstr << R"===(
+    return quotient_weight_t::create(val, 0.0);
+}
+)===";
         break;
     }
     default:
@@ -2053,6 +2138,56 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     {
         // TODO unimplemented
         nodeInfo.logger.log("CBeer node is unimplemented, not expected Ditt to use node", system::ILogger::ELL_ERROR);
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CFresnel:
+    {
+        const auto* fresnel = dynamic_cast<const CTrueIR::CFresnel*>(node);
+        if (!fresnel)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter)
+{
+)===";
+
+        const bool isConductor = bool(fresnel->orientedImagEta);
+        assert(isConductor && !nodeInfo.isTransmission);
+
+        const auto realEta = ir->getObjectPool().deref(fresnel->orientedRealEta);
+        const auto imagEta = ir->getObjectPool().deref(fresnel->orientedImagEta);
+
+        const auto realEtaHash = getHashAs4UintsString(realEta, ir);
+        const auto imagEtaHash = getHashAs4UintsString(imagEta, ir);
+
+        // TODO verify correctness
+        // expecting no pdf value from quotient_weight
+        // monochrome eta will take from x component
+        // TODO no cache in eval, should be enough to approximate with NdotV?
+        sstr << R"===(
+    value_weight_t orientedRealEta = OrientedMaterial<)===" << realEtaHash << R"===(>::evalAndWeight(_sample, inter);
+    value_weight_t orientedImagEta = OrientedMaterial<)===" << imagEtaHash << R"===(>::evalAndWeight(_sample, inter);
+)===";
+
+        if (isConductor)
+            sstr << R"===(
+    using fresnel_t = bxdf::fresnel::Conductor<spectral_t>;
+    fresnel_t fresnel = fresnel_t::create(orientedRealEta.quotient(), orientedImagEta.quotient());
+)===";
+        else
+            sstr << R"===(
+    using fresnel_t = fresnel::Dielectric<monochrome_t>;
+    bxdf::fresnel::OrientedEtas<monochrome_t> orientedEta = bxdf::fresnel::OrientedEtas<monochrome_t>::create(1.0, hlsl::promote<monochrome_t>(orientedRealEta.quotient().x));
+    fresnel_type fresnel = fresnel_type::create(orientedEta);
+)===";
+
+
+        sstr << R"===(
+    spectral_t val = fresnel(inter.getNdotV());
+    return quotient_weight_t::create(val, 0.0);
+}
+)===";
         break;
     }
     default:
