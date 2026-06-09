@@ -19,16 +19,17 @@ public:
         std::string fragmentShaderSource_raytracingPipeline;    // only maps entry point to templated funcs
     };
 
-    core::smart_refctd_ptr<CResult> compile(const CTrueIR* ir, const std::span<const CTrueIR::SMaterialHandle> materials);
+    core::smart_refctd_ptr<CResult> compile(const CTrueIR* ir, const std::span<const CTrueIR::SMaterialHandle> materials, system::logger_opt_ptr logger);
 
 private:
     struct TraversalNodeInfo
     {
         const CTrueIR::INode* node;
         bool isTransmission;
+        system::logger_opt_ptr logger;
     };
 
-    void traverseIRNode(const CTrueIR::INode* node, const CTrueIR* ir, core::vector<CTrueIR::typed_pointer_type<const CTrueIR::INode>>& nodeStack, core::unordered_map<CTrueIR::typed_pointer_type<const CTrueIR::INode>, TraversalNodeInfo>& nodeInfos);
+    void traverseIRNode(const CTrueIR::INode* node, const CTrueIR* ir, system::logger_opt_ptr logger, core::vector<CTrueIR::typed_pointer_type<const CTrueIR::INode>>& nodeStack, core::unordered_map<CTrueIR::typed_pointer_type<const CTrueIR::INode>, TraversalNodeInfo>& nodeInfos);
 
     std::string getHashAs4UintsString(const CTrueIR::INode* node, const CTrueIR* ir, const std::string& separator = ",") const;
 

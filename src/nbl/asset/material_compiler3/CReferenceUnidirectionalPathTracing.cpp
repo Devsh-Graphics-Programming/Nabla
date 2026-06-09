@@ -7,7 +7,7 @@
 namespace nbl::asset::material_compiler3
 {
 
-core::smart_refctd_ptr<CReferenceUnidirectionalPathTracing::CResult> CReferenceUnidirectionalPathTracing::compile(const CTrueIR* ir, const std::span<const CTrueIR::SMaterialHandle> materialHandles)
+core::smart_refctd_ptr<CReferenceUnidirectionalPathTracing::CResult> CReferenceUnidirectionalPathTracing::compile(const CTrueIR* ir, const std::span<const CTrueIR::SMaterialHandle> materialHandles, system::logger_opt_ptr logger)
 {
     auto res = core::make_smart_refctd_ptr<CResult>();
 
@@ -44,7 +44,7 @@ struct OrientedMaterial;
                 continue;
 
             getMaterialDeclarationCode(code, node, ir);
-            traverseIRNode(node, ir, nodeStack, nodeInfos);
+            traverseIRNode(node, ir, logger, nodeStack, nodeInfos);
         }
 
         for (const auto& nodeInfo : std::views::values(nodeInfos))
@@ -85,7 +85,7 @@ struct OrientedMaterial;
     return res;
 }
 
-void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* node, const CTrueIR* ir,
+void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* node, const CTrueIR* ir, system::logger_opt_ptr logger,
     core::vector<CTrueIR::typed_pointer_type<const CTrueIR::INode>>& nodeStack,
     core::unordered_map<CTrueIR::typed_pointer_type<const CTrueIR::INode>, TraversalNodeInfo>& nodeInfos)
 {
@@ -107,7 +107,8 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         {
             TraversalNodeInfo info = {
                 .node = childBrdf,
-                .isTransmission = false
+                .isTransmission = false,
+                .logger = logger
             };
             addChildToTraverse(layer->brdfTop, info);
         }
@@ -115,7 +116,8 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         {
             TraversalNodeInfo info = {
                 .node = childBtdf,
-                .isTransmission = true
+                .isTransmission = true,
+                .logger = logger
             };
             addChildToTraverse(layer->firstTransmission, info);
         }
@@ -131,7 +133,8 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         {
             TraversalNodeInfo info = {
                 .node = childProduct,
-                .isTransmission = false
+                .isTransmission = false,
+                .logger = logger
             };
             addChildToTraverse(sum->product, info);
         }
@@ -139,7 +142,8 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         {
             TraversalNodeInfo info = {
                 .node = childRest,
-                .isTransmission = false
+                .isTransmission = false,
+                .logger = logger
             };
             addChildToTraverse(sum->rest, info);
         }
@@ -158,8 +162,9 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
             if (auto child = ir->getObjectPool().deref(combiner->getChildHandle(i)); child)
             {
                 TraversalNodeInfo info = {
-                .node = child,
-                .isTransmission = false
+                    .node = child,
+                    .isTransmission = false,
+                    .logger = logger
                 };
                 addChildToTraverse(combiner->getChildHandle(i), info);
             }
@@ -176,7 +181,8 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         {
             TraversalNodeInfo info = {
                 .node = childContrib,
-                .isTransmission = false
+                .isTransmission = false,
+                .logger = logger
             };
             addChildToTraverse(contrib->contributor, info);
         }
@@ -184,7 +190,8 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         {
             TraversalNodeInfo info = {
                 .node = childFactor,
-                .isTransmission = false
+                .isTransmission = false,
+                .logger = logger
             };
             addChildToTraverse(contrib->factor, info);
         }
@@ -200,7 +207,8 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         {
             TraversalNodeInfo info = {
                 .node = child,
-                .isTransmission = true
+                .isTransmission = true,
+                .logger = logger
             };
             addChildToTraverse(transmission->btdf, info);
         }
@@ -208,7 +216,8 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         {
             TraversalNodeInfo info = {
                 .node = child,
-                .isTransmission = false
+                .isTransmission = false,
+                .logger = logger
             };
             addChildToTraverse(transmission->brdfBottom, info);
         }
@@ -216,7 +225,8 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         {
             TraversalNodeInfo info = {
                 .node = child,
-                .isTransmission = true  // TODO: double check this
+                .isTransmission = true,  // TODO: double check this
+                .logger = logger
             };
             addChildToTraverse(transmission->coated, info);
         }
@@ -224,7 +234,8 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
         {
             TraversalNodeInfo info = {
                 .node = child,
-                .isTransmission = false
+                .isTransmission = false,
+                .logger = logger
             };
             addChildToTraverse(transmission->next, info);
         }
@@ -1356,6 +1367,12 @@ static sample_t OrientedMaterial<)===" << hashString << R"===(>::generate(NBL_CO
 )===";
         break;
     }
+    case CTrueIR::INode::EFinalType::CBeer:
+    {
+        // TODO unimplemented
+        nodeInfo.logger.log("CBeer node is unimplemented, not expected Ditt to use node", system::ILogger::ELL_ERROR);
+        break;
+    }
     default:
         break;
     }
@@ -1734,6 +1751,12 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
 )===";
         break;
     }
+    case CTrueIR::INode::EFinalType::CBeer:
+    {
+        // TODO unimplemented
+        nodeInfo.logger.log("CBeer node is unimplemented, not expected Ditt to use node", system::ILogger::ELL_ERROR);
+        break;
+    }
     default:
         break;
     }
@@ -2024,6 +2047,12 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
     return quo;
 }
 )===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CBeer:
+    {
+        // TODO unimplemented
+        nodeInfo.logger.log("CBeer node is unimplemented, not expected Ditt to use node", system::ILogger::ELL_ERROR);
         break;
     }
     default:
