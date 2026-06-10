@@ -1842,6 +1842,54 @@ static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotie
 )===";
         break;
     }
+    case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
+    {
+        const auto* scatter = dynamic_cast<const CTrueIR::CThinInfiniteScatterCorrection*>(node);
+        if (!scatter)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static quotient_weight_t OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter, NBL_REF_ARG(gen_cache<)===" << hashString << R"===(>) cache)
+{
+)===";
+
+        const auto top = ir->getObjectPool().deref(scatter->reflectanceTop);
+        const auto extinction = ir->getObjectPool().deref(scatter->extinction);
+        const auto bottom = ir->getObjectPool().deref(scatter->reflectanceBottom);
+
+        const auto topHash = getHashAs4UintsString(top, ir);
+        const auto extinctionHash = getHashAs4UintsString(extinction, ir);
+        const auto bottomHash = getHashAs4UintsString(bottom, ir);
+
+        // TODO verify correctness
+        // expecting no pdf value from quotient_weight
+        sstr << R"===(
+    quotient_weight_t reflectanceTop = OrientedMaterial<)===" << topHash << R"===(>::quotientAndWeight(_sample, inter, cache.child0);
+    quotient_weight_t extinction = OrientedMaterial<)===" << extinctionHash << R"===(>::quotientAndWeight(_sample, inter, cache.child1);
+    quotient_weight_t reflectanceBottom = OrientedMaterial<)===" << bottomHash << R"===(>::quotientAndWeight(_sample, inter, cache.child2);
+
+    spectral_t Rt = reflectanceTop.quotient();
+    spectral_t E = extinction.quotient();
+    spectral_t Rb = reflectanceBottom.quotient();
+)===";
+
+        if (nodeInfo.isTransmission)
+            sstr << R"===(
+    spectral_t val = (scalar_t(1.0) - Rt) * (scalar_t(1.0) - Rb) / (scalar_t(1.0) / (E * E) - Rt * Rb);
+)===";
+        else
+            sstr << R"===(
+    spectral_t oneMinusRt = (scalar_t(1.0) - Rt);
+    spectral_t val = Rt + (oneMinusRt * oneMinusRt * Rb) / (scalar_t(1.0) / (E * E) - Rt * Rb);
+)===";
+
+        sstr << R"===(
+    return quotient_weight_t::create(val, 0.0);
+}
+)===";
+        break;
+    }
     default:
         break;
     }
@@ -2162,7 +2210,7 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
         const auto imagEtaHash = getHashAs4UintsString(imagEta, ir);
 
         // TODO verify correctness
-        // expecting no pdf value from quotient_weight
+        // expecting no pdf value from value_weight
         // monochrome eta will take from x component
         // TODO no cache in eval, should be enough to approximate with NdotV?
         sstr << R"===(
@@ -2173,7 +2221,7 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
         if (isConductor)
             sstr << R"===(
     using fresnel_t = bxdf::fresnel::Conductor<spectral_t>;
-    fresnel_t fresnel = fresnel_t::create(orientedRealEta.quotient(), orientedImagEta.quotient());
+    fresnel_t fresnel = fresnel_t::create(orientedRealEta.value(), orientedImagEta.value());
 )===";
         else
             sstr << R"===(
@@ -2185,7 +2233,55 @@ static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWe
 
         sstr << R"===(
     spectral_t val = fresnel(inter.getNdotV());
-    return quotient_weight_t::create(val, 0.0);
+    return value_weight_t::create(val, 0.0);
+}
+)===";
+        break;
+    }
+    case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
+    {
+        const auto* scatter = dynamic_cast<const CTrueIR::CThinInfiniteScatterCorrection*>(node);
+        if (!scatter)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+        sstr << R"===(
+static value_weight_t OrientedMaterial<)===" << hashString << R"===(>::evalAndWeight(NBL_CONST_REF_ARG(sample_t) _sample, NBL_CONST_REF_ARG(aniso_interaction_t) inter)
+{
+)===";
+
+        const auto top = ir->getObjectPool().deref(scatter->reflectanceTop);
+        const auto extinction = ir->getObjectPool().deref(scatter->extinction);
+        const auto bottom = ir->getObjectPool().deref(scatter->reflectanceBottom);
+
+        const auto topHash = getHashAs4UintsString(top, ir);
+        const auto extinctionHash = getHashAs4UintsString(extinction, ir);
+        const auto bottomHash = getHashAs4UintsString(bottom, ir);
+
+        // TODO verify correctness
+        // expecting no pdf value from value_weight
+        sstr << R"===(
+    value_weight_t reflectanceTop = OrientedMaterial<)===" << topHash << R"===(>::evalAndWeight(_sample, inter);
+    value_weight_t extinction = OrientedMaterial<)===" << extinctionHash << R"===(>::evalAndWeight(_sample, inter);
+    value_weight_t reflectanceBottom = OrientedMaterial<)===" << bottomHash << R"===(>::evalAndWeight(_sample, inter);
+
+    spectral_t Rt = reflectanceTop.value();
+    spectral_t E = extinction.value();
+    spectral_t Rb = reflectanceBottom.value();
+)===";
+
+        if (nodeInfo.isTransmission)
+            sstr << R"===(
+    spectral_t val = (hlsl::promote<spectral_t>(1.0) - Rt) * (hlsl::promote<spectral_t>(1.0) - Rb) / (hlsl::promote<spectral_t>(1.0) / (E * E) - Rt * Rb);
+)===";
+        else
+            sstr << R"===(
+    spectral_t oneMinusRt = (hlsl::promote<spectral_t>(1.0) - Rt);
+    spectral_t val = Rt + (oneMinusRt * oneMinusRt * Rb) / (hlsl::promote<spectral_t>(1.0) / (E * E) - Rt * Rb);
+)===";
+
+        sstr << R"===(
+    return value_weight_t::create(val, 0.0);
 }
 )===";
         break;
