@@ -259,21 +259,21 @@ void CReferenceUnidirectionalPathTracing::traverseIRNode(const CTrueIR::INode* n
     }
         // these ones don't have children/have children that needs to traverse
     case CTrueIR::INode::EFinalType::CSpectralVariable:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CEmitter:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::COrenNayar:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CCookTorrance:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CDeltaTransmission:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CBeer:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CFresnel:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
-        [[fallthrough]]
+        [[fallthrough]];
     default:
         break;
     }
@@ -614,19 +614,19 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
         break;
     }
     case CTrueIR::INode::EFinalType::CEmitter:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::COrenNayar:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CCookTorrance:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CDeltaTransmission:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CBeer:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CFresnel:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
-        [[fallthrough]]
+        [[fallthrough]];
     default:
     {
         const auto hashString = getHashAs4UintsString(node, ir);
@@ -646,31 +646,31 @@ void CReferenceUnidirectionalPathTracing::getNormalHLSLCode(std::ostringstream& 
     switch (node->getFinalType())
     {
     case CTrueIR::INode::EFinalType::COrientedLayer:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CContributorSum:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CFactorCombiner:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CWeightedContributor:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CCorellatedTransmission:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CSpectralVariable:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CEmitter:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::COrenNayar:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CCookTorrance:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CDeltaTransmission:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CBeer:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CFresnel:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
-        [[fallthrough]]
+        [[fallthrough]];
     default:
     {
         const auto hashString = getHashAs4UintsString(node, ir);
@@ -878,17 +878,17 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::aovThroughput
 )===";
     }
     case CTrueIR::INode::EFinalType::CSpectralVariable:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CEmitter:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::COrenNayar:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CBeer:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CFresnel:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
-        [[fallthrough]]
+        [[fallthrough]];
     default:
     {
         const auto hashString = getHashAs4UintsString(node, ir);
@@ -1096,17 +1096,17 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::transparency()
 )===";
     }
     case CTrueIR::INode::EFinalType::CSpectralVariable:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CEmitter:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::COrenNayar:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CBeer:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CFresnel:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
-        [[fallthrough]]
+        [[fallthrough]];
     default:
     {
         const auto hashString = getHashAs4UintsString(node, ir);
@@ -2472,19 +2472,19 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::emission()
         break;
     }
     case CTrueIR::INode::EFinalType::CCookTorrance:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CDeltaTransmission:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CSpectralVariable:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::COrenNayar:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CBeer:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CFresnel:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
-        [[fallthrough]]
+        [[fallthrough]];
     default:
     {
         const auto hashString = getHashAs4UintsString(node, ir);
@@ -2662,9 +2662,9 @@ static bool OrientedMaterial<)===" << hashString << R"===(>::canGenerate()
         break;
     }
     case CTrueIR::INode::EFinalType::COrenNayar:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CCookTorrance:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CDeltaTransmission:
     {
         const auto hashString = getHashAs4UintsString(node, ir);
@@ -2677,15 +2677,15 @@ static bool OrientedMaterial<)===" << hashString << R"===(>::canGenerate()
         break;
     }
     case CTrueIR::INode::EFinalType::CSpectralVariable:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CEmitter:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CBeer:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CFresnel:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CThinInfiniteScatterCorrection:
-        [[fallthrough]]
+        [[fallthrough]];
     default:
     {
         const auto hashString = getHashAs4UintsString(node, ir);
@@ -2856,13 +2856,13 @@ static scalar_t OrientedMaterial<)===" << hashString << R"===(>::choiceTarget(NB
         break;
     }
     case CTrueIR::INode::EFinalType::CWeightedContributor:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::COrenNayar:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CCookTorrance:
-        [[fallthrough]]
+        [[fallthrough]];
     case CTrueIR::INode::EFinalType::CDeltaTransmission:
-        [[fallthrough]]
+        [[fallthrough]];
     default:
         break;
     }
