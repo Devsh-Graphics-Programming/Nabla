@@ -44,8 +44,19 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	set(CMAKE_INSTALL_PREFIX "${NBL_ROOT_PATH}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
 endif()
 
+if (NBL_USE_CONAN)
+	# convert to lowercase
+	if (CMAKE_GENERATOR MATCHES "Visual Studio" OR CMAKE_GENERATOR MATCHES "Ninja Multi-Config")
+		list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/build/generators")
+	else()
+		list(APPEND CMAKE_PREFIX_PATH "${CMAKE_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE}/generators")
+	endif()
+endif()
+
 # include utility macros/functions
 include(common)
+
+find_package(libavif CONFIG REQUIRED)
 
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _NBL_COMPILE_WITH will be there]]
@@ -60,6 +71,8 @@ option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
 option(_NBL_COMPILE_WITH_PNG_WRITER_ "Compile with PNG Writer" ON)
+option(_NBL_COMPILE_WITH_AVIF_LOADER_ "Compile with AVIF Loader" ON)
+option(_NBL_COMPILE_WITH_AVIF_WRITER_ "Compile with AVIF Writer" ON)
 option(_NBL_COMPILE_WITH_TGA_LOADER_ "Compile with TGA Loader" ON)
 option(_NBL_COMPILE_WITH_TGA_WRITER_ "Compile with TGA Writer" ON)
 option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
@@ -215,6 +228,7 @@ set(NBL_ASSET_SOURCES
 
 # Image loaders
 	asset/interchange/IImageLoader.cpp
+	asset/interchange/CImageLoaderAVIF.cpp
 	asset/interchange/CImageLoaderJPG.cpp
 	asset/interchange/CImageLoaderPNG.cpp
 	asset/interchange/CImageLoaderTGA.cpp
@@ -576,6 +590,12 @@ else()
 endif()
 list(APPEND PUBLIC_BUILD_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/libpng)
 
+# libavif
+if (NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE avif)
+else()
+	target_link_libraries(Nabla PRIVATE avif)
+endif()
 
 # OpenEXR
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
