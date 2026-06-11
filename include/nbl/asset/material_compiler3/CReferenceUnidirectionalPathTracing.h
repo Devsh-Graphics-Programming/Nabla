@@ -38,6 +38,7 @@ private:
     void getMaterialDeclarationCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
     void getCacheDefineCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir);
 
+    void getCallableEntryPointsHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir);
     void getAlbedoHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir);
     void getNormalHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir);
     void getAOVThroughputHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir);

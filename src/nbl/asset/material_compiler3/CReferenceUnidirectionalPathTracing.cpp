@@ -11,9 +11,9 @@ core::smart_refctd_ptr<CReferenceUnidirectionalPathTracing::CResult> CReferenceU
 {
     auto res = core::make_smart_refctd_ptr<CResult>();
 
-    // TODO: handle textures somehow
     // TODO: where do all the type aliases come from? e.g. sample_t, vector3_t, etc.
     std::ostringstream code;
+    std::ostringstream entryPoints;
 
     code << R"===(
 template<uint32_t hash0, uint32_t hash1, uint32_t hash2, uint32_t hash3, uint32_t hash4, uint32_t hash5, uint32_t hash6, uint32_t hash7>
@@ -44,6 +44,8 @@ struct OrientedMaterial;
                 continue;
 
             getMaterialDeclarationCode(code, node, ir);
+            if (handle == rootHandle)
+                getCallableEntryPointsHLSLCode(entryPoints, node, ir);
             traverseIRNode(node, ir, logger, nodeStack, nodeInfos);
         }
 
@@ -80,7 +82,7 @@ struct OrientedMaterial;
     // 8 functions each node: albedo, normal, aov_throughput, transparency, generate, quotientAndWeight, evalAndWeight, emission
 
     res->fragmentShaderSource_common = code.str();
-    // TODO: set entry points in raytracingPipeline
+    res->fragmentShaderSource_raytracingPipeline = entryPoints.str();
 
     return res;
 }
@@ -433,6 +435,64 @@ struct gen_cache<)===" << hashString << R"===(>
 };
 )===";
     }
+}
+
+void CReferenceUnidirectionalPathTracing::getCallableEntryPointsHLSLCode(std::ostringstream& sstr, const CTrueIR::INode* node, const CTrueIR* ir)
+{
+    const auto hashString = getHashAs4UintsString(node, ir, "_");
+
+    // TODO double check payloads
+    // TODO define payload somewhere?
+    sstr << R"===(
+[stage("callable")]
+void albedo_)===" << hashString << R"===((inout Payload payload)
+{
+    payload.albedo = OrientedMaterial<)===" << hashString << R"===(>::albedo();
+}
+
+[stage("callable")]
+void normal_)===" << hashString << R"===((inout Payload payload)
+{
+    payload.normal = OrientedMaterial<)===" << hashString << R"===(>::normal(payload.interaction);
+}
+
+[stage("callable")]
+void aovThroughput_)===" << hashString << R"===((inout Payload payload)
+{
+    payload.aovThroughput = OrientedMaterial<)===" << hashString << R"===(>::aovThroughput();
+}
+
+[stage("callable")]
+void transparency_)===" << hashString << R"===((inout Payload payload)
+{
+    payload.transparency = OrientedMaterial<)===" << hashString << R"===(>::transparency();
+}
+
+[stage("callable")]
+void generate_)===" << hashString << R"===((inout Payload payload)
+{
+    payload.generatedSample = OrientedMaterial<)===" << hashString << R"===(>::generate(payload.interaction, payload.xi, payload.xi_extra, payload.cache);
+}
+
+[stage("callable")]
+void quotientAndWeight_)===" << hashString << R"===((inout Payload payload)
+{
+    payload.quotientAndWeight = OrientedMaterial<)===" << hashString << R"===(>::quotientAndWeight(payload.generatedSample, payload.interaction, payload.cache);
+}
+
+[stage("callable")]
+void evalAndWeight_)===" << hashString << R"===((inout Payload payload)
+{
+    payload.evalAndWeight = OrientedMaterial<)===" << hashString << R"===(>::evalAndWeight(payload.generatedSample, payload.interaction);
+}
+
+[stage("callable")]
+void emission_)===" << hashString << R"===((inout Payload payload)
+{
+    payload.emission = OrientedMaterial<)===" << hashString << R"===(>::emission();
+}
+
+)===";
 }
 
 void CReferenceUnidirectionalPathTracing::getAlbedoHLSLCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
