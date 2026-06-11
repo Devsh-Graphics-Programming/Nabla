@@ -327,9 +327,18 @@ struct OrientedMaterial<)===" << hashString << R"===(>
 
     static bool canGenerate();
     static scalar_t choiceTarget(NBL_CONST_REF_ARG(aniso_interaction_t) inter, uint8_t chosenLobe, NBL_REF_ARG(scalar_t) choiceSum);
-};
-)===";
+    
+    // the following should be user implemented
 
+    // index: index in the parameter set
+    static uint32_t getImageHandle(uint32_t index);
+    static float32_t2 getUV();
+};
+
+float32_t4 textureLoad(uint32_t handle, float32_t2 uv, float lod);
+)===";
+    
+    // TODO getUV args?
 }
 
 void CReferenceUnidirectionalPathTracing::getCacheDefineCode(std::ostringstream& sstr, const TraversalNodeInfo& nodeInfo, const CTrueIR* ir)
@@ -596,21 +605,50 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
         if (!spectral)
             break;
 
-        auto bins = spectral->getSpectralBins();
         const auto hashString = getHashAs4UintsString(node, ir);
+
+        auto getParamComponent = [&](const uint8_t ix) -> std::string {
+            const auto parameter = spectral->getParameter(ix);
+            std::ostringstream compStr;
+            compStr << "scalar_t comp"  << static_cast<uint32_t>(ix) << " = " << parameter.scale << " * ";
+
+            if (parameter.view)
+            {
+                // reference backend will sample textures individually just to get a single channel based on param set index/bin index
+                // TODO lod=0 for now
+                compStr << "textureLoad(OrientedMaterial<" << hashString << ">::getImageHandle(" << static_cast<uint32_t>(ix) << "), OrientedMaterial<" << hashString << ">::getUV(), 0)[" << static_cast<uint32_t>(ix) << "]";
+            }
+            else
+                compStr << "1.0";
+            compStr << ";";
+            return compStr.str();
+            };
+
         sstr << R"===(
 static spectral_t OrientedMaterial<)===" << hashString << R"===(>::albedo()
 {
 )===";
+        auto bins = spectral->getSpectralBins();
         if (bins > 1)
         {
-            sstr << "return spectral_t(";
             for (uint8_t i = 0; i < bins; i++)
-                sstr << spectral->getParameter(i).scale << (i < bins - 1 ? "," : "");
-            sstr << ");\n}\n";
+                sstr << getParamComponent(i);
+
+            sstr << R"===(
+    return spectral_t(
+)===";
+            for (uint8_t i = 0; i < bins; i++)
+                sstr << "comp" << static_cast<uint32_t>(i) << (i < bins - 1 ? "," : "");
+            sstr << R"===(
+    );
+}
+)===";
         }
         else
-            sstr << "return hlsl::promote<spectral_t>(" << spectral->getParameter(0).scale << ");\n}\n";
+            sstr << getParamComponent(0) << R"===(
+    return hlsl::promote<spectral_t>(comp0);
+}
+)===";
         break;
     }
     case CTrueIR::INode::EFinalType::CEmitter:
@@ -673,6 +711,7 @@ void CReferenceUnidirectionalPathTracing::getNormalHLSLCode(std::ostringstream& 
         [[fallthrough]];
     default:
     {
+        // TODO might be texture?
         const auto hashString = getHashAs4UintsString(node, ir);
         sstr << R"===(
 static spectral_t OrientedMaterial<)===" << hashString << R"===(>::normal(NBL_CONST_REF_ARG(aniso_interaction_t) inter)
