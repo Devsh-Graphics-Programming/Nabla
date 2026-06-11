@@ -243,6 +243,21 @@ class IImage : public virtual core::IReferenceCounted
 
 			auto operator<=>(const SMemoryToImageCopy&) const = default;
 		};
+		struct SImageToMemoryCopy
+		{
+			inline const auto&			getSrcSubresource() const {return imageSubresource;}
+			inline const VkOffset3D&	getSrcOffset() const {return imageOffset;}
+			inline const VkExtent3D&	getExtent() const {return imageExtent;}
+
+			void*				hostPointer = nullptr;
+			uint32_t			memoryRowLength = 0u;
+			uint32_t			memoryImageHeight = 0u;
+			SSubresourceLayers	imageSubresource = {};
+			VkOffset3D			imageOffset = {0u,0u,0u};
+			VkExtent3D			imageExtent = {0u,0u,0u};
+
+			auto operator<=>(const SImageToMemoryCopy&) const = default;
+		};
 		struct SImageCopy
 		{
 			inline bool					isValid() const

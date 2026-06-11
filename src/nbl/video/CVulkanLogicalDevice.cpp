@@ -529,8 +529,8 @@ auto CVulkanLogicalDevice::copyAccelerationStructureFromMemory_impl(IDeferredOpe
 
 bool CVulkanLogicalDevice::copyMemoryToImage_impl(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions)
 {
-    core::vector<VkMemoryToImageCopy> vk_regions(regions.size(),{VK_STRUCTURE_TYPE_MEMORY_TO_IMAGE_COPY,nullptr});
-    for (size_t i=0u; i<regions.size(); ++i)
+    core::vector<VkMemoryToImageCopy> vk_regions(regions.size(),{VK_STRUCTURE_TYPE_MEMORY_TO_IMAGE_COPY_EXT, nullptr});
+    for (size_t i = 0u; i < regions.size(); ++i)
     {
         vk_regions[i].pHostPointer = regions[i].hostPointer;
         vk_regions[i].memoryRowLength = regions[i].memoryRowLength;
@@ -543,34 +543,100 @@ bool CVulkanLogicalDevice::copyMemoryToImage_impl(IGPUImage* const dstImage, con
         vk_regions[i].imageExtent = { regions[i].imageExtent.width, regions[i].imageExtent.height, regions[i].imageExtent.depth };
     }
 
-    VkCopyMemoryToImageInfoEXT info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO,nullptr };
+    VkCopyMemoryToImageInfoEXT info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_IMAGE_INFO_EXT, nullptr};
     info.flags = static_cast<VkHostImageCopyFlagsEXT>(flags.value);
     info.dstImage = static_cast<CVulkanImage*>(dstImage)->getInternalObject();
     info.dstImageLayout = getVkImageLayoutFromImageLayout(dstImageLayout);
     info.regionCount = static_cast<uint32_t>(vk_regions.size());
     info.pRegions = vk_regions.data();
 
-    return m_devf.vk.vkCopyMemoryToImageEXT(m_vkdev,&info) == VK_SUCCESS;
+    return m_devf.vk.vkCopyMemoryToImageEXT(m_vkdev, &info) == VK_SUCCESS;
 }
 
-bool CVulkanLogicalDevice::transitionImageLayout_impl(IGPUImage* const image, const IGPUImage::LAYOUT oldLayout, const IGPUImage::LAYOUT newLayout, const std::span<const IGPUImage::SSubresourceRange> subresourceRange)
+bool CVulkanLogicalDevice::copyImageToMemory_impl(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageToMemoryCopy> regions)
 {
-    core::vector<VkHostImageLayoutTransitionInfo> vk_transitions(subresourceRange.size(),{VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO,nullptr});
-    for (size_t i = 0u; i < subresourceRange.size(); ++i)
+    core::vector<VkImageToMemoryCopy> vk_regions(regions.size(), { VK_STRUCTURE_TYPE_IMAGE_TO_MEMORY_COPY_EXT, nullptr });
+    for (size_t i = 0; i < regions.size(); ++i)
     {
-        const auto& in = subresourceRange[i];
-        auto& out = vk_transitions[i];
-        out.image = static_cast<CVulkanImage*>(image)->getInternalObject();
-        out.oldLayout = getVkImageLayoutFromImageLayout(oldLayout);
-        out.newLayout = getVkImageLayoutFromImageLayout(newLayout);
-        out.subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(in.aspectMask.value);
-        out.subresourceRange.baseMipLevel = in.baseMipLevel;
-        out.subresourceRange.levelCount = in.levelCount;
-        out.subresourceRange.baseArrayLayer = in.baseArrayLayer;
-        out.subresourceRange.layerCount = in.layerCount;
+        vk_regions[i].pHostPointer = regions[i].hostPointer;
+        vk_regions[i].memoryRowLength = regions[i].memoryRowLength;
+        vk_regions[i].memoryImageHeight = regions[i].memoryImageHeight;
+        vk_regions[i].imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(regions[i].imageSubresource.aspectMask.value);
+        vk_regions[i].imageSubresource.mipLevel = regions[i].imageSubresource.mipLevel;
+        vk_regions[i].imageSubresource.baseArrayLayer = regions[i].imageSubresource.baseArrayLayer;
+        vk_regions[i].imageSubresource.layerCount = regions[i].imageSubresource.layerCount;
+        vk_regions[i].imageOffset = { static_cast<int32_t>(regions[i].imageOffset.x), static_cast<int32_t>(regions[i].imageOffset.y), static_cast<int32_t>(regions[i].imageOffset.z) };
+        vk_regions[i].imageExtent = { regions[i].imageExtent.width, regions[i].imageExtent.height, regions[i].imageExtent.depth };
+    }
+    VkCopyImageToMemoryInfoEXT info = { VK_STRUCTURE_TYPE_COPY_IMAGE_TO_MEMORY_INFO_EXT, nullptr };
+    info.flags = static_cast<VkHostImageCopyFlagsEXT>(flags.value);
+    info.srcImage = static_cast<CVulkanImage*>(srcImage)->getInternalObject();
+    info.srcImageLayout = getVkImageLayoutFromImageLayout(srcImageLayout);
+    info.regionCount = static_cast<uint32_t>(vk_regions.size());
+    info.pRegions = vk_regions.data();
+
+    return m_devf.vk.vkCopyImageToMemoryEXT(m_vkdev, &info) == VK_SUCCESS;
+}
+
+bool CVulkanLogicalDevice::copyImageToImage_impl(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageCopy> regions)
+{
+    core::vector<VkImageCopy2> vk_regions(regions.size(),{ VK_STRUCTURE_TYPE_IMAGE_COPY_2, nullptr});
+    for (size_t i = 0u; i < regions.size(); ++i)
+    {
+        vk_regions[i].srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(regions[i].srcSubresource.aspectMask.value);
+        vk_regions[i].srcSubresource.mipLevel = regions[i].srcSubresource.mipLevel;
+        vk_regions[i].srcSubresource.baseArrayLayer = regions[i].srcSubresource.baseArrayLayer;
+        vk_regions[i].srcSubresource.layerCount = regions[i].srcSubresource.layerCount;
+        vk_regions[i].srcOffset = {
+            static_cast<int32_t>(regions[i].srcOffset.x),
+            static_cast<int32_t>(regions[i].srcOffset.y),
+            static_cast<int32_t>(regions[i].srcOffset.z)
+        };
+
+        vk_regions[i].dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(regions[i].dstSubresource.aspectMask.value);
+        vk_regions[i].dstSubresource.mipLevel = regions[i].dstSubresource.mipLevel;
+        vk_regions[i].dstSubresource.baseArrayLayer = regions[i].dstSubresource.baseArrayLayer;
+        vk_regions[i].dstSubresource.layerCount = regions[i].dstSubresource.layerCount;
+        vk_regions[i].dstOffset = {
+            static_cast<int32_t>(regions[i].dstOffset.x),
+            static_cast<int32_t>(regions[i].dstOffset.y),
+            static_cast<int32_t>(regions[i].dstOffset.z)
+        };
+
+        vk_regions[i].extent = {
+            regions[i].extent.width,
+            regions[i].extent.height,
+            regions[i].extent.depth
+        };
+    }
+    VkCopyImageToImageInfoEXT info = { VK_STRUCTURE_TYPE_COPY_IMAGE_TO_IMAGE_INFO_EXT, nullptr};
+    info.flags = static_cast<VkHostImageCopyFlagsEXT>(flags.value);
+    info.srcImage = static_cast<CVulkanImage*>(srcImage)->getInternalObject();
+    info.srcImageLayout = getVkImageLayoutFromImageLayout(srcImageLayout);
+    info.dstImage = static_cast<CVulkanImage*>(dstImage)->getInternalObject();
+    info.dstImageLayout = getVkImageLayoutFromImageLayout(dstImageLayout);
+    info.regionCount = static_cast<uint32_t>(vk_regions.size());
+    info.pRegions = vk_regions.data();
+
+    return m_devf.vk.vkCopyImageToImageEXT(m_vkdev, &info) == VK_SUCCESS;
+}
+
+bool CVulkanLogicalDevice::transitionImageLayout_impl(const std::span<const SImageLayoutTransition> transitions)
+{
+    core::vector<VkHostImageLayoutTransitionInfo> vk_transitions(transitions.size(), { VK_STRUCTURE_TYPE_HOST_IMAGE_LAYOUT_TRANSITION_INFO_EXT, nullptr});
+    for (size_t i = 0u; i < transitions.size(); ++i)
+    {
+        vk_transitions[i].image = static_cast<CVulkanImage*>(transitions[i].image)->getInternalObject();
+        vk_transitions[i].oldLayout = getVkImageLayoutFromImageLayout(transitions[i].oldLayout);
+        vk_transitions[i].newLayout = getVkImageLayoutFromImageLayout(transitions[i].newLayout);
+        vk_transitions[i].subresourceRange.aspectMask = static_cast<VkImageAspectFlags>(transitions[i].subresourceRange.aspectMask.value);
+        vk_transitions[i].subresourceRange.baseMipLevel = transitions[i].subresourceRange.baseMipLevel;
+        vk_transitions[i].subresourceRange.levelCount = transitions[i].subresourceRange.levelCount;
+        vk_transitions[i].subresourceRange.baseArrayLayer = transitions[i].subresourceRange.baseArrayLayer;
+        vk_transitions[i].subresourceRange.layerCount = transitions[i].subresourceRange.layerCount;
     }
 
-    return m_devf.vk.vkTransitionImageLayoutEXT(m_vkdev,static_cast<uint32_t>(vk_transitions.size()),vk_transitions.data()) == VK_SUCCESS;
+    return m_devf.vk.vkTransitionImageLayoutEXT(m_vkdev, static_cast<uint32_t>(vk_transitions.size()), vk_transitions.data()) == VK_SUCCESS;
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount)
