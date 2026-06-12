@@ -2560,21 +2560,89 @@ static spectral_t OrientedMaterial<)===" << hashString << R"===(>::emission()
         if (!emitter)
             break;
 
-        const auto strength = emitter->profile.scale;   // TODO: how to get emission color like from IES?
         const auto hashString = getHashAs4UintsString(node, ir);
+
+        // TODO only single channel for emission?
+        auto getParamComponent = [&]() -> std::string {
+            const auto& parameter = emitter->profile;
+            std::ostringstream compStr;
+            compStr << "scalar_t comp = " << parameter.scale << " * ";
+
+            if (parameter.view)
+            {
+                // reference backend will sample textures individually just to get a single channel based on param set index/bin index
+                // TODO lod=0 for now
+                compStr << "textureLoad(OrientedMaterial<" << hashString << ">::getImageHandle(0), OrientedMaterial<" << hashString << ">::getUV(), 0)[0]";
+            }
+            else
+                compStr << "1.0";
+            compStr << ";";
+            return compStr.str();
+            };
+
         sstr << R"===(
 static scalar_t OrientedMaterial<)===" << hashString << R"===(>::emission()
 {
-    return hlsl::promote<spectral_t>()===" << strength << R"===();
+)===" << getParamComponent() << R"===(
+    return hlsl::promote<spectral_t>(comp);
 }
 )===";
         break;
     }
+    case CTrueIR::INode::EFinalType::CSpectralVariable:
+    {
+        const auto* spectral = dynamic_cast<const CTrueIR::CSpectralVariableFactor*>(node);
+        if (!spectral)
+            break;
+
+        const auto hashString = getHashAs4UintsString(node, ir);
+
+        auto getParamComponent = [&](const uint8_t ix) -> std::string {
+            const auto parameter = spectral->getParameter(ix);
+            std::ostringstream compStr;
+            compStr << "scalar_t comp" << static_cast<uint32_t>(ix) << " = " << parameter.scale << " * ";
+
+            if (parameter.view)
+            {
+                // reference backend will sample textures individually just to get a single channel based on param set index/bin index
+                // TODO lod=0 for now
+                compStr << "textureLoad(OrientedMaterial<" << hashString << ">::getImageHandle(" << static_cast<uint32_t>(ix) << "), OrientedMaterial<" << hashString << ">::getUV(), 0)[" << static_cast<uint32_t>(ix) << "]";
+            }
+            else
+                compStr << "1.0";
+            compStr << ";";
+            return compStr.str();
+            };
+
+        sstr << R"===(
+static spectral_t OrientedMaterial<)===" << hashString << R"===(>::emission()
+{
+)===";
+        auto bins = spectral->getSpectralBins();
+        if (bins > 1)
+        {
+            for (uint8_t i = 0; i < bins; i++)
+                sstr << getParamComponent(i);
+
+            sstr << R"===(
+    return spectral_t(
+)===";
+            for (uint8_t i = 0; i < bins; i++)
+                sstr << "comp" << static_cast<uint32_t>(i) << (i < bins - 1 ? "," : "");
+            sstr << R"===(
+    );
+}
+)===";
+        }
+        else
+            sstr << getParamComponent(0) << R"===(
+    return hlsl::promote<spectral_t>(comp0);
+}
+)===";
+    }
     case CTrueIR::INode::EFinalType::CCookTorrance:
         [[fallthrough]];
     case CTrueIR::INode::EFinalType::CDeltaTransmission:
-        [[fallthrough]];
-    case CTrueIR::INode::EFinalType::CSpectralVariable:
         [[fallthrough]];
     case CTrueIR::INode::EFinalType::COrenNayar:
         [[fallthrough]];
