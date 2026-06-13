@@ -2927,8 +2927,13 @@
             ]
         },
         {
+            "type": "bool",
+            "name": "hostImageCopy",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
             "comment": [
-                "[DO NOT EXPOSE] We don't support yet, but should when ubiquitous",
+                "[EXPOSE AS A LIMIT] Nabla enables host image copy automatically when supported",
+                "HostImageCopyFeaturesEXT",
                 "VK_EXT_host_image_copy"
             ]
         },

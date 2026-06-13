@@ -132,10 +132,12 @@ class IImage : public virtual core::IReferenceCounted
 			EUF_TRANSIENT_ATTACHMENT_BIT = 0x0040,
 			EUF_INPUT_ATTACHMENT_BIT = 0x0080,
 			EUF_SHADING_RATE_ATTACHMENT_BIT = 0x0100,
-			EUF_FRAGMENT_DENSITY_MAP_BIT = 0x0200
+			EUF_FRAGMENT_DENSITY_MAP_BIT = 0x0200,
+			EUF_HOST_TRANSFER_BIT = 0x0400
 		};
+
 		struct SSubresourceRange
-		{
+		{	
 			core::bitflag<E_ASPECT_FLAGS>	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
 			uint32_t						baseMipLevel = 0u;
 			uint32_t						levelCount = 0u;
@@ -150,6 +152,11 @@ class IImage : public virtual core::IReferenceCounted
 			uint32_t						layerCount = 0u;
 
 			auto operator<=>(const SSubresourceLayers&) const = default;
+		};
+		enum E_HOST_IMAGE_COPY_FLAGS : uint8_t
+		{
+			EHICF_NONE = 0x00,
+			EHICF_MEMCPY_BIT = 0x01
 		};
 		struct SBufferCopy
 		{
@@ -208,6 +215,48 @@ class IImage : public virtual core::IReferenceCounted
 			VkExtent3D			imageExtent = {0u,0u,0u};
 
 			auto operator<=>(const SBufferCopy&) const = default;
+		};
+		struct SMemoryToImageCopy
+		{
+			inline bool					isValid() const
+			{
+				if (!hostPointer)
+					return false;
+				if (imageSubresource.layerCount==0u)
+					return false;
+				if (imageExtent.width==0u || imageExtent.height==0u || imageExtent.depth==0u)
+					return false;
+
+				return true;
+			}
+
+			inline const auto&			getDstSubresource() const {return imageSubresource;}
+			inline const VkOffset3D&	getDstOffset() const {return imageOffset;}
+			inline const VkExtent3D&	getExtent() const {return imageExtent;}
+
+			const void*			hostPointer = nullptr;
+			uint32_t			memoryRowLength = 0u;
+			uint32_t			memoryImageHeight = 0u;
+			SSubresourceLayers	imageSubresource = {};
+			VkOffset3D			imageOffset = {0u,0u,0u};
+			VkExtent3D			imageExtent = {0u,0u,0u};
+
+			auto operator<=>(const SMemoryToImageCopy&) const = default;
+		};
+		struct SImageToMemoryCopy
+		{
+			inline const auto&			getSrcSubresource() const {return imageSubresource;}
+			inline const VkOffset3D&	getSrcOffset() const {return imageOffset;}
+			inline const VkExtent3D&	getExtent() const {return imageExtent;}
+
+			void*				hostPointer = nullptr;
+			uint32_t			memoryRowLength = 0u;
+			uint32_t			memoryImageHeight = 0u;
+			SSubresourceLayers	imageSubresource = {};
+			VkOffset3D			imageOffset = {0u,0u,0u};
+			VkExtent3D			imageExtent = {0u,0u,0u};
+
+			auto operator<=>(const SImageToMemoryCopy&) const = default;
 		};
 		struct SImageCopy
 		{
@@ -846,6 +895,7 @@ class IImage : public virtual core::IReferenceCounted
 };
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
 
+NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_HOST_IMAGE_COPY_FLAGS)
 NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_USAGE_FLAGS)
 } // end namespace nbl::asset
 

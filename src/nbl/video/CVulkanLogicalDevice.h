@@ -270,6 +270,11 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, const asset::SBufferBinding<asset::ICPUBuffer>& dst) override;
         DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const asset::SBufferBinding<const asset::ICPUBuffer>& src, IGPUAccelerationStructure* dst) override;
 
+        virtual bool copyMemoryToImage_impl(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions) override;
+        virtual bool copyImageToMemory_impl(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageToMemoryCopy> regions) override;
+        virtual bool copyImageToImage_impl(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageCopy> regions) override;
+        virtual bool transitionImageLayout_impl(const std::span<const SImageLayoutTransition> transitions) override;
+
         // layouts
         core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) override;
         core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(

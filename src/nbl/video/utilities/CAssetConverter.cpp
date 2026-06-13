@@ -262,6 +262,8 @@ bool CAssetConverter::patch_impl_t<ICPUImage>::valid(const ILogicalDevice* devic
 	const auto* physDev = device->getPhysicalDevice();
 	if (storageImageLoadWithoutFormat && !physDev->getLimits().shaderStorageImageReadWithoutFormat)
 		return false;
+	if (usageFlags.hasFlags(usage_flags_t::EUF_HOST_TRANSFER_BIT) && !physDev->getLimits().hostImageCopy)
+		return false;
 	// We're not going to check if the format is creatable for a given usage nad metausages, because we possibly haven't collected all the usages yet.
 	// So the Image format promotion happens in another pass, just after the DFS descent.
 	return true;
