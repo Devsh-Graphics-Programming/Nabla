@@ -1254,7 +1254,16 @@ struct DeviceConfigCaps
 	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=vulkan-with-source>)
 	endif()
 
-	if(NOT NBL_EMBED_BUILTIN_RESOURCES)
+	set(_NBL_NSC_USE_HOST_BUILTINS FALSE)
+	if(NBL_NSC_MODE STREQUAL "PACKAGE")
+		if(NOT NBL_NSC_USE_PACKAGE_BUILTINS)
+			set(_NBL_NSC_USE_HOST_BUILTINS TRUE)
+		endif()
+	elseif(NOT NBL_EMBED_BUILTIN_RESOURCES)
+		set(_NBL_NSC_USE_HOST_BUILTINS TRUE)
+	endif()
+
+	if(_NBL_NSC_USE_HOST_BUILTINS)
 		list(APPEND REQUIRED_OPTIONS
 			-no-nbl-builtins
 			-isystem "${NBL_ROOT_PATH}/include"
@@ -1263,6 +1272,7 @@ struct DeviceConfigCaps
 			-isystem "${NBL_ROOT_PATH_BINARY}/src/nbl/device/include"
 		)
 	endif()
+	unset(_NBL_NSC_USE_HOST_BUILTINS)
 
     set(REQUIRED_SINGLE_ARGS TARGET BINARY_DIR OUTPUT_VAR INPUTS INCLUDE NAMESPACE MOUNT_POINT_DEFINE)
     set(OPTIONAL_SINGLE_ARGS GLOB_DIR)

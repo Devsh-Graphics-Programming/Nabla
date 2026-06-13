@@ -196,6 +196,9 @@ option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" OFF)
+set(NBL_NSC_MODE "PACKAGE" CACHE STRING "How to provide the nsc build tool. Valid values: SOURCE and PACKAGE")
+set_property(CACHE NBL_NSC_MODE PROPERTY STRINGS SOURCE PACKAGE)
+option(NBL_NSC_USE_PACKAGE_BUILTINS "When NBL_NSC_MODE=PACKAGE, use builtin resources embedded in the packaged nsc instead of host checkout builtins." OFF)
 option(NBL_ENABLE_DOCKER_INTEGRATION "Enables docker integration, if client is not found Docker Desktop will be installed" OFF)
 option(NBL_ENABLE_CONFIG_INSTALL "Install Relocatable NablaConfig.cmake and NablaConfigVersion.cmake scripts" ON)
 
