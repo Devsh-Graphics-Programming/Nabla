@@ -703,6 +703,12 @@ bool ILogicalDevice::copyMemoryToImage(IGPUImage* const dstImage, const IGPUImag
         NBL_LOG_ERROR("Invalid `dstImageLayout`");
         return false;
     }
+    // device `pCopyDstLayouts` membership: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCopyMemoryToImageInfo-dstImageLayout-09060
+    if (!(getPhysicalDevice()->getLimits().hostImageCopyDstLayouts & (1u<<static_cast<uint32_t>(dstImageLayout))))
+    {
+        NBL_LOG_ERROR("`dstImageLayout` is not one of the device's supported host-copy destination layouts");
+        return false;
+    }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCopyMemoryToImageInfo-regionCount-arraylength
     if (regions.empty())
     {
@@ -930,6 +936,12 @@ bool ILogicalDevice::copyImageToMemory(IGPUImage* const srcImage, const IGPUImag
     if (!validLayout)
     {
         NBL_LOG_ERROR("Invalid `srcImageLayout`");
+        return false;
+    }
+    // device `pCopySrcLayouts` membership: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCopyImageToMemoryInfo-srcImageLayout-09065
+    if (!(getPhysicalDevice()->getLimits().hostImageCopySrcLayouts & (1u<<static_cast<uint32_t>(srcImageLayout))))
+    {
+        NBL_LOG_ERROR("`srcImageLayout` is not one of the device's supported host-copy source layouts");
         return false;
     }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCopyImageToMemoryInfo-regionCount-arraylength
@@ -1188,6 +1200,12 @@ bool ILogicalDevice::copyImageToImage(IGPUImage* const srcImage, const IGPUImage
         NBL_LOG_ERROR("Invalid `srcImageLayout`");
         return false;
     }
+    // device `pCopySrcLayouts` membership: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCopyImageToImageInfo-srcImageLayout-09072
+    if (!(getPhysicalDevice()->getLimits().hostImageCopySrcLayouts & (1u<<static_cast<uint32_t>(srcImageLayout))))
+    {
+        NBL_LOG_ERROR("`srcImageLayout` is not one of the device's supported host-copy source layouts");
+        return false;
+    }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCopyImageToImageInfo-dstImageLayout-parameter
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCopyImageToImageInfo-dstImageLayout-09073
     bool validDstLayout = false;
@@ -1208,6 +1226,12 @@ bool ILogicalDevice::copyImageToImage(IGPUImage* const srcImage, const IGPUImage
     if (!validDstLayout)
     {
         NBL_LOG_ERROR("Invalid `dstImageLayout`");
+        return false;
+    }
+    // device `pCopyDstLayouts` membership: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCopyImageToImageInfo-dstImageLayout-09073
+    if (!(getPhysicalDevice()->getLimits().hostImageCopyDstLayouts & (1u<<static_cast<uint32_t>(dstImageLayout))))
+    {
+        NBL_LOG_ERROR("`dstImageLayout` is not one of the device's supported host-copy destination layouts");
         return false;
     }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCopyImageToImageInfo-regionCount-arraylength
@@ -1492,6 +1516,19 @@ bool ILogicalDevice::transitionImageLayout(const std::span<const SImageLayoutTra
         if (!validNewLayout(transition.newLayout))
         {
             NBL_LOG_ERROR("Invalid `newLayout` (transitions[%zu])", transitionIx);
+            return false;
+        }
+        // device `pCopySrcLayouts` membership (UNDEFINED/PREINITIALIZED exempt): https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-oldLayout-09230
+        const bool oldLayoutExempt = transition.oldLayout==IGPUImage::LAYOUT::UNDEFINED || transition.oldLayout==IGPUImage::LAYOUT::PREINITIALIZED;
+        if (!oldLayoutExempt && !(getPhysicalDevice()->getLimits().hostImageCopySrcLayouts & (1u<<static_cast<uint32_t>(transition.oldLayout))))
+        {
+            NBL_LOG_ERROR("`oldLayout` is not one of the device's supported host-copy source layouts (transitions[%zu])", transitionIx);
+            return false;
+        }
+        // device `pCopyDstLayouts` membership: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkHostImageLayoutTransitionInfo-newLayout-09057
+        if (!(getPhysicalDevice()->getLimits().hostImageCopyDstLayouts & (1u<<static_cast<uint32_t>(transition.newLayout))))
+        {
+            NBL_LOG_ERROR("`newLayout` is not one of the device's supported host-copy destination layouts (transitions[%zu])", transitionIx);
             return false;
         }
         const auto& params = image->getCreationParameters();

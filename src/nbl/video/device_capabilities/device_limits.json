@@ -1754,6 +1754,29 @@
         },
         {
             "comment": [
+                "VK_EXT_host_image_copy",
+                "HostImageCopyPropertiesEXT"            
+            ],
+             "entries": [
+                {
+                    "type": "uint16_t",
+                    "name": "hostImageCopySrcLayouts",
+                    "value": 0
+                },
+                {
+                    "type": "uint16_t",
+                    "name": "hostImageCopyDstLayouts",
+                    "value": 0
+                },
+                {
+                    "type": "bool",
+                    "name": "identicalMemoryTypeRequirements",
+                    "value": false
+                }
+            ]
+        },
+        {
+            "comment": [
                 "VK_KHR_ray_tracing_pipeline",
                 "RayTracingPipelinePropertiesKHR"
             ],

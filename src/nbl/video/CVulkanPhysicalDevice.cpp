@@ -590,6 +590,29 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
         }
 
+        if (isExtensionSupported(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME))
+        {
+            properties.limits.identicalMemoryTypeRequirements = hostImageCopyProperties.identicalMemoryTypeRequirements;
+            core::vector<VkImageLayout> copySrcLayouts(hostImageCopyProperties.copySrcLayoutCount);
+            core::vector<VkImageLayout> copyDstLayouts(hostImageCopyProperties.copyDstLayoutCount);
+            VkPhysicalDeviceHostImageCopyPropertiesEXT layouts = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES_EXT };
+            layouts.copySrcLayoutCount = hostImageCopyProperties.copySrcLayoutCount;
+            layouts.pCopySrcLayouts = copySrcLayouts.data();
+            layouts.copyDstLayoutCount = hostImageCopyProperties.copyDstLayoutCount;
+            layouts.pCopyDstLayouts = copyDstLayouts.data();
+            VkPhysicalDeviceProperties2 layouts2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,&layouts };
+            vkGetPhysicalDeviceProperties2(vk_physicalDevice,&layouts2);
+            using layout_t = asset::IImage::LAYOUT;
+            for (uint32_t i=0u; i<=static_cast<uint32_t>(layout_t::SHARED_PRESENT); i++)
+            {
+                const VkImageLayout vkLayout = getVkImageLayoutFromImageLayout(static_cast<layout_t>(i));
+                for (const VkImageLayout l : copySrcLayouts)
+                    if (l==vkLayout) { properties.limits.hostImageCopySrcLayouts |= 1u<<i; break; }
+                for (const VkImageLayout l : copyDstLayouts)
+                    if (l==vkLayout) { properties.limits.hostImageCopyDstLayouts |= 1u<<i; break; }
+            }
+        }
+
         properties.limits.postDepthCoverage = isExtensionSupported(VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME);
 
         if (isExtensionSupported(VK_EXT_PCI_BUS_INFO_EXTENSION_NAME))
