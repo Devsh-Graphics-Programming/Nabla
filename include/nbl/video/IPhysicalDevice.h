@@ -113,6 +113,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             char driverName[VK_MAX_DRIVER_NAME_SIZE];
             char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
             APIVersion conformanceVersion;
+
+            /* VK_EXT_host_image_copy */
+            uint8_t optimalTilingLayoutUUID[VK_UUID_SIZE];
         };
 
         const SProperties& getProperties() const { return m_initData.properties; }

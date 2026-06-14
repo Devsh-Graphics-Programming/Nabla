@@ -593,6 +593,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME))
         {
             properties.limits.identicalMemoryTypeRequirements = hostImageCopyProperties.identicalMemoryTypeRequirements;
+            memcpy(properties.optimalTilingLayoutUUID, hostImageCopyProperties.optimalTilingLayoutUUID, VK_UUID_SIZE);
             core::vector<VkImageLayout> copySrcLayouts(hostImageCopyProperties.copySrcLayoutCount);
             core::vector<VkImageLayout> copyDstLayouts(hostImageCopyProperties.copyDstLayoutCount);
             VkPhysicalDeviceHostImageCopyPropertiesEXT layouts = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES_EXT };
