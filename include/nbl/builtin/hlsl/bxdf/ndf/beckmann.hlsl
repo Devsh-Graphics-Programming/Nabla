@@ -58,9 +58,11 @@ struct SBeckmannDG1Query
 
     scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
     scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+    scalar_type getCorrectionRatio() NBL_CONST_MEMBER_FUNC { return correction_ratio; }
 
     scalar_type ndf;
     scalar_type lambda_V;
+    scalar_type correction_ratio;   // TODO: rename this to something clearer
 };
 
 template<typename T>
@@ -291,6 +293,7 @@ struct Beckmann
         bool dummy;
         dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache, dummy);
         dg1_query.lambda_V = Lambda(__ndf_base.C2(interaction.getNdotV2()));
+        dg1_query.correction_ratio = 1.0;
         return dg1_query;
     }
     template<class LS, class Interaction, typename C=bool_constant<!IsAnisotropic> NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
@@ -308,6 +311,7 @@ struct Beckmann
         bool dummy;
         dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache, dummy);
         dg1_query.lambda_V = Lambda(__ndf_base.C2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2()));
+        dg1_query.correction_ratio = 1.0;
         return dg1_query;
     }
     template<class LS, class Interaction, typename C=bool_constant<IsAnisotropic> NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)

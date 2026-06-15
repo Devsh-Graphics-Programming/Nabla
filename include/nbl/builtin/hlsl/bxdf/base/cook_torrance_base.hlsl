@@ -74,6 +74,7 @@ struct SCookTorrance
         
         spectral_type reflectance;
         scalar_type scaled_reflectance;
+        scalar_type correction_ratio;   // TODO: rename this to something clearer
     };
 
     // utility functions
@@ -152,7 +153,7 @@ struct SCookTorrance
     value_weight_type evalAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         PdfQuery pdfQuery = __forwardPdf<Interaction, MicrofacetCache, false>(_sample, interaction, cache);
-        scalar_type _pdf = pdfQuery.pdf;
+        scalar_type _pdf = pdfQuery.pdf * pdfQuery.correction_ratio;
         if (_pdf == scalar_type(0.0) || hlsl::isinf(_pdf))
             return value_weight_type::create(scalar_type(0.0), scalar_type(0.0));
 
@@ -182,7 +183,7 @@ struct SCookTorrance
             eval = pdfQuery.reflectance;
         else
             eval = _f(cache.getVdotH());
-        eval *= DG;
+        eval *= DG * pdfQuery.correction_ratio;
 
         return value_weight_type::create(eval, _pdf);
     }
@@ -357,8 +358,6 @@ struct SCookTorrance
     template<class Interaction, class MicrofacetCache, bool FromGenerator>
     PdfQuery __forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
-        // MicrofacetCache cache = _cache;
-        // cache.VdotH = 0.5;
         PdfQuery query;
         query.pdf = scalar_type(0.0);
         query.orientedFresnel = __getOrientedFresnel(fresnel, interaction.getNdotV());
@@ -370,6 +369,7 @@ struct SCookTorrance
         {
             using dg1_query_type = typename ndf_type::dg1_query_type;
             dg1_query_type dq = ndf.template createDG1Query<Interaction, MicrofacetCache>(interaction, cache);
+            query.correction_ratio = dq.getCorrectionRatio();
 
             bool isInfinity;
             query.quantQuery = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, query.orientedFresnel, interaction, cache);
@@ -397,7 +397,7 @@ struct SCookTorrance
     scalar_type forwardPdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         PdfQuery query = __forwardPdf<Interaction, MicrofacetCache, false>(_sample, interaction, cache);
-        return query.pdf;
+        return query.pdf * query.correction_ratio;
     }
 
     template<class Interaction=conditional_t<IsAnisotropic,anisotropic_interaction_type,isotropic_interaction_type>, 
@@ -406,7 +406,7 @@ struct SCookTorrance
     quotient_weight_type quotientAndWeight(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         PdfQuery pdfQuery = __forwardPdf<Interaction, MicrofacetCache, true>(_sample, interaction, cache);
-        scalar_type _pdf = pdfQuery.pdf;
+        scalar_type _pdf = pdfQuery.pdf * pdfQuery.correction_ratio;
         if (_pdf == scalar_type(0.0))
             return quotient_weight_type::create(scalar_type(0.0), scalar_type(0.0));
 

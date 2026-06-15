@@ -58,9 +58,11 @@ struct SGGXDG1Query
 
     scalar_type getNdfwoNumerator() NBL_CONST_MEMBER_FUNC { return ndf; }
     scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
+    scalar_type getCorrectionRatio() NBL_CONST_MEMBER_FUNC { return correction_ratio; }
 
     scalar_type ndf;
     scalar_type G1_over_2NdotV;
+    scalar_type correction_ratio;   // TODO: rename this to something clearer
 };
 
 template<typename T>
@@ -149,25 +151,51 @@ struct GGXGenerateH
     using vector2_type = vector<T, 2>;
     using vector3_type = vector<T, 3>;
 
+    // vector3_type __call(const vector3_type localV, const vector2_type u) NBL_CONST_MEMBER_FUNC
+    // {
+    //     vector3_type V = hlsl::normalize(vector3_type(ax * localV.x, ay * localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
+
+    //     scalar_type lensq = V.x*V.x + V.y*V.y;
+    //     vector3_type T1 = lensq > 0.0 ? vector3_type(-V.y, V.x, 0.0) * hlsl::rsqrt(lensq) : vector3_type(1.0,0.0,0.0);
+    //     vector3_type T2 = hlsl::cross(V,T1);
+
+    //     scalar_type r = hlsl::sqrt(u.x);
+    //     scalar_type phi = scalar_type(2.0) * numbers::pi<scalar_type> * u.y;
+    //     scalar_type t1 = r * hlsl::cos(phi);
+    //     scalar_type t2 = r * hlsl::sin(phi);
+    //     scalar_type s = scalar_type(0.5) * (scalar_type(1.0) + V.z);
+    //     t2 = (1-s) * hlsl::sqrt(scalar_type(1.0) - t1*t1) + t2 * s;
+
+    //     //reprojection onto hemisphere
+    //     //found cases where t1*t1+t2*t2>1.0 due to fp32 precision issues, hence the max
+    //     vector3_type H = t1*T1 + t2*T2 + hlsl::sqrt(hlsl::max(scalar_type(0.0), scalar_type(1.0)-t1*t1-t2*t2))*V;
+    //     //unstretch
+    //     return hlsl::normalize(vector3_type(ax*H.x, ay*H.y, H.z));
+    // }
+
+    scalar_type __k(const vector3_type localV) NBL_CONST_MEMBER_FUNC
+    {
+        scalar_type a = hlsl::clamp(hlsl::min(ax, ay), scalar_type(0.0), scalar_type(1.0));
+        scalar_type s = scalar_type(1.0) + hlsl::length(vector2_type(localV.xy)); // Omit sign for a <=1
+        scalar_type a2 = a * a;
+        scalar_type s2 = s * s;
+        return (scalar_type(1.0) - a2) * s2 / (s2 + a2 * localV.z * localV.z);
+    }
+
     vector3_type __call(const vector3_type localV, const vector2_type u) NBL_CONST_MEMBER_FUNC
     {
         vector3_type V = hlsl::normalize(vector3_type(ax * localV.x, ay * localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
 
-        scalar_type lensq = V.x*V.x + V.y*V.y;
-        vector3_type T1 = lensq > 0.0 ? vector3_type(-V.y, V.x, 0.0) * hlsl::rsqrt(lensq) : vector3_type(1.0,0.0,0.0);
-        vector3_type T2 = hlsl::cross(V,T1);
+        // Sample a spherical cap
+        scalar_type phi = scalar_type(2.0) * numbers::pi<scalar_type> * u.x;
+        scalar_type k = __k(localV);
+        scalar_type b = hlsl::mix(V.z, k * V.z, V.z > scalar_type(0.0));
+        scalar_type z = hlsl::fma(scalar_type(1.0) - u.y, scalar_type(1.0) + b, -b);
+        scalar_type sinTheta = hlsl::sqrt(hlsl::clamp(scalar_type(1.0) - z * z, scalar_type(0.0), scalar_type(1.0)));
+        vector3_type L = vector3_type(sinTheta * hlsl::cos(phi), sinTheta * hlsl::sin(phi), z);
 
-        scalar_type r = hlsl::sqrt(u.x);
-        scalar_type phi = scalar_type(2.0) * numbers::pi<scalar_type> * u.y;
-        scalar_type t1 = r * hlsl::cos(phi);
-        scalar_type t2 = r * hlsl::sin(phi);
-        scalar_type s = scalar_type(0.5) * (scalar_type(1.0) + V.z);
-        t2 = (1-s) * hlsl::sqrt(scalar_type(1.0) - t1*t1) + t2 * s;
-
-        //reprojection onto hemisphere
-        //found cases where t1*t1+t2*t2>1.0 due to fp32 precision issues, hence the max
-        vector3_type H = t1*T1 + t2*T2 + hlsl::sqrt(hlsl::max(scalar_type(0.0), scalar_type(1.0)-t1*t1-t2*t2))*V;
-        //unstretch
+        // Compute the microfacet normal H
+        vector3_type H = V + L;
         return hlsl::normalize(vector3_type(ax*H.x, ay*H.y, H.z));
     }
 
@@ -232,6 +260,14 @@ struct GGX
             return dg1_query;
         scalar_type clampedNdotV = interaction.getNdotV(BxDFClampMode::BCM_ABS);
         dg1_query.G1_over_2NdotV = G1_wo_numerator(clampedNdotV, __ndf_base.devsh_part(interaction.getNdotV2()));
+
+        surface_interactions::SAnisotropic<Interaction> aniso_interaction = surface_interactions::SAnisotropic<Interaction>::create(interaction); // surely there's a better way
+        vector3_type localV = aniso_interaction.getTangentSpaceV();
+        vector3_type V = vector3_type(__generate_base.ax * localV.x, __generate_base.ay * localV.y, localV.z);
+        scalar_type k = __generate_base.__k(localV);
+        scalar_type t = hlsl::length(V);
+        dg1_query.correction_ratio = (k * localV.z + t) / (localV.z + t);
+
         return dg1_query;
     }
     template<class LS, class Interaction, typename C=bool_constant<!IsAnisotropic> NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
@@ -252,6 +288,13 @@ struct GGX
             return dg1_query;
         scalar_type clampedNdotV = interaction.getNdotV(BxDFClampMode::BCM_ABS);
         dg1_query.G1_over_2NdotV = G1_wo_numerator(clampedNdotV, __ndf_base.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2()));
+
+        vector3_type localV = interaction.getTangentSpaceV();
+        vector3_type V = vector3_type(__generate_base.ax * localV.x, __generate_base.ay * localV.y, localV.z);
+        scalar_type k = __generate_base.__k(localV);
+        scalar_type t = hlsl::length(V);
+        dg1_query.correction_ratio = (k * localV.z + t) / (localV.z + t);
+
         return dg1_query;
     }
     template<class LS, class Interaction, typename C=bool_constant<IsAnisotropic> NBL_FUNC_REQUIRES(LightSample<LS> && RequiredInteraction<Interaction>)
