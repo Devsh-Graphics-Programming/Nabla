@@ -773,6 +773,10 @@ bool CVulkanCommandBuffer::drawIndexedIndirectCount_impl(const asset::SBufferBin
 
 bool CVulkanCommandBuffer::blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter)
 {
+    static constexpr SImageBlit MaxLayerBlit = {
+      .layerCount = IGPUImageView::remaining_array_layers
+    };
+
     VkImage vk_srcImage = static_cast<const CVulkanImage*>(srcImage)->getInternalObject();
     VkImage vk_dstImage = static_cast<const CVulkanImage*>(dstImage)->getInternalObject();
 
@@ -780,17 +784,19 @@ bool CVulkanCommandBuffer::blitImage_impl(const IGPUImage* const srcImage, const
     auto outRegionIt = vk_blitRegions.data();
     for (auto region : regions)
     {
+        const auto isRemainingLayers = region.layerCount == MaxLayerBlit.layerCount;
+
         outRegionIt->srcSubresource.aspectMask = static_cast<VkImageAspectFlags>(region.aspectMask);
         outRegionIt->srcSubresource.mipLevel = region.srcMipLevel;
         outRegionIt->srcSubresource.baseArrayLayer = region.srcBaseLayer;
-        outRegionIt->srcSubresource.layerCount = region.layerCount;
+        outRegionIt->srcSubresource.layerCount = isRemainingLayers ? VK_REMAINING_ARRAY_LAYERS : region.layerCount;
 
         memcpy(outRegionIt->srcOffsets,&region.srcMinCoord,sizeof(VkOffset3D)*2);
 
         outRegionIt->dstSubresource.aspectMask = static_cast<VkImageAspectFlags>(region.aspectMask);
         outRegionIt->dstSubresource.mipLevel = region.dstMipLevel;
         outRegionIt->dstSubresource.baseArrayLayer = region.dstBaseLayer;
-        outRegionIt->dstSubresource.layerCount = region.layerCount;
+        outRegionIt->dstSubresource.layerCount = isRemainingLayers ? VK_REMAINING_ARRAY_LAYERS : region.layerCount;
         
         memcpy(outRegionIt->dstOffsets,&region.dstMinCoord,sizeof(VkOffset3D)*2);
         outRegionIt++;
