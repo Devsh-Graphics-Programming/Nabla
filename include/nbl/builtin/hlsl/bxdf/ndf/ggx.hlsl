@@ -29,6 +29,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNdfwoNumerator()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getG1over2NdotV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getCorrectionRatio()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
 #undef query
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
@@ -144,34 +145,23 @@ struct GGXCommon<T,SupportsTransmission,true NBL_PARTIAL_REQ_BOT(concepts::Float
     scalar_type a2;
 };
 
+// Sampling method adopted from Bounded VNDF Sampling for Smith–GGX Reflections: https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf
+// The correction ratio is required to adapt this PDF for our implementation
+// Original Heitz/new Dupuy sampling PDF can simplify NDF*cos/PDF = G2/G1
+// PDF as presented by Eto/Tokuyoshi is a bit trickier
+// For this PDF from Eto/Tokuyoshi method, when i.z > 0: ndf / (2.0 * (k * i.z + t))
+// we can compare with the PDF from Dupuy method: ndf / (2.0 * (1.0 * i.z + t))
+// so to transform new method to work with existing implementation, we apply correction of
+// k * i.z + t
+// -----------
+//   i.z + t
+// only when i.z > 0
 template<typename T>
 struct GGXGenerateH
 {
     using scalar_type = T;
     using vector2_type = vector<T, 2>;
     using vector3_type = vector<T, 3>;
-
-    // vector3_type __call(const vector3_type localV, const vector2_type u) NBL_CONST_MEMBER_FUNC
-    // {
-    //     vector3_type V = hlsl::normalize(vector3_type(ax * localV.x, ay * localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
-
-    //     scalar_type lensq = V.x*V.x + V.y*V.y;
-    //     vector3_type T1 = lensq > 0.0 ? vector3_type(-V.y, V.x, 0.0) * hlsl::rsqrt(lensq) : vector3_type(1.0,0.0,0.0);
-    //     vector3_type T2 = hlsl::cross(V,T1);
-
-    //     scalar_type r = hlsl::sqrt(u.x);
-    //     scalar_type phi = scalar_type(2.0) * numbers::pi<scalar_type> * u.y;
-    //     scalar_type t1 = r * hlsl::cos(phi);
-    //     scalar_type t2 = r * hlsl::sin(phi);
-    //     scalar_type s = scalar_type(0.5) * (scalar_type(1.0) + V.z);
-    //     t2 = (1-s) * hlsl::sqrt(scalar_type(1.0) - t1*t1) + t2 * s;
-
-    //     //reprojection onto hemisphere
-    //     //found cases where t1*t1+t2*t2>1.0 due to fp32 precision issues, hence the max
-    //     vector3_type H = t1*T1 + t2*T2 + hlsl::sqrt(hlsl::max(scalar_type(0.0), scalar_type(1.0)-t1*t1-t2*t2))*V;
-    //     //unstretch
-    //     return hlsl::normalize(vector3_type(ax*H.x, ay*H.y, H.z));
-    // }
 
     scalar_type __k(const vector3_type localV) NBL_CONST_MEMBER_FUNC
     {
@@ -184,7 +174,7 @@ struct GGXGenerateH
 
     vector3_type __call(const vector3_type localV, const vector2_type u) NBL_CONST_MEMBER_FUNC
     {
-        vector3_type V = hlsl::normalize(vector3_type(ax * localV.x, ay * localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
+        vector3_type V = hlsl::normalize(vector3_type(ax * localV.x, ay * localV.y, localV.z)); //stretch view vector so that we're sampling as if roughness=1.0
 
         // Sample a spherical cap
         scalar_type phi = scalar_type(2.0) * numbers::pi<scalar_type> * u.x;
