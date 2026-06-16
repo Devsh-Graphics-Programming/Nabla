@@ -369,7 +369,8 @@ struct SCookTorrance
         {
             using dg1_query_type = typename ndf_type::dg1_query_type;
             dg1_query_type dq = ndf.template createDG1Query<Interaction, MicrofacetCache>(interaction, cache);
-            query.correction_ratio = dq.getCorrectionRatio();
+            bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(interaction.getNdotV(), _sample.getNdotL());
+            query.correction_ratio = hlsl::mix(dq.getCorrectionRatio(), scalar_type(1.0), transmitted);
 
             bool isInfinity;
             query.quantQuery = impl::quant_query_helper<ndf_type, fresnel_type, IsBSDF>::template __call<Interaction, MicrofacetCache>(ndf, query.orientedFresnel, interaction, cache);
