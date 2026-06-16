@@ -263,10 +263,15 @@ struct GGX
 
         surface_interactions::SAnisotropic<Interaction> aniso_interaction = surface_interactions::SAnisotropic<Interaction>::create(interaction); // surely there's a better way
         vector3_type localV = aniso_interaction.getTangentSpaceV();
-        vector3_type V = vector3_type(__generate_base.ax * localV.x, __generate_base.ay * localV.y, localV.z);
-        scalar_type k = __generate_base.__k(localV);
-        scalar_type t = hlsl::length(V);
-        dg1_query.correction_ratio = (k * localV.z + t) / (localV.z + t);
+        if (localV.z < scalar_type(0.0))
+            dg1_query.correction_ratio = scalar_type(1.0);
+        else
+        {
+            vector3_type V = vector3_type(__generate_base.ax * localV.x, __generate_base.ay * localV.y, localV.z);
+            scalar_type k = __generate_base.__k(localV);
+            scalar_type t = hlsl::length(V);
+            dg1_query.correction_ratio = (k * localV.z + t) / (localV.z + t);
+        }
 
         return dg1_query;
     }
@@ -290,10 +295,15 @@ struct GGX
         dg1_query.G1_over_2NdotV = G1_wo_numerator(clampedNdotV, __ndf_base.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2()));
 
         vector3_type localV = interaction.getTangentSpaceV();
-        vector3_type V = vector3_type(__generate_base.ax * localV.x, __generate_base.ay * localV.y, localV.z);
-        scalar_type k = __generate_base.__k(localV);
-        scalar_type t = hlsl::length(V);
-        dg1_query.correction_ratio = (k * localV.z + t) / (localV.z + t);
+        if (localV.z < scalar_type(0.0))
+            dg1_query.correction_ratio = scalar_type(1.0);
+        else
+        {
+            vector3_type V = vector3_type(__generate_base.ax * localV.x, __generate_base.ay * localV.y, localV.z);
+            scalar_type k = __generate_base.__k(localV);
+            scalar_type t = hlsl::length(V);
+            dg1_query.correction_ratio = (k * localV.z + t) / (localV.z + t);
+        }
 
         return dg1_query;
     }
