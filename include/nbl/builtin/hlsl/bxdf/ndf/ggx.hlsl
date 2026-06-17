@@ -165,8 +165,8 @@ struct GGXGenerateH
 
     scalar_type __k(const vector3_type localV) NBL_CONST_MEMBER_FUNC
     {
-        scalar_type a = hlsl::clamp(hlsl::min(ax, ay), scalar_type(0.0), scalar_type(1.0));
-        scalar_type s = scalar_type(1.0) + hlsl::length(vector2_type(localV.xy)); // Omit sign for a <=1
+        scalar_type a = hlsl::min(ax, ay);
+        scalar_type s = scalar_type(1.0) + hlsl::length(vector2_type(localV.xy)); // Omit sgn for a <=1
         scalar_type a2 = a * a;
         scalar_type s2 = s * s;
         return (scalar_type(1.0) - a2) * s2 / (s2 + a2 * localV.z * localV.z);
@@ -181,7 +181,7 @@ struct GGXGenerateH
         scalar_type k = __k(localV);
         scalar_type b = hlsl::mix(V.z, k * V.z, V.z > scalar_type(0.0));
         scalar_type z = hlsl::fma(scalar_type(1.0) - u.y, scalar_type(1.0) + b, -b);
-        scalar_type sinTheta = hlsl::sqrt(hlsl::clamp(scalar_type(1.0) - z * z, scalar_type(0.0), scalar_type(1.0)));
+        scalar_type sinTheta = hlsl::sqrt(hlsl::max(scalar_type(1.0) - z * z, scalar_type(0.0)));
         vector3_type L = vector3_type(sinTheta * hlsl::cos(phi), sinTheta * hlsl::sin(phi), z);
 
         // Compute the microfacet normal H
