@@ -592,25 +592,38 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         if (isExtensionSupported(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME))
         {
-            properties.limits.identicalMemoryTypeRequirements = hostImageCopyProperties.identicalMemoryTypeRequirements;
-            memcpy(properties.optimalTilingLayoutUUID, hostImageCopyProperties.optimalTilingLayoutUUID, VK_UUID_SIZE);
-            core::vector<VkImageLayout> copySrcLayouts(hostImageCopyProperties.copySrcLayoutCount);
-            core::vector<VkImageLayout> copyDstLayouts(hostImageCopyProperties.copyDstLayoutCount);
-            VkPhysicalDeviceHostImageCopyPropertiesEXT layouts = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES_EXT };
-            layouts.copySrcLayoutCount = hostImageCopyProperties.copySrcLayoutCount;
-            layouts.pCopySrcLayouts = copySrcLayouts.data();
-            layouts.copyDstLayoutCount = hostImageCopyProperties.copyDstLayoutCount;
-            layouts.pCopyDstLayouts = copyDstLayouts.data();
-            VkPhysicalDeviceProperties2 layouts2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,&layouts };
-            vkGetPhysicalDeviceProperties2(vk_physicalDevice,&layouts2);
-            using layout_t = asset::IImage::LAYOUT;
-            for (uint32_t i=0u; i<=static_cast<uint32_t>(layout_t::SHARED_PRESENT); i++)
+            auto& outHostImageCopy = initData.hostImageCopyProperties;       
+            outHostImageCopy.identicalMemoryTypeRequirements = hostImageCopyProperties.identicalMemoryTypeRequirements;
+            memcpy(outHostImageCopy.optimalTilingLayoutUUID, hostImageCopyProperties.optimalTilingLayoutUUID, VK_UUID_SIZE);
+           
+            auto copySrcLayouts = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<VkImageLayout>>(hostImageCopyProperties.copySrcLayoutCount);
+            auto copyDstLayouts = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<VkImageLayout>>(hostImageCopyProperties.copyDstLayoutCount);
+           
+            VkPhysicalDeviceHostImageCopyPropertiesEXT vk_layouts = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES_EXT };
+            vk_layouts.copySrcLayoutCount = hostImageCopyProperties.copySrcLayoutCount;
+            vk_layouts.pCopySrcLayouts = copySrcLayouts->data();
+            vk_layouts.copyDstLayoutCount = hostImageCopyProperties.copyDstLayoutCount;
+            vk_layouts.pCopyDstLayouts = copyDstLayouts->data();
+            VkPhysicalDeviceProperties2 vk_properties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,&vk_layouts };
+            vkGetPhysicalDeviceProperties2(vk_physicalDevice, &vk_properties2);
+
+            for (const VkImageLayout vkLayout : *copySrcLayouts)
             {
-                const VkImageLayout vkLayout = getVkImageLayoutFromImageLayout(static_cast<layout_t>(i));
-                for (const VkImageLayout l : copySrcLayouts)
-                    if (l==vkLayout) { properties.limits.hostImageCopySrcLayouts |= 1u<<i; break; }
-                for (const VkImageLayout l : copyDstLayouts)
-                    if (l==vkLayout) { properties.limits.hostImageCopyDstLayouts |= 1u<<i; break; }
+                const auto layout = getImageLayoutFromVkImageLayout(vkLayout);
+                if (layout == asset::IImage::LAYOUT::UNDEFINED)
+                    continue;
+                const auto bit = static_cast<uint32_t>(layout);
+                assert(bit < 64u);
+                outHostImageCopy.copySrcLayouts |= 1ull << bit;
+            }
+            for (const VkImageLayout vkLayout : *copyDstLayouts)
+            {
+                const auto layout = getImageLayoutFromVkImageLayout(vkLayout);
+                if (layout == asset::IImage::LAYOUT::UNDEFINED)
+                    continue;
+                const auto bit = static_cast<uint32_t>(layout);
+                assert(bit < 64u);
+                outHostImageCopy.copyDstLayouts |= 1ull << bit;
             }
         }
 

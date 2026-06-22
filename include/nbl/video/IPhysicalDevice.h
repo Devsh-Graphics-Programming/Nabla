@@ -113,15 +113,22 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
             char driverName[VK_MAX_DRIVER_NAME_SIZE];
             char driverInfo[VK_MAX_DRIVER_INFO_SIZE];
             APIVersion conformanceVersion;
-
-            /* VK_EXT_host_image_copy */
-            uint8_t optimalTilingLayoutUUID[VK_UUID_SIZE];
         };
 
         const SProperties& getProperties() const { return m_initData.properties; }
         const SLimits& getLimits() const { return m_initData.properties.limits; }
         APIVersion getAPIVersion() const { return m_initData.properties.apiVersion; }
         const SFeatures& getFeatures() const { return m_initData.features; }
+
+        struct SHostImageCopyProperties
+        {
+            uint64_t copySrcLayouts = 0ull;
+            uint64_t copyDstLayouts = 0ull;
+            uint8_t optimalTilingLayoutUUID[VK_UUID_SIZE] = {};
+            bool identicalMemoryTypeRequirements = false;
+        };
+
+        const SHostImageCopyProperties& getHostImageCopyProperties() const { return m_initData.hostImageCopyProperties; }
 
         struct MemoryType
         {
@@ -677,6 +684,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             SProperties properties = {};
             SFeatures features = {};
+            SHostImageCopyProperties hostImageCopyProperties = {};
             SMemoryProperties memoryProperties = {};
 
             using qfam_props_array_t = core::smart_refctd_dynamic_array<const SQueueFamilyProperties>;

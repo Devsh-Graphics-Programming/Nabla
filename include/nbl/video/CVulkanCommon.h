@@ -704,6 +704,32 @@ inline VkImageLayout getVkImageLayoutFromImageLayout(asset::IImage::LAYOUT in)
     }
 }
 
+inline asset::IImage::LAYOUT getImageLayoutFromVkImageLayout(VkImageLayout in)
+{
+    using layout_t = asset::IImage::LAYOUT;
+    switch (in)
+    {
+        case VK_IMAGE_LAYOUT_GENERAL:
+            return layout_t::GENERAL;
+        case VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL:
+            return layout_t::READ_ONLY_OPTIMAL;
+        case VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL:
+            return layout_t::ATTACHMENT_OPTIMAL;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            return layout_t::TRANSFER_SRC_OPTIMAL;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            return layout_t::TRANSFER_DST_OPTIMAL;
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            return layout_t::PREINITIALIZED;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            return layout_t::PRESENT_SRC;
+        case VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR:
+            return layout_t::SHARED_PRESENT;
+        default:
+            return layout_t::UNDEFINED;
+    }
+}
+
 inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorSpace in)
 {
     if (in.primary == asset::ECP_SRGB && in.eotf == asset::EOTF_sRGB)
