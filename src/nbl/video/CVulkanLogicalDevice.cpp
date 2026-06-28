@@ -639,6 +639,28 @@ bool CVulkanLogicalDevice::transitionImageLayout_impl(const std::span<const SIma
     return m_devf.vk.vkTransitionImageLayoutEXT(m_vkdev, static_cast<uint32_t>(vk_transitions.size()), vk_transitions.data()) == VK_SUCCESS;
 }
 
+void CVulkanLogicalDevice::getImageSubresourceLayout_impl(const IGPUImage* const image, const IGPUImage::SSubresource& subresource, IGPUImage::SSubresourceLayout& layout)
+{
+    VkImageSubresource2EXT vk_subresource = { VK_STRUCTURE_TYPE_IMAGE_SUBRESOURCE_2_EXT, nullptr };
+    vk_subresource.imageSubresource.aspectMask = static_cast<VkImageAspectFlags>(subresource.aspectMask.value);
+    vk_subresource.imageSubresource.mipLevel = subresource.mipLevel;
+    vk_subresource.imageSubresource.arrayLayer = subresource.arrayLayer;
+
+    VkSubresourceHostMemcpySize hostMemcpySize = { VK_STRUCTURE_TYPE_SUBRESOURCE_HOST_MEMCPY_SIZE, nullptr };
+
+    VkSubresourceLayout2EXT vk_layout = { VK_STRUCTURE_TYPE_SUBRESOURCE_LAYOUT_2_EXT, &hostMemcpySize };
+
+    m_devf.vk.vkGetImageSubresourceLayout2EXT(m_vkdev, static_cast<const CVulkanImage*>(image)->getInternalObject(), &vk_subresource, &vk_layout);
+  
+    const auto& out = vk_layout.subresourceLayout;
+    layout.offset = out.offset;
+    layout.size = out.size;
+    layout.rowPitch = out.rowPitch;
+    layout.arrayPitch = out.arrayPitch;
+    layout.depthPitch = out.depthPitch;
+    layout.hostMemcpySize = hostMemcpySize.size;
+}
+
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount)
 {
     std::vector<VkSampler> vk_samplers;

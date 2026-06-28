@@ -829,6 +829,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         bool copyImageToMemory(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageToMemoryCopy> regions);
         //https://docs.vulkan.org/refpages/latest/refpages/source/vkCopyImageToImage.html
         bool copyImageToImage(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageCopy> regions);
+        // https://docs.vulkan.org/refpages/latest/refpages/source/vkGetImageSubresourceLayout2.html
+        bool getImageSubresourceLayout(const IGPUImage* const image, const IGPUImage::SSubresource& subresource, IGPUImage::SSubresourceLayout& layout);
 
         struct SImageLayoutTransition
         {
@@ -839,7 +841,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         };
         // https://docs.vulkan.org/refpages/latest/refpages/source/vkTransitionImageLayout.html
         bool transitionImageLayout(const std::span<const SImageLayoutTransition> transitions);
-
+        
         //! Shaders
         struct SShaderCreationParameters
         {
@@ -1201,6 +1203,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual bool copyImageToMemory_impl(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageToMemoryCopy> regions) = 0;
         virtual bool copyImageToImage_impl(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageCopy> regions) = 0;
         virtual bool transitionImageLayout_impl(const std::span<const SImageLayoutTransition> transitions) = 0;
+        virtual void getImageSubresourceLayout_impl(const IGPUImage* const image, const IGPUImage::SSubresource& subresource, IGPUImage::SSubresourceLayout& layout) = 0;
 
         constexpr static inline auto MaxStagesPerPipeline = 6u;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) = 0;

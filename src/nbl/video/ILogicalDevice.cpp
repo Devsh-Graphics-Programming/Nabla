@@ -1309,6 +1309,45 @@ bool ILogicalDevice::copyImageToImage(IGPUImage* const srcImage, const IGPUImage
     return copyImageToImage_impl(srcImage,srcImageLayout,dstImage,dstImageLayout,flags,regions);
 }
 
+bool ILogicalDevice::getImageSubresourceLayout(const IGPUImage* const image, const IGPUImage::SSubresource& subresource, IGPUImage::SSubresourceLayout& layout)
+{
+    const auto* physDev = getPhysicalDevice();
+    if (!physDev->getLimits().hostImageCopy)
+    {
+        NBL_LOG_ERROR("`hostImageCopy` feature is not enabled");
+        return false;
+    }
+    if (!image || !image->wasCreatedBy(this))
+    {
+        NBL_LOG_ERROR("`Image` was not created by this device");
+        return false;
+    }
+    const auto& params = image->getCreationParameters();
+    // device queries the `VkSubresourceHostMemcpySize` rider which requires `EUF_HOST_TRANSFER_BIT`
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetImageSubresourceLayout2-pNext-09434
+    const auto imageUsages = params.usage | params.actualStencilUsage();
+    if (!imageUsages.hasFlags(IGPUImage::EUF_HOST_TRANSFER_BIT))
+    {
+        NBL_LOG_ERROR("`image` was not created with `EUF_HOST_TRANSFER_BIT`");
+        return false;
+    }
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetImageSubresourceLayout2-mipLevel-01716
+    if (subresource.mipLevel >= params.mipLevels)
+    {
+        NBL_LOG_ERROR("`subresource.mipLevel` is out of range");
+        return false;
+    }
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetImageSubresourceLayout2-arrayLayer-01717
+    if (subresource.arrayLayer >= params.arrayLayers)
+    {
+        NBL_LOG_ERROR("`subresource.arrayLayer` is out of range");
+        return false;
+    }
+
+    getImageSubresourceLayout_impl(image, subresource, layout);
+    return true;
+}
+
 bool ILogicalDevice::transitionImageLayout(const std::span<const SImageLayoutTransition> transitions)
 {
     if (transitions.empty())

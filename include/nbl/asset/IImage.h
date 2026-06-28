@@ -153,6 +153,21 @@ class IImage : public virtual core::IReferenceCounted
 
 			auto operator<=>(const SSubresourceLayers&) const = default;
 		};
+		struct SSubresource
+		{
+			core::bitflag<E_ASPECT_FLAGS>	aspectMask = E_ASPECT_FLAGS::EAF_NONE;
+			uint32_t						mipLevel = 0u;
+			uint32_t						arrayLayer = 0u;
+		};
+		struct SSubresourceLayout
+		{
+			uint64_t offset = 0ull;
+			uint64_t size = 0ull;
+			uint64_t rowPitch = 0ull;
+			uint64_t arrayPitch = 0ull;
+			uint64_t depthPitch = 0ull;
+			uint64_t hostMemcpySize = 0ull;  
+		};
 		enum E_HOST_IMAGE_COPY_FLAGS : uint8_t
 		{
 			EHICF_NONE = 0x00,
