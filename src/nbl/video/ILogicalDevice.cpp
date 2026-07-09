@@ -397,7 +397,8 @@ core::smart_refctd_ptr<IGPUImage> ILogicalDevice::createImage(IGPUImage::SCreati
         }
     }
 
-    // TODO: validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage docs
+    if (!validateImageCreationAgainstDevice(creationParams))
+        return nullptr;
     return createImage_impl(std::move(creationParams), dedicatedOnly);
 }
 
