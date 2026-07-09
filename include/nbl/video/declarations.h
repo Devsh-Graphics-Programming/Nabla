@@ -24,9 +24,6 @@
 #include "nbl/video/CVulkanImage.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
-// CUDA
-#include "nbl/video/CCUDAHandler.h"
-
 // utilities
 #include "nbl/video/utilities/CDumbPresentationOracle.h"
 #include "nbl/video/utilities/ICommandPoolCache.h"
@@ -39,6 +36,7 @@
 #include "nbl/video/utilities/CSmoothResizeSurface.h"
 #include "nbl/video/utilities/CDefaultSwapchainFramebuffers.h"
 #include "nbl/video/utilities/CAssetConverter.h"
+#include "nbl/video/CUDAInterop.h"
 
 //VT
 //#include "nbl/video/IGPUVirtualTexture.h"

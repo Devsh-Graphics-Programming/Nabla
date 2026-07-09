@@ -95,7 +95,7 @@ void CDraw3DLine::updateVertexBuffer(IUtilities* utilities, IGPUQueue* queue, co
 		m_linesBuffer = m_device->createBuffer(std::move(creationParams));
 		auto mreqs = m_linesBuffer->getMemoryReqs();
 		mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-		auto linesMem = m_device->allocate(mreqs, m_linesBuffer.get());
+		auto linesMem = m_device->allocate(mreqs, { m_linesBuffer.get() });
 		assert(m_linesBuffer && linesMem.isValid());
 	}
 	SBufferRange<IGPUBuffer> range;

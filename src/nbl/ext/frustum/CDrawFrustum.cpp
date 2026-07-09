@@ -189,7 +189,7 @@ namespace nbl::ext::frustum
 			auto memoryReqs = buffer->getMemoryReqs();
 			memoryReqs.memoryTypeBits &= params.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 
-			auto allocation = params.utilities->getLogicalDevice()->allocate(memoryReqs, buffer.get(), SCachedCreationParameters::RequiredAllocateFlags);
+			auto allocation = params.utilities->getLogicalDevice()->allocate(memoryReqs, { buffer.get(), SCachedCreationParameters::RequiredAllocateFlags });
 			{
 				const bool allocated = allocation.isValid();
 				assert(allocated);
@@ -283,7 +283,7 @@ namespace nbl::ext::frustum
 			video::IDeviceMemoryBacked::SDeviceMemoryRequirements reqs = indicesBuffer->getMemoryReqs();
 			reqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 
-			auto bufMem = device->allocate(reqs, indicesBuffer.get());
+			auto bufMem = device->allocate(reqs, { indicesBuffer.get() });
 			if (!bufMem.isValid())
 			{
 				params.utilities->getLogger()->log("Failed to allocate device memory compatible with index buffer!\n");
