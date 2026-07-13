@@ -61,8 +61,13 @@ class IAsyncQueueDispatcherBase
                 inline request_base_t() = default;
                 inline ~request_base_t()
                 {
-                    // fully cleaned up
-                    assert(!future);
+                    const auto currentState = state.query();
+                    const bool hasNoFuture = future==nullptr;
+                    const bool isInitial = currentState==STATE::INITIAL;
+
+                    // Dispatcher storage may only destroy fully recycled request slots.
+                    assert(hasNoFuture);
+                    assert(isInitial);
                 }
 
                 // ban certain operators
@@ -488,7 +493,15 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
         }
 
     protected:
-        inline ~IAsyncQueueDispatcher() {}
+        inline ~IAsyncQueueDispatcher()
+        {
+            const auto begin = cb_begin.load();
+            const auto end = cb_end.load();
+            const bool isIdle = begin==end;
+
+            // Request storage must not be destroyed while queued work is still pending.
+            assert(isIdle);
+        }
         inline void background_work() {}
 
     private:
