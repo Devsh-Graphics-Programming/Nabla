@@ -69,6 +69,7 @@ struct Scan
 {
     using scalar_t = typename BinOp::type_t;
     using vector_t = vector<scalar_t, Config::ItemsPerInvocation_0>;   // data accessor needs to be this type
+    using binop_t = BinOp;
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t Flag_NotReady = 0;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t Flag_Reduction = 1;    // workgroup only has local reduction ready
@@ -79,14 +80,13 @@ struct Scan
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1u) << Config::WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvoc = Config::VirtualWorkgroupSize / WorkgroupSize;
-    
-    // TODO: double check op, it's all plus right now
 
     template<class DataAccessor, class ScratchAccessor>
     void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(DataAccessor) workgroupReduction)   // TODO: need different type for workgroupReduction
     {        
         const uint16_t invocIx = workgroup::SubgroupContiguousIndex();
         const uint16_t workgroupId = glsl::gl_WorkGroupID();
+        binop_t binop;
 
         scalar_t currGroupReduction;
         {
@@ -105,7 +105,7 @@ struct Scan
             // TODO: double check this but it should be the last element of the last workgroup thread
             // don't know what it's like if virtual workgroup size doesn't divide by workgroup size exactly
             if (invocIx == glsl::gl_SubgroupSize() * glsl::gl_NumSubgroups() - 1u)
-                currGroupReduction = wgDataAccessor.preloaded[data_proxy_t::PreloadedDataCount-1u][config_t::ItemsPerInvocation_0-1u];
+                currGroupReduction = wgDataAccessor.preloaded[data_proxy_t::PreloadedDataCount-1u][Config::ItemsPerInvocation_0-1u];
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -128,11 +128,10 @@ struct Scan
 
                 if ((flagPayload & Flag_Mask) > Flag_NotReady)
                 {
-                    prevReduction += flagPayload >> Flag_Shift;
+                    prevReduction = binop(prevReduction, flagPayload >> Flag_Shift);
                     if ((flagPayload & Flag_Mask) == Flag_Inclusive)
                     {
-                        const scalar_t groupReduction = // TODO get last elem of workgroup index lookbackIx;
-                        const scalar_t storeVal = Flag_Inclusive | ((prevReduction + groupReduction) << Flag_Shift);
+                        const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
                         workgroupReduction.atomicExchange(workgroupId, storeVal);
                         scratchAccessor.set(0u, prevReduction);
                         break;
@@ -148,14 +147,16 @@ struct Scan
 
         scalar_t prevReduction;
         scratchAccessor.get(0u, prevReduction);
-        prevReduction += currGroupReduction;
+        prevReduction = binop(prevReduction, currGroupReduction);
 
         NBL_UNROLL
         for (uint16_t idx = 0; idx < ItemsPerInvoc; idx++)
         {
             dtype_t data;
             dataAccessor.template get<dtype_t, uint16_t>(idx * WorkgroupSize + invocIx, data);
-            data += prevReduction;
+            NBL_UNROLL
+            for (uint16_t i = 0; i < Config::ItemsPerInvocation_0; i++)
+                data[i] = binop(prevReduction, data[i]);
             dataAccessor.template set<dtype_t, uint16_t>(idx * WorkgroupSize + invocIx, data);
         }
     }
