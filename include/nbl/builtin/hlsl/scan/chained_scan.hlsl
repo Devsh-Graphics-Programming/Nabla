@@ -81,8 +81,8 @@ struct Scan
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1u) << Config::WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvoc = Config::VirtualWorkgroupSize / WorkgroupSize;
 
-    template<class DataAccessor, class ScratchAccessor>
-    void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(DataAccessor) workgroupReduction)   // TODO: need different type for workgroupReduction
+    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor>
+    void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction)
     {        
         const uint16_t invocIx = workgroup::SubgroupContiguousIndex();
         const uint16_t workgroupId = glsl::gl_WorkGroupID();
@@ -168,8 +168,9 @@ struct inclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
 
-    template<class DataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
-    static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(DataAccessor) workgroupReduction)
+    // TODO: might want new concept for ReductionAccessor
+    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
+    static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction)
     {
         impl::Scan<Config,BinOp,false,device_capabilities> fn;
         fn.template __call<DataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor, workgroupReduction);
@@ -181,8 +182,8 @@ struct exclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
 
-    template<class DataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
-    static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(DataAccessor) workgroupReduction)
+    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
+    static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction)
     {
         impl::Scan<Config,BinOp,true,device_capabilities> fn;
         fn.template __call<DataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor, workgroupReduction);
