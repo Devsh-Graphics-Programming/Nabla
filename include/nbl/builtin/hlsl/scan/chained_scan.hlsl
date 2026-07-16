@@ -91,7 +91,7 @@ struct Scan
         scalar_t currGroupReduction;
         {
             using data_proxy_t = WorkgroupDataProxy<Config::WorkgroupSizeLog2,Config::VirtualWorkgroupSize,Config::ItemsPerInvocation_0>;
-            data_proxy_t wgDataAccessor = data_proxy_t::create(pc.pInputBuf, pc.pOutputBuf[Binop::BindingIndex]);
+            data_proxy_t wgDataAccessor = data_proxy_t::create(dataAccessor.getInputBufAddr(), dataAccessor.getOutputBufAddr());
             wgDataAccessor.preload();
 
             if (Exclusive)
