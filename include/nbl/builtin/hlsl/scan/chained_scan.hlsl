@@ -1,7 +1,7 @@
 #ifndef _NBL_HLSL_SCAN_CHAINED_SCAN_INCLUDED_
 #define _NBL_HLSL_SCAN_CHAINED_SCAN_INCLUDED_
 
-#include "nbl/builtin/hlsl/workgroup2/shared_scan.hlsl"
+#include "nbl/builtin/hlsl/workgroup2/arithmetic.hlsl"
 
 namespace nbl
 {
@@ -85,7 +85,7 @@ struct Scan
     void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction)
     {        
         const uint16_t invocIx = workgroup::SubgroupContiguousIndex();
-        const uint16_t workgroupId = glsl::gl_WorkGroupID();
+        const uint16_t workgroupId = uint16_t(glsl::gl_WorkGroupID().x);
         binop_t binop;
 
         scalar_t currGroupReduction;
@@ -133,7 +133,7 @@ struct Scan
                     {
                         const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
                         workgroupReduction.atomicExchange(workgroupId, storeVal);
-                        scratchAccessor.set(0u, prevReduction);
+                        scratchAccessor.template set<uint32_t, uint32_t>(0u, prevReduction);
                         break;
                     }
                     else
@@ -146,30 +146,30 @@ struct Scan
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
         scalar_t prevReduction;
-        scratchAccessor.get(0u, prevReduction);
+        scratchAccessor.template get<uint32_t, uint32_t>(0u, prevReduction);
         prevReduction = binop(prevReduction, currGroupReduction);
 
         NBL_UNROLL
         for (uint16_t idx = 0; idx < ItemsPerInvoc; idx++)
         {
-            dtype_t data;
-            dataAccessor.template get<dtype_t, uint16_t>(idx * WorkgroupSize + invocIx, data);
+            vector_t data;
+            dataAccessor.template get<vector_t, uint16_t>(idx * WorkgroupSize + invocIx, data);
             NBL_UNROLL
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_0; i++)
                 data[i] = binop(prevReduction, data[i]);
-            dataAccessor.template set<dtype_t, uint16_t>(idx * WorkgroupSize + invocIx, data);
+            dataAccessor.template set<vector_t, uint16_t>(idx * WorkgroupSize + invocIx, data);
         }
     }
 };
 }
 
-template<class Config, class BinOp, class device_capabilities=void NBL_PRIMARY_REQUIRES(is_configuration_v<Config>)
+template<class Config, class BinOp, class device_capabilities=void NBL_PRIMARY_REQUIRES(workgroup2::is_configuration_v<Config>)
 struct inclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
 
     // TODO: might want new concept for ReductionAccessor
-    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
+    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor NBL_FUNC_REQUIRES(workgroup2::ArithmeticDataAccessor<DataAccessor,scalar_t> && workgroup2::ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction)
     {
         impl::Scan<Config,BinOp,false,device_capabilities> fn;
@@ -177,12 +177,12 @@ struct inclusive_scan
     }
 };
 
-template<class Config, class BinOp, class device_capabilities=void NBL_PRIMARY_REQUIRES(is_configuration_v<Config>)
+template<class Config, class BinOp, class device_capabilities=void NBL_PRIMARY_REQUIRES(workgroup2::is_configuration_v<Config>)
 struct exclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
 
-    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
+    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor NBL_FUNC_REQUIRES(workgroup2::ArithmeticDataAccessor<DataAccessor,scalar_t> && workgroup2::ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction)
     {
         impl::Scan<Config,BinOp,true,device_capabilities> fn;
