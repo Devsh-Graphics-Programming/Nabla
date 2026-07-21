@@ -88,28 +88,28 @@ struct Scan
         const uint16_t workgroupId = uint16_t(glsl::gl_WorkGroupID().x);
         binop_t binop;
 
+        using wg_data_proxy_t = WorkgroupDataProxy<Config::WorkgroupSizeLog2,Config::VirtualWorkgroupSize,Config::ItemsPerInvocation_0>;
+        wg_data_proxy_t wgDataAccessor = wg_data_proxy_t::create(dataAccessor.getInputBufAddr(), dataAccessor.getOutputBufAddr());
         scalar_t currGroupReduction;
         {
-            using data_proxy_t = WorkgroupDataProxy<Config::WorkgroupSizeLog2,Config::VirtualWorkgroupSize,Config::ItemsPerInvocation_0>;
-            data_proxy_t wgDataAccessor = data_proxy_t::create(dataAccessor.getInputBufAddr(), dataAccessor.getOutputBufAddr());
             wgDataAccessor.preload();
 
-            if (Exclusive)
-                workgroup2::exclusive_scan<Config,BinOp,device_capabilities>::template __call<data_proxy_t, ScratchAccessor>(wgDataAccessor, scratchAccessor);
+            NBL_IF_CONSTEXPR(Exclusive)
+                workgroup2::exclusive_scan<Config,BinOp,device_capabilities>::template __call<wg_data_proxy_t, ScratchAccessor>(wgDataAccessor, scratchAccessor);
             else
-                workgroup2::inclusive_scan<Config,BinOp,device_capabilities>::template __call<data_proxy_t, ScratchAccessor>(wgDataAccessor, scratchAccessor);
+                workgroup2::inclusive_scan<Config,BinOp,device_capabilities>::template __call<wg_data_proxy_t, ScratchAccessor>(wgDataAccessor, scratchAccessor);
             scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
-            wgDataAccessor.unload();    // TODO: maybe we don't have to unload, just write once after everything is done
+            // wgDataAccessor.unload();    // TODO: maybe we don't have to unload, just write once after everything is done
 
             // TODO: double check this but it should be the last element of the last workgroup thread
             // don't know what it's like if virtual workgroup size doesn't divide by workgroup size exactly
             if (invocIx == glsl::gl_SubgroupSize() * glsl::gl_NumSubgroups() - 1u)
-                currGroupReduction = wgDataAccessor.preloaded[data_proxy_t::PreloadedDataCount-1u][Config::ItemsPerInvocation_0-1u];
+                currGroupReduction = wgDataAccessor.preloaded[wg_data_proxy_t::PreloadedDataCount-1u][Config::ItemsPerInvocation_0-1u];
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
-        if (!invocIx)
+        if (invocIx == glsl::gl_SubgroupSize() * glsl::gl_NumSubgroups() - 1u)
         {
             const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, workgroupId > 0u) | currGroupReduction << Flag_Shift;
             workgroupReduction.atomicExchange(workgroupId, storeVal);
@@ -121,7 +121,7 @@ struct Scan
             scalar_t prevReduction = 0u;
             uint16_t lookbackIx = workgroupId - uint16_t(1u);
 
-            while (true)    // TODO: check if lookbackIx < 0?
+            while (lookbackIx > 0)    // TODO: check if lookbackIx < 0?
             {
                 scalar_t flagPayload;
                 workgroupReduction.get(lookbackIx, flagPayload);
@@ -139,8 +139,8 @@ struct Scan
                     else
                         lookbackIx--;
                 }
-                else
-                    lookbackIx--;
+                // else
+                //     lookbackIx--;
             }
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
@@ -150,9 +150,9 @@ struct Scan
         prevReduction = binop(prevReduction, currGroupReduction);
 
         NBL_UNROLL
-        for (uint16_t idx = 0; idx < ItemsPerInvoc; idx++)
+        for (uint16_t idx = 0; idx < wg_data_proxy_t::PreloadedDataCount; idx++)
         {
-            vector_t data;
+            vector_t data = wgDataAccessor.preloaded[idx];
             dataAccessor.template get<vector_t, uint16_t>(idx * WorkgroupSize + invocIx, data);
             NBL_UNROLL
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_0; i++)
