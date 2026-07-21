@@ -3,6 +3,8 @@
 
 #include "nbl/builtin/hlsl/workgroup2/arithmetic.hlsl"
 
+groupshared bool sIsLocked;
+
 namespace nbl
 {
 namespace hlsl
@@ -20,10 +22,10 @@ struct WorkgroupDataProxy
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1u) << WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t PreloadedDataCount = VirtualWorkgroupSize / WorkgroupSize;
 
-    static WorkgroupDataProxy<WorkgroupSizeLog2, VirtualWorkgroupSize, ItemsPerInvocation> create(const uint64_t inputBuf, const uint64_t outputBuf)
+    static WorkgroupDataProxy<WorkgroupSizeLog2, VirtualWorkgroupSize, ItemsPerInvocation> create(const uint64_t inputBuf, const uint64_t outputBuf, const uint16_t workgroupId)
     {
         WorkgroupDataProxy<WorkgroupSizeLog2, VirtualWorkgroupSize, ItemsPerInvocation> retval;
-        const uint32_t workgroupOffset = glsl::gl_WorkGroupID().x * VirtualWorkgroupSize * sizeof(dtype_t);
+        const uint32_t workgroupOffset = workgroupId * VirtualWorkgroupSize * sizeof(dtype_t);
         retval.accessor = DoubleLegacyBdaAccessor<dtype_t>::create(inputBuf + workgroupOffset, outputBuf + workgroupOffset);
         return retval;
     }
@@ -88,8 +90,11 @@ struct Scan
         const uint16_t workgroupId = uint16_t(glsl::gl_WorkGroupID().x);
         binop_t binop;
 
+        if (!invocIx)
+            sIsLocked = true;
+
         using wg_data_proxy_t = WorkgroupDataProxy<Config::WorkgroupSizeLog2,Config::VirtualWorkgroupSize,Config::ItemsPerInvocation_0>;
-        wg_data_proxy_t wgDataAccessor = wg_data_proxy_t::create(dataAccessor.getInputBufAddr(), dataAccessor.getOutputBufAddr());
+        wg_data_proxy_t wgDataAccessor = wg_data_proxy_t::create(dataAccessor.getInputBufAddr(), dataAccessor.getOutputBufAddr(), workgroupId);
         scalar_t currGroupReduction;
         {
             wgDataAccessor.preload();
@@ -116,31 +121,80 @@ struct Scan
         }
 
         // lookback
-        if (workgroupId && !invocIx)
+        if (workgroupId > 0)
         {
+            bool locked = sIsLocked;
+            scratchAccessor.workgroupExecutionAndMemoryBarrier();
+
             scalar_t prevReduction = 0u;
             uint16_t lookbackIx = workgroupId - uint16_t(1u);
 
-            while (lookbackIx > 0)    // TODO: check if lookbackIx < 0?
+            while (locked)
             {
-                scalar_t flagPayload;
-                workgroupReduction.get(lookbackIx, flagPayload);
-
-                if ((flagPayload & Flag_Mask) > Flag_NotReady)
+                // lookback: try to get reduction from previous workgroups
+                if (!invocIx)
                 {
-                    prevReduction = binop(prevReduction, flagPayload >> Flag_Shift);
-                    if ((flagPayload & Flag_Mask) == Flag_Inclusive)
+                    scalar_t flagPayload;
+                    workgroupReduction.get(lookbackIx, flagPayload);
+
+                    if ((flagPayload & Flag_Mask) > Flag_NotReady)
                     {
-                        const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
-                        workgroupReduction.atomicExchange(workgroupId, storeVal);
-                        scratchAccessor.template set<uint32_t, uint32_t>(0u, prevReduction);
-                        break;
+                        prevReduction = binop(prevReduction, flagPayload >> Flag_Shift);
+                        if ((flagPayload & Flag_Mask) == Flag_Inclusive)
+                        {
+                            const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
+                            workgroupReduction.atomicExchange(workgroupId, storeVal);
+                            scratchAccessor.template set<uint32_t, uint32_t>(0u, prevReduction);
+                            sIsLocked = false;
+                            break;
+                        }
+                        else
+                            lookbackIx--;
                     }
-                    else
-                        lookbackIx--;
+
+                    // lookback failed
+                    // broadcast id and prepare to do reduction ourselves
+                    scratchAccessor.template set<uint32_t, uint32_t>(1u, lookbackIx);
                 }
-                // else
-                //     lookbackIx--;
+                scratchAccessor.workgroupExecutionAndMemoryBarrier();
+
+                locked = sIsLocked;
+                scratchAccessor.workgroupExecutionAndMemoryBarrier();
+                if (locked)
+                {
+                    // do reduction for lookbackIx workgroup
+                    uint32_t fallbackGroupId;
+                    scratchAccessor.template get<uint32_t, uint32_t>(1u, fallbackGroupId);
+
+                    wg_data_proxy_t fallbackDataAccessor = wg_data_proxy_t::create(dataAccessor.getInputBufAddr(), dataAccessor.getOutputBufAddr(), fallbackGroupId);
+                    fallbackDataAccessor.preload();
+                    scalar_t fallbackReduction = workgroup2::reduction<Config,BinOp,device_capabilities>::template __call<wg_data_proxy_t, ScratchAccessor>(fallbackDataAccessor, scratchAccessor);
+                    scratchAccessor.workgroupExecutionAndMemoryBarrier();
+
+                    if (!invocIx)
+                    {
+                        scalar_t fallbackPayload;
+                        const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, fallbackGroupId > 0u) | (fallbackReduction << Flag_Shift);
+                        workgroupReduction.atomicMax(workgroupId, storeVal);
+
+                        prevReduction = binop(prevReduction, hlsl::max(fallbackReduction, fallbackPayload) >> Flag_Shift);
+                        if (!fallbackGroupId || (fallbackPayload & Flag_Mask) == Flag_Inclusive)
+                        {
+                            const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
+                            workgroupReduction.atomicExchange(workgroupId, storeVal);
+                            scratchAccessor.template set<uint32_t, uint32_t>(0u, prevReduction);
+                            sIsLocked = false;
+                        }
+                        else
+                        {
+                            lookbackIndex--;
+                        }
+                    }
+                    scratchAccessor.workgroupExecutionAndMemoryBarrier();
+
+                    locked = sIsLocked;
+                    scratchAccessor.workgroupExecutionAndMemoryBarrier();
+                }
             }
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
