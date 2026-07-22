@@ -213,22 +213,22 @@ struct atomicMax<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegral<T>) >
 template<typename T>
 T atomicMin(NBL_REF_ARG(T) ptr, T value)
 {
-    return impl::atomicMin<T>.__call(ptr, value);
+    return impl::atomicMin<T>::__call(ptr, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
 enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicMin(Ptr_T ptr, T value)
 {
-    return impl::atomicMin<T>.template __call<Ptr_T>(ptr, value);
+    return impl::atomicMin<T>::template __call<Ptr_T>(ptr, value);
 }
 template<typename T>
 T atomicMax(NBL_REF_ARG(T) ptr, T value)
 {
-    return impl::atomicMax<T>.__call(ptr, value);
+    return impl::atomicMax<T>::__call(ptr, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
 enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicMax(Ptr_T ptr, T value)
 {
-    return impl::atomicMax<T>.template __call<Ptr_T>(ptr, value);
+    return impl::atomicMax<T>::template __call<Ptr_T>(ptr, value);
 }
 
 /**
