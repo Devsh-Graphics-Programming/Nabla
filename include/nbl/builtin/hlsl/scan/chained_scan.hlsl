@@ -99,7 +99,14 @@ struct Scan
         {
             wgDataAccessor.preload();
 
-            NBL_IF_CONSTEXPR(Exclusive)
+            // TODO: double check this but it should be the last element of the last workgroup thread
+            // don't know what it's like if virtual workgroup size doesn't divide by workgroup size exactly
+            const uint32_t lastInvocIx = glsl::gl_SubgroupSize() * glsl::gl_NumSubgroups() - 1u;
+            scalar_t lastElem;
+            if (invocIx == lastInvocIx)
+                lastElem = wgDataAccessor.preloaded[wg_data_proxy_t::PreloadedDataCount-1u][Config::ItemsPerInvocation_0-1u];
+
+            if (Exclusive)
                 workgroup2::exclusive_scan<Config,BinOp,device_capabilities>::template __call<wg_data_proxy_t, ScratchAccessor>(wgDataAccessor, scratchAccessor);
             else
                 workgroup2::inclusive_scan<Config,BinOp,device_capabilities>::template __call<wg_data_proxy_t, ScratchAccessor>(wgDataAccessor, scratchAccessor);
@@ -107,10 +114,9 @@ struct Scan
 
             // wgDataAccessor.unload();    // TODO: maybe we don't have to unload, just write once after everything is done
 
-            // TODO: double check this but it should be the last element of the last workgroup thread
-            // don't know what it's like if virtual workgroup size doesn't divide by workgroup size exactly
-            const uint32_t lastInvocIx = glsl::gl_SubgroupSize() * glsl::gl_NumSubgroups() - 1u;
             currGroupReduction = wgDataAccessor.preloaded[wg_data_proxy_t::PreloadedDataCount-1u][Config::ItemsPerInvocation_0-1u];
+            if (Exclusive)
+                currGroupReduction = binop(currGroupReduction, lastElem);
             if (invocIx == lastInvocIx)
                 scratchAccessor.template set<uint32_t, uint32_t>(0u, currGroupReduction);
             scratchAccessor.workgroupExecutionAndMemoryBarrier();
