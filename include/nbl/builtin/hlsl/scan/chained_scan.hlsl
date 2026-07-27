@@ -19,14 +19,15 @@ struct WorkgroupDataProxy
 {
     using dtype_t = vector<uint32_t, ItemsPerInvocation>;
 
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1u) << WorkgroupSizeLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t PreloadedDataCount = VirtualWorkgroupSize / WorkgroupSize;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = 1u << WorkgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t PreloadedDataCount = uint16_t(VirtualWorkgroupSize / WorkgroupSize);
 
     static WorkgroupDataProxy<WorkgroupSizeLog2, VirtualWorkgroupSize, ItemsPerInvocation> create(const uint64_t inputBuf, const uint64_t outputBuf, const uint16_t workgroupId)
     {
         WorkgroupDataProxy<WorkgroupSizeLog2, VirtualWorkgroupSize, ItemsPerInvocation> retval;
         const uint32_t workgroupOffset = workgroupId * VirtualWorkgroupSize * sizeof(dtype_t);
-        retval.accessor = DoubleLegacyBdaAccessor<dtype_t>::create(inputBuf + workgroupOffset, outputBuf + workgroupOffset);
+        retval.accessor = DoubleLegacyBdaAccessor<dtype_t>::create(inputBuf/* + workgroupOffset*/, outputBuf /*+ workgroupOffset*/);
+        retval.workgroupID = workgroupId;
         return retval;
     }
 
@@ -46,14 +47,14 @@ struct WorkgroupDataProxy
         const uint16_t invocIx = workgroup::SubgroupContiguousIndex();
         NBL_UNROLL
         for (uint16_t idx = 0; idx < PreloadedDataCount; idx++)
-            accessor.get(idx * WorkgroupSize + invocIx, preloaded[idx]);
+            accessor.get((workgroupID + idx) * WorkgroupSize + invocIx, preloaded[idx]);
     }
     void unload()
     {
         const uint16_t invocIx = workgroup::SubgroupContiguousIndex();
         NBL_UNROLL
         for (uint16_t idx = 0; idx < PreloadedDataCount; idx++)
-            accessor.set(idx * WorkgroupSize + invocIx, preloaded[idx]);
+            accessor.set((workgroupID + idx) * WorkgroupSize + invocIx, preloaded[idx]);
     }
 
     void workgroupExecutionAndMemoryBarrier()
@@ -64,6 +65,7 @@ struct WorkgroupDataProxy
 
     DoubleLegacyBdaAccessor<dtype_t> accessor;
     dtype_t preloaded[PreloadedDataCount];
+    uint32_t workgroupID;   // TODO: remove possibly?, current problem is that adding the workgroup offset directly to address doesn't work
 };
 
 template<class Config, class BinOp, bool Exclusive, class device_capabilities>  // TODO: Config is same as workgroup2 stuff?
@@ -80,8 +82,8 @@ struct Scan
     
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Flag_Shift = 2;
 
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1u) << Config::WorkgroupSizeLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvoc = Config::VirtualWorkgroupSize / WorkgroupSize;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = 1u << Config::WorkgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvoc = uint16_t(Config::VirtualWorkgroupSize / WorkgroupSize);
 
     template<class DataAccessor, class ScratchAccessor, class ReductionAccessor, class WorkgroupCounter>
     void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction, NBL_REF_ARG(WorkgroupCounter) workgroupCounter)
@@ -94,6 +96,7 @@ struct Scan
             sIsLocked = true;
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
+        // spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsUniformMemoryMask);
 
         uint16_t workgroupId;
         scratchAccessor.template get<uint32_t, uint32_t>(0u, workgroupId);
@@ -138,7 +141,6 @@ struct Scan
             workgroupReduction.atomicExchange(workgroupId, storeVal);
         }
 
-        // lookback
         if (workgroupId > 0)
         {
             bool locked = sIsLocked;
@@ -230,7 +232,7 @@ struct Scan
             NBL_UNROLL
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_0; i++)
                 data[i] = binop(prevReduction, data[i]);
-            dataAccessor.template set<vector_t, uint16_t>(idx * WorkgroupSize + invocIx, data);
+            dataAccessor.template set<vector_t, uint32_t>(idx * WorkgroupSize + invocIx, data);
         }
     }
 };
