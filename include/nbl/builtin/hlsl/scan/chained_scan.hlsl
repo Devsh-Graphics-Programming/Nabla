@@ -84,6 +84,7 @@ struct Scan
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = 1u << Config::WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvoc = uint16_t(Config::VirtualWorkgroupSize / WorkgroupSize);
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t MaxSpinCount = uint16_t(4u);
 
     template<class DataAccessor, class ScratchAccessor, class ReductionAccessor, class WorkgroupCounter>
     void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction, NBL_REF_ARG(WorkgroupCounter) workgroupCounter)
@@ -152,29 +153,36 @@ struct Scan
             while (locked)
             {
                 // lookback: try to get reduction from previous workgroups
-                bool lookbackFailed = true;
                 if (!invocIx)
                 {
-                    scalar_t flagPayload;
-                    workgroupReduction.get(lookbackIx, flagPayload);
-
-                    if ((flagPayload & Flag_Mask) > Flag_NotReady)
+                    uint16_t spinCount = uint16_t(0u);
+                    [loop]
+                    while (spinCount < MaxSpinCount)
                     {
-                        prevReduction = binop(prevReduction, flagPayload >> Flag_Shift);
-                        if ((flagPayload & Flag_Mask) == Flag_Inclusive)
+                        scalar_t flagPayload;
+                        workgroupReduction.get(lookbackIx, flagPayload);
+
+                        if ((flagPayload & Flag_Mask) > Flag_NotReady)
                         {
-                            const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
-                            workgroupReduction.atomicExchange(workgroupId, storeVal);
-                            scratchAccessor.template set<uint32_t, uint32_t>(0u, prevReduction);
-                            sIsLocked = false;
-                            lookbackFailed = false;
+                            spinCount = uint16_t(0u);
+                            prevReduction = binop(prevReduction, flagPayload >> Flag_Shift);
+                            if ((flagPayload & Flag_Mask) == Flag_Inclusive)
+                            {
+                                const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
+                                workgroupReduction.atomicExchange(workgroupId, storeVal);
+                                scratchAccessor.template set<uint32_t, uint32_t>(0u, prevReduction);
+                                sIsLocked = false;
+                                break;
+                            }
+                            else
+                                lookbackIx--;
                         }
                         else
-                            lookbackIx--;
+                            spinCount++;
                     }
 
                     // broadcast id and prepare to do reduction ourselves
-                    if (lookbackFailed)
+                    if (spinCount == MaxSpinCount)
                         scratchAccessor.template set<uint32_t, uint32_t>(1u, lookbackIx);
                 }
                 scratchAccessor.workgroupExecutionAndMemoryBarrier();
@@ -206,9 +214,7 @@ struct Scan
                             sIsLocked = false;
                         }
                         else
-                        {
                             lookbackIx--;
-                        }
                     }
                     scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
