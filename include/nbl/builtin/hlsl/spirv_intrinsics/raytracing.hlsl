@@ -43,6 +43,11 @@ bool rayQueryProceedKHR([[vk::ext_reference]] RayQueryKHR query);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_query")]]
+[[vk::ext_instruction(spv::OpRayQueryConfirmIntersectionKHR)]]
+void rayQueryConfirmIntersectionKHR([[vk::ext_reference]] RayQueryKHR query);
+
+[[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionTypeKHR)]]
 uint32_t rayQueryGetIntersectionTypeKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
@@ -75,6 +80,16 @@ float32_t2 rayQueryGetIntersectionBarycentricsKHR([[vk::ext_reference]] RayQuery
 [[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionFrontFaceKHR)]]
 bool rayQueryGetIntersectionFrontFaceKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
+
+[[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_query")]]
+[[vk::ext_instruction(spv::OpRayQueryGetIntersectionTKHR)]]
+float32_t rayQueryGetIntersectionTKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
+
+[[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_query")]]
+[[vk::ext_instruction(spv::OpRayQueryGetIntersectionWorldToObjectKHR)]]
+float32_t4x3 rayQueryGetIntersectionWorldToObjectKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed);
 
 // position fetch for ray tracing uses gl_HitTriangleVertexPositionsEXT -> HitTriangleVertexPositionsKHR decorated OpVariable
 [[vk::ext_capability(spv::CapabilityRayTracingPositionFetchKHR)]]

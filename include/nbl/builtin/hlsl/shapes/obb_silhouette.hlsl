@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/bit.hlsl>
 #include <nbl/builtin/hlsl/numbers.hlsl>
+#include <nbl/builtin/hlsl/tgmath.hlsl>
 #include <nbl/builtin/hlsl/math/angle_adding.hlsl>
 #include <nbl/builtin/hlsl/shapes/obb.hlsl>
 
@@ -63,77 +64,43 @@ static const uint32_t silhouettes[27][7] = {
 // bits 29-31 hold the vertex count. Hot-path uses this; LUT (silhouettes[27][7])
 // above is reference.
 //
-// Expressed as a switch returning constants instead of `static const uint32_t[27]`
-// so DXC emits a phi-merge of constants rather than a per-thread Function-scope
-// OpVariable for the 27-entry array (which would otherwise eat 27 fp32-equivalent
-// slots out of the register budget and hurt occupancy).
-inline uint32_t _binSilhouetteData(uint32_t configIndex)
-{
-   switch (configIndex)
-   {
-      case 0u:
-         return 0b11000000000000101100110010011001u;
-      case 1u:
-         return 0b11000000000000011111101100110010u;
-      case 2u:
-         return 0b11000000000000010011111101100000u;
-      case 3u:
-         return 0b11000000000000101100110111011001u;
-      case 4u:
-         return 0b10000000000000000000110111101100u;
-      case 5u:
-         return 0b11000000000000010110111101100000u;
-      case 6u:
-         return 0b11000000000000100110111011001000u;
-      case 7u:
-         return 0b11000000000000100110111101001000u;
-      case 8u:
-         return 0b11000000000000010110111101001000u;
-      case 9u:
-         return 0b11000000000000101111110010011001u;
-      case 10u:
-         return 0b10000000000000000000011111110010u;
-      case 11u:
-         return 0b11000000000000010011111110100000u;
-      case 12u:
-         return 0b10000000000000000000101111011001u;
-      case 13u:
-         return 0b11000000000000010011111110100000u;
-      case 14u:
-         return 0b10000000000000000000010110100000u;
-      case 15u:
-         return 0b11000000000000100101111011001000u;
-      case 16u:
-         return 0b10000000000000000000100101001000u;
-      case 17u:
-         return 0b11000000000000010110100101001000u;
-      case 18u:
-         return 0b11000000000000001101111110010000u;
-      case 19u:
-         return 0b11000000000000001011111110010000u;
-      case 20u:
-         return 0b11000000000000001011111110100000u;
-      case 21u:
-         return 0b11000000000000001101111011010000u;
-      case 22u:
-         return 0b10000000000000000000001011010000u;
-      case 23u:
-         return 0b11000000000000001011010110100000u;
-      case 24u:
-         return 0b11000000000000100101111011010000u;
-      case 25u:
-         return 0b11000000000000100101001011010000u;
-      default:
-         return 0b11000000000000011010110100101001u; // case 26
-   }
-}
+
+static const uint32_t binSilhouettes[27] = {
+   0b11000000000000101100110010011001u,
+   0b11000000000000011111101100110010u,
+   0b11000000000000010011111101100000u,
+   0b11000000000000101100110111011001u,
+   0b10000000000000000000110111101100u,
+   0b11000000000000010110111101100000u,
+   0b11000000000000100110111011001000u,
+   0b11000000000000100110111101001000u,
+   0b11000000000000010110111101001000u,
+   0b11000000000000101111110010011001u,
+   0b10000000000000000000011111110010u,
+   0b11000000000000010011111110100000u,
+   0b10000000000000000000101111011001u,
+   0b11000000000000010011111110100000u,
+   0b10000000000000000000010110100000u,
+   0b11000000000000100101111011001000u,
+   0b10000000000000000000100101001000u,
+   0b11000000000000010110100101001000u,
+   0b11000000000000001101111110010000u,
+   0b11000000000000001011111110010000u,
+   0b11000000000000001011111110100000u,
+   0b11000000000000001101111011010000u,
+   0b10000000000000000000001011010000u,
+   0b11000000000000001011010110100000u,
+   0b11000000000000100101111011010000u,
+   0b11000000000000100101001011010000u,
+   0b11000000000000011010110100101001u, // case 26
+};
 
 struct BinSilhouette
 {
    static BinSilhouette create(uint32_t configIndex)
    {
       BinSilhouette s;
-      s.data = _binSilhouetteData(configIndex);
+      s.data = binSilhouettes[configIndex];
       return s;
    }
 
@@ -164,33 +131,42 @@ struct ClippedSilhouette
 
    static ClippedSilhouette create(NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view)
    {
-      uint32_t3 region;
-      uint32_t  configIndex, vertexCount;
       // compare against [0, |col_i|^2] for branchless 27-config classify.
       const float32_t3 toMin    = view.minCorner;
       float32_t3       sqScales = float32_t3(dot(view.columns[0], view.columns[0]), dot(view.columns[1], view.columns[1]), dot(view.columns[2], view.columns[2]));
-      float32_t3       proj     = -float32_t3(dot(view.columns[0], toMin), dot(view.columns[1], toMin), dot(view.columns[2], toMin));
 
-      uint32_t3 below = uint32_t3(proj < float32_t3(0, 0, 0));
-      uint32_t3 above = uint32_t3(proj > sqScales);
-      region          = uint32_t3(uint32_t3(1u, 1u, 1u) + below - above);
-
-      configIndex = region.x + region.y * 3u + region.z * 9u;
-
-      // Region (1,1,1): observer is inside the OBB along all axes — no silhouette
-      // exists (every face is visible from inside). Signal degeneracy via count=0
-      // so callers route to an appropriate sampler instead of building on garbage data.
-      if (configIndex == 13u)
+      uint32_t configIndex;
+      // Flat OBB: the thin axis is collapsed to col0 = 0, so proj.x and sqScales.x are both 0 and the classify
+      // can only ever land in region.x == 1, so it can't resolve the single visible face. Force config 14 (the
+      // {0,4,6,2} quad spanned by col1/col2) and run the shared clip/pack.
+      if (sqScales.x < 1e-12f)
       {
-         ClippedSilhouette self;
-         self.silData       = 0u;
-         self.positiveCount = 0u;
-         self.count         = 0u;
-         return self;
+         configIndex = 14u;
+      }
+      else
+      {
+         float32_t3 proj  = -float32_t3(dot(view.columns[0], toMin), dot(view.columns[1], toMin), dot(view.columns[2], toMin));
+         uint32_t3  below = uint32_t3(proj < float32_t3(0, 0, 0));
+         uint32_t3  above = uint32_t3(proj > sqScales);
+         uint32_t3  region = uint32_t3(uint32_t3(1u, 1u, 1u) + below - above);
+
+         configIndex = region.x + region.y * 3u + region.z * 9u;
+
+         // Region (1,1,1): observer is inside the OBB along all axes, no silhouette
+         // exists (every face is visible from inside). Signal degeneracy via count=0
+         // so callers route to an appropriate sampler instead of building on garbage data.
+         if (configIndex == 13u)
+         {
+            ClippedSilhouette self;
+            self.silData       = 0u;
+            self.positiveCount = 0u;
+            self.count         = 0u;
+            return self;
+         }
       }
 
-      BinSilhouette sil = BinSilhouette::create(configIndex);
-      vertexCount       = sil.getVertexCount();
+      BinSilhouette sil         = BinSilhouette::create(configIndex);
+      uint32_t      vertexCount = sil.getVertexCount();
 
       // Always evaluate all 6 slots so the loop unrolls without a runtime
       // branch on vertexCount; high bits are masked off below.

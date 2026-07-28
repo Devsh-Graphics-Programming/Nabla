@@ -814,6 +814,11 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
 
         const core::set entryPoints = { asset::ISPIRVEntryPointTrimmer::EntryPoint{.name = ci.shader.entryPoint, .stage = hlsl::ShaderStage::ESS_COMPUTE} };
         trimmedShaders.push_back(m_spirvTrimmer->trim(ci.shader.shader, entryPoints, m_logger));
+        if (!trimmedShaders.back())
+        {
+            NBL_LOG_ERROR("Failed to trim SPIR-V to compute entry point '%.*s' (params[%u])", int(ci.shader.entryPoint.size()), ci.shader.entryPoint.data(), ix);
+            return false;
+        }
         auto trimmedShaderSpec = ci.shader;
         trimmedShaderSpec.shader = trimmedShaders.back().get();
         newParams[ix].shader = trimmedShaderSpec;

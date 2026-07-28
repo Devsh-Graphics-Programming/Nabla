@@ -48,12 +48,28 @@ struct SphericalTriangle
 
     static SphericalTriangle<T> create(const vector3_type vertices[3], const vector3_type origin)
     {
-        const vector3_type normalizedVerts[3] = {
-            nbl::hlsl::normalize(vertices[0] - origin),
-            nbl::hlsl::normalize(vertices[1] - origin),
-            nbl::hlsl::normalize(vertices[2] - origin)
+        const vector3_type relativeVerts[3] = {
+            vertices[0] - origin,
+            vertices[1] - origin,
+            vertices[2] - origin
         };
-        return createFromUnitSphereVertices(normalizedVerts);
+        const vector3_type normalizedVerts[3] = {
+            nbl::hlsl::normalize(relativeVerts[0]),
+            nbl::hlsl::normalize(relativeVerts[1]),
+            nbl::hlsl::normalize(relativeVerts[2])
+        };
+        SphericalTriangle<T> retval = createFromUnitSphereVertices(normalizedVerts);
+
+        const vector3_type areaNormal = hlsl::cross(relativeVerts[1] - relativeVerts[0], relativeVerts[2] - relativeVerts[0]) * _static_cast<scalar_type>(0.5);
+        const vector3_type center = (relativeVerts[0] + relativeVerts[1] + relativeVerts[2]) * _static_cast<scalar_type>(1.0 / 3.0);
+        const scalar_type  centroidDistSq = hlsl::dot(center, center);
+        const scalar_type areaCrossover = hlsl::sqrt<scalar_type>(numeric_limits<scalar_type>::epsilon * numbers::pi<scalar_type>);
+        if (retval.solid_angle < areaCrossover && centroidDistSq > numeric_limits<scalar_type>::min)
+        {
+           const vector3_type L = center * hlsl::rsqrt<scalar_type>(centroidDistSq);
+            retval.solid_angle = hlsl::abs(hlsl::dot(areaNormal, L)) / centroidDistSq;
+        }
+        return retval;
     }
 
     static SphericalTriangle<T> createFromUnitSphereVertices(const vector3_type normalizedVertices[3])
@@ -89,7 +105,7 @@ struct SphericalTriangle
         // generate() to place samples outside the triangle. poly3 (~6.9e-5 error) fails
         // the 1e-6 generatedInside tolerance; poly4 (~8.6e-6) and poly5 (~1.1e-6) are tighter.
         // Standard acos avoids this entirely at the cost of one transcendental call.
-        // Benchmarks show fast acos is no faster here -- likely because the surrounding
+        // Benchmarks show fast acos is no faster here, likely because the surrounding
         // code already saturates FMA throughput, so the SFU acos runs in parallel for free.
         math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(retval.cos_vertices[0], retval.sin_vertices[0]);
         angle_adder.addAngle(retval.cos_vertices[1], retval.sin_vertices[1]);

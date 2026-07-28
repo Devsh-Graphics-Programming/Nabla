@@ -196,7 +196,7 @@ NBL_CONCEPT_END(
 //
 // Extends TractableSampler with the ability to evaluate the PDF given
 // a codomain value (i.e. without knowing the original domain input).
-// The mapping need not be injective — multiple domain elements may map
+// The mapping need not be injective, multiple domain elements may map
 // to the same codomain output, and backwardPdf accounts for this
 // correctly (e.g. by summing contributions).
 //

@@ -10,45 +10,6 @@
 #include <nbl/builtin/hlsl/concepts/core.hlsl>
 #include <nbl/builtin/hlsl/tgmath.hlsl> // ceil / floor / log2 (packed encode)
 #include <nbl/builtin/hlsl/bit.hlsl> // bit_cast (packed encode/decode)
-
-// Descent weight mode (what each child's selection weight is):
-//   0 = power * orientFactor / dist^2  -- full geometric importance. Unbiased, but the 1/dist^2
-//       in the selection pdf (denominator) makes the proposal peaky -> higher variance in
-//       1/pProposal. On loose/overlapping clusters the distance estimate isn't accurate enough to
-//       pay for that variance, so mode 3 beats it (clean RWMC-ablated A/B). A tighter cluster build
-//       could reopen this mode. The unit tests validate this branch.
-//   1 = power only -- the descent pdf telescopes to leafPower/totalPower, exactly the alias
-//       table's distribution, so power cancels cleanly against contribution and geometry never
-//       enters the denominator. Never worse than alias (modulo quantization + tree imbalance).
-//   2 = uniform over live children -- ignores power and geometry (A/B floor).
-//   3 = power * orientFactor (orientation, NO distance) -- the production renderer descent.
-//       Orientation is a bounded [0,1] reweight that can't blow up the denominator, so it stays
-//       firefly-/clamp-safe while still culling below-horizon clusters (lower noise than power-
-//       only). Distance importance is applied in the RIS resample TARGET (numerator), where a
-//       heavy 1/dist^2 only re-ranks a candidate instead of dividing into a clamped spike.
-#ifndef NBL_LIGHTCUT_TREE_WEIGHT_MODE
-#define NBL_LIGHTCUT_TREE_WEIGHT_MODE 3
-#endif
-
-// PDF_FLOOR: stop when the cumulative descent pdf drops below NBL_LIGHTCUT_TREE_PDF_FLOOR.
-//            Bounds 1/pdf variance at the leaf level.
-// MAX_RATIO: stop when the largest child weight is less than NBL_LIGHTCUT_TREE_STOP_MAX_RATIO of
-//            wSum -- i.e. when no child clearly dominates so the next weighted pick is mostly
-//            noise (Estevez-Kulla 2018's "no winner" criterion).
-#ifndef NBL_LIGHTCUT_TREE_PDF_FLOOR_ENABLED
-#define NBL_LIGHTCUT_TREE_PDF_FLOOR_ENABLED 0 // Didn' help on the bench, but left in case a tight SAOH build makes it worth it.
-#endif
-#ifndef NBL_LIGHTCUT_TREE_PDF_FLOOR
-#define NBL_LIGHTCUT_TREE_PDF_FLOOR 1e-1
-#endif
-#ifndef NBL_LIGHTCUT_TREE_STOP_MAX_RATIO_ENABLED
-#define NBL_LIGHTCUT_TREE_STOP_MAX_RATIO_ENABLED 1
-#endif
-#ifndef NBL_LIGHTCUT_TREE_STOP_MAX_RATIO
-#define NBL_LIGHTCUT_TREE_STOP_MAX_RATIO 0.2
-#endif
-
-
 namespace nbl
 {
 namespace hlsl
@@ -241,15 +202,13 @@ struct LightcutTreeChildWeight
       const vector<T, 3> dToCentroid    = center - x;
       const T            centroidDistSq = hlsl::dot(dToCentroid, dToCentroid);
 
-      // Receiver-side cosine upper bound over the whole bbox. phi = angle(n, dirToCentroid);
-      // widen by the bbox angular radius alpha (sin(alpha) = halfDiag/distToCentroid) and take
-      // cos(max(phi - alpha, 0)). The halfDiag floor on the cone distance also doubles as the
-      // proposal heuristic for inside-bounding-sphere queries: it makes orientFactor fall off as
-      // sinPhi when the centroid is behind the normal, which is a looser-but-useful proxy for
-      // "how much of the cluster lies above the horizon". A tight orient=1 upper bound there
-      // collapses top-level descent to power-only in large scenes (regressed FLIP).
+
       const T distToCentroidSq = hlsl::max(centroidDistSq, halfDiagSq);
       const T dotND            = hlsl::dot(n, dToCentroid);
+
+      // sinAlpha^2 for the bbox angular radius. The floor on distToCentroidSq keeps this <= 1,
+      // so no clamp is needed and the sqrt/rsqrt round-trip through sinAlpha is avoidable.
+      const T sinAlphaSq = halfDiagSq / distToCentroidSq;
 
       // Fully-facing fast path. orientFactor saturates to 1 exactly when cosPhi >= cosAlpha. Cross-
       // multiplying that comparison through distToCentroidSq > 0 (and using sinAlpha^2 = halfDiagSq/
@@ -258,19 +217,21 @@ struct LightcutTreeChildWeight
       // - halfDiagSq. The floor keeps the RHS >= 0; inside the bounding sphere it is 0 so the test
       // collapses to dotND >= 0, matching cosAlpha = 0. Only grazing/partial-cone children pay the
       // rsqrt + sqrt below. cos(phi - alpha) = cosPhi cosAlpha + sinPhi sinAlpha.
-      T orientFactor;
-      if (dotND >= T(0) && dotND * dotND >= distToCentroidSq - halfDiagSq)
+      const bool fullyFacing = dotND >= T(0) && dotND * dotND >= distToCentroidSq - halfDiagSq;
+
+      // Mode is compile-time, so mode 4 (which always needs cosAlpha) folds this to an
+      // unconditional evaluation while modes 0/3 keep the transcendental-free fast path.
+      T cosAlpha = T(1);
+      if (!fullyFacing || Mode == 4u)
+         cosAlpha = sqrt(hlsl::max(T(1) - sinAlphaSq, T(0)));
+
+      T orientFactor = T(1);
+      if (!fullyFacing)
       {
-         orientFactor = T(1);
-      }
-      else
-      {
-         const T rcpDist  = rsqrt(distToCentroidSq);
-         const T cosPhi   = dotND * rcpDist;
-         const T sinAlpha = hlsl::min(sqrt(halfDiagSq) * rcpDist, T(1));
-         const T cosAlpha = sqrt(hlsl::max(T(1) - sinAlpha * sinAlpha, T(0)));
-         const T sinPhi   = sqrt(hlsl::max(T(1) - cosPhi * cosPhi, T(0)));
-         orientFactor     = hlsl::max(cosPhi * cosAlpha + sinPhi * sinAlpha, T(0));
+         const T rcpDist = rsqrt(distToCentroidSq);
+         const T cosPhi  = dotND * rcpDist;
+         const T sinPhi  = sqrt(hlsl::max(T(1) - cosPhi * cosPhi, T(0)));
+         orientFactor    = hlsl::max(cosPhi * cosAlpha + sinPhi * sqrt(sinAlphaSq), T(0));
       }
       if (!(orientFactor > T(0)))
          return T(0);
@@ -279,6 +240,11 @@ struct LightcutTreeChildWeight
       {
          // Orientation only, NO distance: distance lives in the RIS resample target (numerator).
          return c.power * orientFactor;
+      }
+
+      if (Mode == 4u)
+      {
+         return c.power * (sinAlphaSq / (T(1) + cosAlpha)) * orientFactor;
       }
 
       // Mode 0:
@@ -328,7 +294,7 @@ struct NoSubtreeAliasAccessor
 // The within-subtree pdf that sample(W, .) would assign to the leaf at LEAF-ARRAY index
 // leafArrayIdx. Used by backwardPdf()'s MAX_RATIO mirror so forward/backward agree under MIS.
 // Both used only when an early-stop criterion (NBL_LIGHTCUT_TREE_PDF_FLOOR / STOP_MAX_RATIO) is
-// enabled; when both are disabled the accessor is never called -- a no-op stub is sufficient.
+// enabled; when both are disabled the accessor is never called, a no-op stub is sufficient.
 template<typename T, typename Codomain, typename NodeAccessor, typename LeafAccessor, typename SubtreeAliasAccessor, uint32_t Mode NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T>&& concepts::UnsignedIntegralScalar<Codomain>)
 struct StochasticLightcutTreeSampler
 {
@@ -484,18 +450,18 @@ struct StochasticLightcutTreeSampler
    // the per-level child-selection ratio wSelf/wSum at each ancestor.
    //
    // Direction matters for cost, not correctness. generate() descends root->leaf and, at the TOPMOST
-   // node where the MAX_RATIO "no clear winner" test fires, hands the leaf pick to the subtree alias --
+   // node where the MAX_RATIO "no clear winner" test fires, hands the leaf pick to the subtree alias,
    // so forward pdf = (descent ratios above the stop) * (subtree-alias pdf at the stop). We reproduce
    // that by descending the same direction and STOPPING at the first firing node: exactly one subtree-
    // alias lookup, and no node loads below the stop. (The older leaf->root climb always reached the
-   // root and did an alias lookup at every firing level, discarding all but the topmost -- pure waste
+   // root and did an alias lookup at every firing level, discarding all but the topmost, pure waste
    // on a latency-bound path, since "no clear winner" tends to fire high in the tree.) Only MAX_RATIO
    // is mirrored: PDF_FLOOR is non-local (depends on the from-root cumulative pdf), so forward/backward
    // agree only when PDF_FLOOR is disabled.
    //
    // The tree links parent<-child, so the root->leaf path isn't directly walkable. We pack it in one
    // bottom-up pass: each step's child slot is (h-1)&3, two bits, and a 4-ary heap over a 32-bit index
-   // is at most 16 deep (4^16 ~= 2^32), so all 16 slots fit in a single uint32 -- no path array, no
+   // is at most 16 deep (4^16 ~= 2^32), so all 16 slots fit in a single uint32, no path array, no
    // O(depth^2) re-climb. Climbing leaf->root and shifting left each step lands the root's slot (climbed
    // last) in the LOW bit pair and the leaf's in the high pair, so the descent reads LSB-first and
    // rebuilds the node as 4*node+1+slot, exactly mirroring generate().
@@ -534,7 +500,7 @@ struct StochasticLightcutTreeSampler
          nodeAcc.template get<wide_node_t, codomain_type>(node, w);
 
          // Stream the four child weights: backward only needs the running sum, the followed child's
-         // weight, and (for MAX_RATIO) the running max -- never all four live at once the way
+         // weight, and (for MAX_RATIO) the running max, never all four live at once the way
          // generate()'s CDF pick does, so this keeps fewer values resident.
          density_type wSum  = density_type(0);
          density_type wSelf = density_type(0);
@@ -556,7 +522,7 @@ struct StochasticLightcutTreeSampler
 
 #if NBL_LIGHTCUT_TREE_STOP_MAX_RATIO_ENABLED
          // Same "no clear winner" test generate() applies. The first (topmost) firing node is where
-         // generate() handed off to the subtree alias, so multiply that alias pdf and stop -- the
+         // generate() handed off to the subtree alias, so multiply that alias pdf and stop, the
          // ratios already accumulated above are exactly generate()'s descent above the stop.
          if (wMax < density_type(NBL_LIGHTCUT_TREE_STOP_MAX_RATIO) * wSum)
          {

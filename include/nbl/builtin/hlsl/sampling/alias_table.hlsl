@@ -97,7 +97,7 @@ struct PackedAliasTableA
 
 		uint32_t packedWord;
 		entryAcc.template get<uint32_t, codomain_type>(bin, packedWord);
-		return hlsl::select(remainder < decoder::template getStayProb<scalar_type>(packedWord), bin, codomain_type(decoder::getTarget(packedWord)));
+		return remainder < decoder::template getStayProb<scalar_type>(packedWord) ? bin : codomain_type(decoder::getTarget(packedWord));
 	}
 
 	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
