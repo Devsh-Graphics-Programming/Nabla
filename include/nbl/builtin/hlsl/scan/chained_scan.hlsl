@@ -97,7 +97,6 @@ struct Scan
             sIsLocked = true;
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
-        // spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsUniformMemoryMask);
 
         uint16_t workgroupId;
         scratchAccessor.template get<uint32_t, uint32_t>(0u, workgroupId);
@@ -141,8 +140,9 @@ struct Scan
             const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, workgroupId > 0u) | currGroupReduction << Flag_Shift;
             workgroupReduction.atomicExchange(workgroupId, storeVal);
         }
+        // workgroupReduction.memoryBarrier();
 
-        if (workgroupId > 0)
+        if (workgroupId)
         {
             bool locked = sIsLocked;
             scratchAccessor.workgroupExecutionAndMemoryBarrier();
@@ -183,9 +183,10 @@ struct Scan
 
                     // broadcast id and prepare to do reduction ourselves
                     if (spinCount == MaxSpinCount)
-                        scratchAccessor.template set<uint32_t, uint32_t>(1u, lookbackIx);
+                        scratchAccessor.template set<uint32_t, uint32_t>(0u, lookbackIx);
                 }
                 scratchAccessor.workgroupExecutionAndMemoryBarrier();
+                // workgroupReduction.memoryBarrier();
 
                 locked = sIsLocked;
                 scratchAccessor.workgroupExecutionAndMemoryBarrier();
@@ -193,7 +194,7 @@ struct Scan
                 {
                     // do reduction for lookbackIx workgroup
                     uint16_t fallbackGroupId;
-                    scratchAccessor.template get<uint32_t, uint32_t>(1u, fallbackGroupId);
+                    scratchAccessor.template get<uint32_t, uint32_t>(0u, fallbackGroupId);
 
                     wg_data_proxy_t fallbackDataAccessor = wg_data_proxy_t::create(dataAccessor.getInputBufAddr(), dataAccessor.getOutputBufAddr(), fallbackGroupId);
                     fallbackDataAccessor.preload();
@@ -204,12 +205,14 @@ struct Scan
                     {
                         const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, fallbackGroupId > 0u) | (fallbackReduction << Flag_Shift);
                         const scalar_t fallbackPayload = workgroupReduction.atomicMax(fallbackGroupId, storeVal);
+                        // workgroupReduction.memoryBarrier();
 
                         prevReduction = binop(prevReduction, hlsl::mix(fallbackReduction, fallbackPayload >> Flag_Shift, fallbackPayload > scalar_t(0.0)));
-                        if (!fallbackGroupId || (fallbackPayload & Flag_Mask) == Flag_Inclusive)
+                        if (fallbackGroupId == 0u || (fallbackPayload & Flag_Mask) == Flag_Inclusive)
                         {
                             const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
                             workgroupReduction.atomicExchange(workgroupId, storeVal);
+                            // workgroupReduction.memoryBarrier();
                             scratchAccessor.template set<uint32_t, uint32_t>(0u, prevReduction);
                             sIsLocked = false;
                         }
@@ -228,7 +231,7 @@ struct Scan
         dataAccessor.initAtWorkgroupID(workgroupId);
 
         scalar_t prevReduction = 0u;
-        if (workgroupId > 0)
+        if (workgroupId)
             scratchAccessor.template get<uint32_t, uint32_t>(0u, prevReduction);
 
         NBL_UNROLL
