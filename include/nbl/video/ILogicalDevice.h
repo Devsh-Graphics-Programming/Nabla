@@ -802,7 +802,25 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
 
+        // https://docs.vulkan.org/refpages/latest/refpages/source/vkCopyMemoryToImage.html
+        bool copyMemoryToImage(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions);
+        // https://docs.vulkan.org/refpages/latest/refpages/source/vkCopyImageToMemory.html
+        bool copyImageToMemory(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageToMemoryCopy> regions);
+        //https://docs.vulkan.org/refpages/latest/refpages/source/vkCopyImageToImage.html
+        bool copyImageToImage(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageCopy> regions);
+        // https://docs.vulkan.org/refpages/latest/refpages/source/vkGetImageSubresourceLayout2.html
+        bool getImageSubresourceLayout(const IGPUImage* const image, const IGPUImage::SSubresource& subresource, IGPUImage::SSubresourceLayout& layout);
 
+        struct SImageLayoutTransition
+        {
+            IGPUImage* image = nullptr;
+            IGPUImage::LAYOUT oldLayout = IGPUImage::LAYOUT::UNDEFINED;
+            IGPUImage::LAYOUT newLayout = IGPUImage::LAYOUT::UNDEFINED;
+            IGPUImage::SSubresourceRange subresourceRange = {};
+        };
+        // https://docs.vulkan.org/refpages/latest/refpages/source/vkTransitionImageLayout.html
+        bool transitionImageLayout(const std::span<const SImageLayoutTransition> transitions);
+        
         //! Shaders
         struct SShaderCreationParameters
         {
@@ -1114,6 +1132,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
         virtual core::smart_refctd_ptr<IGPUBuffer> createBuffer_impl(IGPUBuffer::SCreationParams&& creationParams, bool dedicatedOnly = false) = 0;
         virtual core::smart_refctd_ptr<IGPUBufferView> createBufferView_impl(const asset::SBufferRange<const IGPUBuffer>& underlying, const asset::E_FORMAT _fmt) = 0;
+        bool validateImageCreationAgainstDevice(const IGPUImage::SCreationParams& creationParams);
         virtual core::smart_refctd_ptr<IGPUImage> createImage_impl(IGPUImage::SCreationParams&& params, bool dedicatedOnly = false) = 0;
         virtual core::smart_refctd_ptr<IGPUImageView> createImageView_impl(IGPUImageView::SCreationParams&& params) = 0;
         virtual core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure_impl(IGPUAccelerationStructure::SCreationParams&& params) = 0;
@@ -1158,6 +1177,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, const asset::SBufferBinding<asset::ICPUBuffer>& dst) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const asset::SBufferBinding<const asset::ICPUBuffer>& src, IGPUAccelerationStructure* dst) = 0;
+
+        virtual bool copyMemoryToImage_impl(IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SMemoryToImageCopy> regions) = 0;
+        virtual bool copyImageToMemory_impl(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageToMemoryCopy> regions) = 0;
+        virtual bool copyImageToImage_impl(IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const core::bitflag<IGPUImage::E_HOST_IMAGE_COPY_FLAGS> flags, const std::span<const IGPUImage::SImageCopy> regions) = 0;
+        virtual bool transitionImageLayout_impl(const std::span<const SImageLayoutTransition> transitions) = 0;
+        virtual void getImageSubresourceLayout_impl(const IGPUImage* const image, const IGPUImage::SSubresource& subresource, IGPUImage::SSubresourceLayout& layout) = 0;
 
         constexpr static inline auto MaxStagesPerPipeline = 6u;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) = 0;

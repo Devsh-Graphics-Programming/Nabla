@@ -5,7 +5,6 @@
 start_tracking_variables_for_propagation_to_parent()
 
 # TODO: all of those options bellow should be defined here
-option(NBL_BUILD_TEXT_RENDERING "Enable Nabla Text Rendering extension building and integration?" OFF)
 
 # TODO: also all variables bellow should be killed from build system since we have logical
 # targets which properties (like include search directories or outputs) can be queried 
@@ -56,10 +55,6 @@ if (NBL_BUILD_IMGUI)
         ${NBL_EXT_IMGUI_UI_LIB}
         PARENT_SCOPE
     )
-endif()
-
-if(NBL_BUILD_TEXT_RENDERING)
-	add_subdirectory(TextRendering)
 endif()
 
 if(NBL_BUILD_DEBUG_DRAW)

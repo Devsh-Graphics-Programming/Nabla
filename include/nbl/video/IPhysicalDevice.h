@@ -163,6 +163,16 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
         APIVersion getAPIVersion() const { return m_initData.properties.apiVersion; }
         const SFeatures& getFeatures() const { return m_initData.features; }
 
+        struct SHostImageCopyProperties
+        {
+            uint64_t copySrcLayouts = 0ull;
+            uint64_t copyDstLayouts = 0ull;
+            uint8_t optimalTilingLayoutUUID[VK_UUID_SIZE] = {};
+            bool identicalMemoryTypeRequirements = false;
+        };
+
+        const SHostImageCopyProperties& getHostImageCopyProperties() const { return m_initData.hostImageCopyProperties; }
+
         struct MemoryType
         {
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS> propertyFlags = IDeviceMemoryAllocation::EMPF_NONE;
@@ -486,7 +496,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     storageImageLoadWithoutFormat(0),
                     storageImageStoreWithoutFormat(0),
                     depthCompareSampledImage(0),
-                    hostImageTransfer(0),
+                    hostImageTransfer(usages.hasFlags(IGPUImage::EUF_HOST_TRANSFER_BIT)),
                     log2MaxSamples(0)
                 {}
 
@@ -498,6 +508,8 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                         retval |= usage_flags_t::EUF_SAMPLED_BIT;
                     if (storageImage)
                         retval |= usage_flags_t::EUF_STORAGE_BIT;
+                    if (hostImageTransfer)
+                        retval |= usage_flags_t::EUF_HOST_TRANSFER_BIT;
                     if (attachment || blitDst) // does also src imply?
                         retval |= usage_flags_t::EUF_RENDER_ATTACHMENT_BIT;
                     if (blitSrc || transferSrc)
@@ -803,6 +815,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             SProperties properties = {};
             SFeatures features = {};
+            SHostImageCopyProperties hostImageCopyProperties = {};
             SMemoryProperties memoryProperties = {};
 
             using qfam_props_array_t = core::smart_refctd_dynamic_array<const SQueueFamilyProperties>;

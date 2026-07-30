@@ -61,8 +61,13 @@ class IAsyncQueueDispatcherBase
                 inline request_base_t() = default;
                 inline ~request_base_t()
                 {
-                    // fully cleaned up
-                    assert(!future);
+                    const auto currentState = state.query();
+                    const bool hasNoFuture = future==nullptr;
+                    const bool isInitial = currentState==STATE::INITIAL;
+
+                    // Dispatcher storage may only destroy fully recycled request slots.
+                    assert(hasNoFuture);
+                    assert(isInitial);
                 }
 
                 // ban certain operators
@@ -439,6 +444,8 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
         request_t request_pool[MaxRequestCount];
         atomic_counter_t cb_begin = 0u;
         atomic_counter_t cb_end = 0u;
+        std::atomic_bool m_acceptsSubmissions = true;
+        atomic_counter_t m_activeSubmissions = 0u;
 
         static inline counter_t wrapAround(counter_t x)
         {
@@ -465,6 +472,10 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
         template<typename T, typename... Args>
         void request(future_t<T>* _future, Args&&... args)
         {
+            if (!beginSubmission())
+                return;
+            auto submissionCleanup = core::makeRAIIExiter([this]() -> void { this->finishSubmission(); });
+
             // get next output index
             const auto virtualIx = cb_end++;
             // protect against overflow by waiting for the worker to catch up
@@ -488,10 +499,79 @@ class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, pro
         }
 
     protected:
-        inline ~IAsyncQueueDispatcher() {}
+        inline void shutdown()
+        {
+            if (!beginShutdown())
+                return;
+
+            // accepted submissions must publish cb_end before drain observes the queue
+            waitForSubmissions();
+            drain();
+            base_t::stopThread();
+        }
+
+        inline ~IAsyncQueueDispatcher()
+        {
+            const auto begin = cb_begin.load();
+            const auto end = cb_end.load();
+            const bool isIdle = begin==end;
+
+            // Request storage must not be destroyed while queued work is still pending.
+            assert(isIdle);
+        }
         inline void background_work() {}
 
     private:
+        inline bool beginSubmission()
+        {
+            // register first, so shutdown can't miss a request already entering submission
+            m_activeSubmissions.fetch_add(1u);
+
+            const bool acceptsRequests = m_acceptsSubmissions.load();
+            assert(acceptsRequests);
+            if (!acceptsRequests)
+            {
+                finishSubmission();
+                return false;
+            }
+            return true;
+        }
+
+        inline void finishSubmission()
+        {
+            const auto previousSubmissions = m_activeSubmissions.fetch_sub(1u);
+            assert(previousSubmissions!=0u);
+            m_activeSubmissions.notify_all();
+        }
+
+        inline bool beginShutdown()
+        {
+            return m_acceptsSubmissions.exchange(false);
+        }
+
+        inline void waitForSubmissions()
+        {
+            for (auto submissions=m_activeSubmissions.load(); submissions!=0u; submissions=m_activeSubmissions.load())
+                m_activeSubmissions.wait(submissions);
+        }
+
+        inline void drain()
+        {
+            while (true)
+            {
+                const auto begin = cb_begin.load();
+                const auto end = cb_end.load();
+                if (begin==end)
+                    return;
+
+                {
+                    auto global_lk = base_t::createLock();
+                    base_t::m_cvar.notify_one();
+                }
+                cb_begin.wait(begin);
+            }
+        }
+
         template<typename... Args>
         void work(lock_t& lock, Args&&... optional_internal_state)
         {
