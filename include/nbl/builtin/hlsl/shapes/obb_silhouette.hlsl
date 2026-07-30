@@ -7,6 +7,7 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/bit.hlsl>
+#include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/numbers.hlsl>
 #include <nbl/builtin/hlsl/tgmath.hlsl>
 #include <nbl/builtin/hlsl/math/angle_adding.hlsl>
@@ -135,34 +136,30 @@ struct ClippedSilhouette
       const float32_t3 toMin    = view.minCorner;
       float32_t3       sqScales = float32_t3(dot(view.columns[0], view.columns[0]), dot(view.columns[1], view.columns[1]), dot(view.columns[2], view.columns[2]));
 
-      uint32_t configIndex;
-      // Flat OBB: the thin axis is collapsed to col0 = 0, so proj.x and sqScales.x are both 0 and the classify
-      // can only ever land in region.x == 1, so it can't resolve the single visible face. Force config 14 (the
-      // {0,4,6,2} quad spanned by col1/col2) and run the shared clip/pack.
-      if (sqScales.x < 1e-12f)
-      {
-         configIndex = 14u;
-      }
-      else
-      {
-         float32_t3 proj  = -float32_t3(dot(view.columns[0], toMin), dot(view.columns[1], toMin), dot(view.columns[2], toMin));
-         uint32_t3  below = uint32_t3(proj < float32_t3(0, 0, 0));
-         uint32_t3  above = uint32_t3(proj > sqScales);
-         uint32_t3  region = uint32_t3(uint32_t3(1u, 1u, 1u) + below - above);
+      const float32_t3 proj = -float32_t3(dot(view.columns[0], toMin), dot(view.columns[1], toMin), dot(view.columns[2], toMin));
+      // A point resting on a face plane ties these to within rounding; the enclosing slab wins because
+      // its silhouette drops the coplanar face instead of building degenerate vertices on it.
+      const float32_t  slabTieUlps = 64.0f * numeric_limits<float32_t>::epsilon;
+      const float32_t3 tol         = slabTieUlps * float32_t3(hlsl::max(sqScales.x, hlsl::abs(proj.x)), hlsl::max(sqScales.y, hlsl::abs(proj.y)), hlsl::max(sqScales.z, hlsl::abs(proj.z)));
+      const uint32_t3  below       = uint32_t3(proj < -tol);
+      const uint32_t3  above       = uint32_t3(proj > sqScales + tol);
+      const uint32_t3  region      = uint32_t3(uint32_t3(1u, 1u, 1u) + below - above);
 
-         configIndex = region.x + region.y * 3u + region.z * 9u;
+      // Collapsed col0 pins region.x to 1, so the classify can't resolve the visible face by itself.
+      const bool     flatX      = sqScales.x <= 1e-8f * hlsl::max(sqScales.y, sqScales.z);
+      const uint32_t flatConfig = hlsl::select(hlsl::dot(hlsl::cross(view.columns[1], view.columns[2]), toMin) > 0.0f, 14u, 12u);
+      const uint32_t configIndex = hlsl::select(flatX, flatConfig, region.x + region.y * 3u + region.z * 9u);
 
-         // Region (1,1,1): observer is inside the OBB along all axes, no silhouette
-         // exists (every face is visible from inside). Signal degeneracy via count=0
-         // so callers route to an appropriate sampler instead of building on garbage data.
-         if (configIndex == 13u)
-         {
-            ClippedSilhouette self;
-            self.silData       = 0u;
-            self.positiveCount = 0u;
-            self.count         = 0u;
-            return self;
-         }
+      // Region (1,1,1): observer is inside the OBB along all axes, no silhouette
+      // exists (every face is visible from inside). Signal degeneracy via count=0
+      // so callers route to an appropriate sampler instead of building on garbage data.
+      if (configIndex == 13u)
+      {
+         ClippedSilhouette self;
+         self.silData       = 0u;
+         self.positiveCount = 0u;
+         self.count         = 0u;
+         return self;
       }
 
       BinSilhouette sil         = BinSilhouette::create(configIndex);
