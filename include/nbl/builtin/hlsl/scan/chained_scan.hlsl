@@ -25,8 +25,7 @@ struct WorkgroupDataProxy
     static WorkgroupDataProxy<WorkgroupSizeLog2, VirtualWorkgroupSize, ItemsPerInvocation> create(const uint64_t inputBuf, const uint64_t outputBuf, const uint16_t workgroupId)
     {
         WorkgroupDataProxy<WorkgroupSizeLog2, VirtualWorkgroupSize, ItemsPerInvocation> retval;
-        const uint32_t workgroupOffset = workgroupId * VirtualWorkgroupSize * sizeof(dtype_t);
-        retval.accessor = DoubleLegacyBdaAccessor<dtype_t>::create(inputBuf/* + workgroupOffset*/, outputBuf /*+ workgroupOffset*/);
+        retval.accessor = DoubleLegacyBdaAccessor<dtype_t>::create(inputBuf, outputBuf);
         retval.workgroupID = workgroupId;
         return retval;
     }
@@ -47,14 +46,7 @@ struct WorkgroupDataProxy
         const uint16_t invocIx = workgroup::SubgroupContiguousIndex();
         NBL_UNROLL
         for (uint16_t idx = 0; idx < PreloadedDataCount; idx++)
-            accessor.get((workgroupID + idx) * WorkgroupSize + invocIx, preloaded[idx]);
-    }
-    void unload()
-    {
-        const uint16_t invocIx = workgroup::SubgroupContiguousIndex();
-        NBL_UNROLL
-        for (uint16_t idx = 0; idx < PreloadedDataCount; idx++)
-            accessor.set((workgroupID + idx) * WorkgroupSize + invocIx, preloaded[idx]);
+            accessor.get(workgroupID * VirtualWorkgroupSize + idx * WorkgroupSize + invocIx, preloaded[idx]);
     }
 
     void workgroupExecutionAndMemoryBarrier()
@@ -109,7 +101,7 @@ struct Scan
         {
             wgDataAccessor.preload();
 
-            // TODO: double check this but it should be the last element of the last workgroup thread
+            // should be the last element of the last workgroup thread
             // don't know what it's like if virtual workgroup size doesn't divide by workgroup size exactly
             const uint32_t lastInvocIx = glsl::gl_SubgroupSize() * glsl::gl_NumSubgroups() - 1u;
             scalar_t lastElem;
@@ -121,8 +113,6 @@ struct Scan
             else
                 workgroup2::inclusive_scan<Config,BinOp,device_capabilities>::template __call<wg_data_proxy_t, ScratchAccessor>(wgDataAccessor, scratchAccessor);
             scratchAccessor.workgroupExecutionAndMemoryBarrier();
-
-            // wgDataAccessor.unload();    // TODO: maybe we don't have to unload, just write once after everything is done
 
             currGroupReduction = wgDataAccessor.preloaded[wg_data_proxy_t::PreloadedDataCount-1u][Config::ItemsPerInvocation_0-1u];
             if (Exclusive)
