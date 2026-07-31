@@ -1,6 +1,7 @@
 #ifndef _NBL_HLSL_SCAN_CHAINED_SCAN_INCLUDED_
 #define _NBL_HLSL_SCAN_CHAINED_SCAN_INCLUDED_
 
+#include "nbl/builtin/hlsl/concepts/accessors/device_arithmetic.hlsl"
 #include "nbl/builtin/hlsl/workgroup2/arithmetic.hlsl"
 
 groupshared bool sIsLocked;
@@ -57,7 +58,7 @@ struct WorkgroupDataProxy
 
     DoubleLegacyBdaAccessor<dtype_t> accessor;
     dtype_t preloaded[PreloadedDataCount];
-    uint32_t workgroupID;   // TODO: remove possibly?, current problem is that adding the workgroup offset directly to address doesn't work
+    uint32_t workgroupID;
 };
 
 template<class Config, class BinOp, bool Exclusive, class device_capabilities>  // TODO: Config is same as workgroup2 stuff?
@@ -118,10 +119,10 @@ struct Scan
             if (Exclusive)
                 currGroupReduction = binop(currGroupReduction, lastElem);
             if (invocIx == lastInvocIx)
-                scratchAccessor.template set<uint32_t, uint32_t>(0u, currGroupReduction);
+                scratchAccessor.template set<scalar_t, uint32_t>(0u, currGroupReduction);
             scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
-            scratchAccessor.template get<uint32_t, uint32_t>(0u, currGroupReduction);
+            scratchAccessor.template get<scalar_t, uint32_t>(0u, currGroupReduction);
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -130,7 +131,6 @@ struct Scan
             const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, workgroupId > 0u) | currGroupReduction << Flag_Shift;
             workgroupReduction.atomicExchange(workgroupId, storeVal);
         }
-        // workgroupReduction.memoryBarrier();
 
         if (workgroupId)
         {
@@ -150,7 +150,7 @@ struct Scan
                     while (spinCount < MaxSpinCount)
                     {
                         scalar_t flagPayload;
-                        workgroupReduction.get(lookbackIx, flagPayload);
+                        workgroupReduction.template get<scalar_t, uint32_t>(lookbackIx, flagPayload);
 
                         if ((flagPayload & Flag_Mask) > Flag_NotReady)
                         {
@@ -160,7 +160,7 @@ struct Scan
                             {
                                 const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
                                 workgroupReduction.atomicExchange(workgroupId, storeVal);
-                                scratchAccessor.template set<uint32_t, uint32_t>(0u, prevReduction);
+                                scratchAccessor.template set<scalar_t, uint32_t>(0u, prevReduction);
                                 sIsLocked = false;
                                 break;
                             }
@@ -173,10 +173,9 @@ struct Scan
 
                     // broadcast id and prepare to do reduction ourselves
                     if (spinCount == MaxSpinCount)
-                        scratchAccessor.template set<uint32_t, uint32_t>(0u, lookbackIx);
+                        scratchAccessor.template set<scalar_t, uint32_t>(0u, lookbackIx);
                 }
                 scratchAccessor.workgroupExecutionAndMemoryBarrier();
-                // workgroupReduction.memoryBarrier();
 
                 locked = sIsLocked;
                 scratchAccessor.workgroupExecutionAndMemoryBarrier();
@@ -184,7 +183,7 @@ struct Scan
                 {
                     // do reduction for lookbackIx workgroup
                     uint16_t fallbackGroupId;
-                    scratchAccessor.template get<uint32_t, uint32_t>(0u, fallbackGroupId);
+                    scratchAccessor.template get<scalar_t, uint32_t>(0u, fallbackGroupId);
 
                     wg_data_proxy_t fallbackDataAccessor = wg_data_proxy_t::create(dataAccessor.getInputBufAddr(), dataAccessor.getOutputBufAddr(), fallbackGroupId);
                     fallbackDataAccessor.preload();
@@ -195,15 +194,13 @@ struct Scan
                     {
                         const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, fallbackGroupId > 0u) | (fallbackReduction << Flag_Shift);
                         const scalar_t fallbackPayload = workgroupReduction.atomicMax(fallbackGroupId, storeVal);
-                        // workgroupReduction.memoryBarrier();
 
                         prevReduction = binop(prevReduction, hlsl::mix(fallbackReduction, fallbackPayload >> Flag_Shift, fallbackPayload > scalar_t(0.0)));
                         if (fallbackGroupId == 0u || (fallbackPayload & Flag_Mask) == Flag_Inclusive)
                         {
                             const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
                             workgroupReduction.atomicExchange(workgroupId, storeVal);
-                            // workgroupReduction.memoryBarrier();
-                            scratchAccessor.template set<uint32_t, uint32_t>(0u, prevReduction);
+                            scratchAccessor.template set<scalar_t, uint32_t>(0u, prevReduction);
                             sIsLocked = false;
                         }
                         else
@@ -222,7 +219,7 @@ struct Scan
 
         scalar_t prevReduction = 0u;
         if (workgroupId)
-            scratchAccessor.template get<uint32_t, uint32_t>(0u, prevReduction);
+            scratchAccessor.template get<scalar_t, uint32_t>(0u, prevReduction);
 
         NBL_UNROLL
         for (uint16_t idx = 0; idx < wg_data_proxy_t::PreloadedDataCount; idx++)
@@ -242,8 +239,7 @@ struct inclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
 
-    // TODO: might want new concept for ReductionAccessor
-    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor, class WorkgroupCounter NBL_FUNC_REQUIRES(workgroup2::ArithmeticDataAccessor<DataAccessor,scalar_t> && workgroup2::ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
+    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor, class WorkgroupCounter NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t> && DeviceReductionsAccessor<ReductionAccessor,scalar_t> && WorkgroupCounterAccessor<WorkgroupCounter>)
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction, NBL_REF_ARG(WorkgroupCounter) counter)
     {
         impl::Scan<Config,BinOp,false,device_capabilities> fn;
@@ -256,7 +252,7 @@ struct exclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
 
-    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor, class WorkgroupCounter NBL_FUNC_REQUIRES(workgroup2::ArithmeticDataAccessor<DataAccessor,scalar_t> && workgroup2::ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
+    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor, class WorkgroupCounter NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t> && DeviceReductionsAccessor<ReductionAccessor,scalar_t> && WorkgroupCounterAccessor<WorkgroupCounter>)
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction, NBL_REF_ARG(WorkgroupCounter) counter)
     {
         impl::Scan<Config,BinOp,true,device_capabilities> fn;
