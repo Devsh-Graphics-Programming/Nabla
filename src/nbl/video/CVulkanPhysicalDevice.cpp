@@ -1,5 +1,6 @@
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
+#include "nbl/video/IGPUImage.h"
 
 namespace nbl::video
 {
@@ -324,6 +325,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     VkPhysicalDeviceCooperativeMatrixPropertiesKHR              cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_KHR };
     VkPhysicalDeviceShaderSMBuiltinsPropertiesNV                shaderSMBuiltinsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
     VkPhysicalDeviceShaderCoreProperties2AMD                    shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
+    VkPhysicalDeviceHostImageCopyPropertiesEXT                  hostImageCopyProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES_EXT };
     VkPhysicalDeviceMaintenance5PropertiesKHR                   maintenance5Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES_KHR };
     VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT        graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
     VkPhysicalDeviceRayTracingInvocationReorderPropertiesEXT    rayTracingInvocationReorderProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_INVOCATION_REORDER_PROPERTIES_EXT };
@@ -357,6 +359,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&shaderSMBuiltinsPropertiesNV);
         if (isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
             addToPNextChain(&shaderCoreProperties2AMD);
+        if (isExtensionSupported(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME))
+            addToPNextChain(&hostImageCopyProperties);
         if (isExtensionSupported(VK_KHR_MAINTENANCE_5_EXTENSION_NAME))
             addToPNextChain(&maintenance5Properties);
         if (isExtensionSupported(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME))
@@ -587,6 +591,43 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.minAccelerationStructureScratchOffsetAlignment = accelerationStructureProperties.minAccelerationStructureScratchOffsetAlignment;
         }
 
+        if (isExtensionSupported(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME))
+        {
+            auto& outHostImageCopy = initData.hostImageCopyProperties;       
+            outHostImageCopy.identicalMemoryTypeRequirements = hostImageCopyProperties.identicalMemoryTypeRequirements;
+            memcpy(outHostImageCopy.optimalTilingLayoutUUID, hostImageCopyProperties.optimalTilingLayoutUUID, VK_UUID_SIZE);
+           
+            auto copySrcLayouts = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<VkImageLayout>>(hostImageCopyProperties.copySrcLayoutCount);
+            auto copyDstLayouts = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<VkImageLayout>>(hostImageCopyProperties.copyDstLayoutCount);
+           
+            VkPhysicalDeviceHostImageCopyPropertiesEXT vk_layouts = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_PROPERTIES_EXT };
+            vk_layouts.copySrcLayoutCount = hostImageCopyProperties.copySrcLayoutCount;
+            vk_layouts.pCopySrcLayouts = copySrcLayouts->data();
+            vk_layouts.copyDstLayoutCount = hostImageCopyProperties.copyDstLayoutCount;
+            vk_layouts.pCopyDstLayouts = copyDstLayouts->data();
+            VkPhysicalDeviceProperties2 vk_properties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2,&vk_layouts };
+            vkGetPhysicalDeviceProperties2(vk_physicalDevice, &vk_properties2);
+
+            for (const VkImageLayout vkLayout : *copySrcLayouts)
+            {
+                const auto layout = getImageLayoutFromVkImageLayout(vkLayout);
+                if (layout == asset::IImage::LAYOUT::UNDEFINED)
+                    continue;
+                const auto bit = static_cast<uint32_t>(layout);
+                assert(bit < 64u);
+                outHostImageCopy.copySrcLayouts |= 1ull << bit;
+            }
+            for (const VkImageLayout vkLayout : *copyDstLayouts)
+            {
+                const auto layout = getImageLayoutFromVkImageLayout(vkLayout);
+                if (layout == asset::IImage::LAYOUT::UNDEFINED)
+                    continue;
+                const auto bit = static_cast<uint32_t>(layout);
+                assert(bit < 64u);
+                outHostImageCopy.copyDstLayouts |= 1ull << bit;
+            }
+        }
+
         properties.limits.postDepthCoverage = isExtensionSupported(VK_EXT_POST_DEPTH_COVERAGE_EXTENSION_NAME);
 
         if (isExtensionSupported(VK_EXT_PCI_BUS_INFO_EXTENSION_NAME))
@@ -726,6 +767,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceShaderImageAtomicInt64FeaturesEXT               shaderImageAtomicInt64Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_IMAGE_ATOMIC_INT64_FEATURES_EXT };
         VkPhysicalDeviceIndexTypeUint8FeaturesEXT                       indexTypeUint8Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INDEX_TYPE_UINT8_FEATURES_EXT };
         VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR         pipelineExecutablePropertiesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR };
+        VkPhysicalDeviceHostImageCopyFeaturesEXT                        hostImageCopyFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT };
         VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV               deviceGeneratedCommandsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_NV };
         VkPhysicalDeviceDeviceMemoryReportFeaturesEXT                   deviceMemoryReportFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_MEMORY_REPORT_FEATURES_EXT };
         VkPhysicalDeviceShaderEarlyAndLateFragmentTestsFeaturesAMD      shaderEarlyAndLateFragmentTestsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_EARLY_AND_LATE_FRAGMENT_TESTS_FEATURES_AMD };
@@ -785,6 +827,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&indexTypeUint8Features);
         if (isExtensionSupported(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME))
             addToPNextChain(&pipelineExecutablePropertiesFeatures);
+        if (isExtensionSupported(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME))
+            addToPNextChain(&hostImageCopyFeatures);
         if (isExtensionSupported(VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME))
             addToPNextChain(&deviceGeneratedCommandsFeatures);
         if (isExtensionSupported(VK_EXT_DEVICE_MEMORY_REPORT_EXTENSION_NAME))
@@ -1157,7 +1201,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         if (isExtensionSupported(VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME))
             features.pipelineExecutableInfo = pipelineExecutablePropertiesFeatures.pipelineExecutableInfo;
-
         if (isExtensionSupported(VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME))
             features.deviceGeneratedCommands = deviceGeneratedCommandsFeatures.deviceGeneratedCommands;
 
@@ -1221,6 +1264,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.shaderImageFloat32AtomicMinMax = shaderAtomicFloat2Features.shaderImageFloat32AtomicMinMax;
             properties.limits.sparseImageFloat32AtomicMinMax = shaderAtomicFloat2Features.sparseImageFloat32AtomicMinMax;
         }
+        if (isExtensionSupported(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME))
+            properties.limits.hostImageCopy = hostImageCopyFeatures.hostImageCopy;
 
         if (isExtensionSupported(VK_EXT_DEVICE_MEMORY_REPORT_EXTENSION_NAME))
             properties.limits.deviceMemoryReport = deviceMemoryReportFeatures.deviceMemoryReport;
@@ -1332,7 +1377,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         retval.storageImageLoadWithoutFormat = anyFlag(features, VK_FORMAT_FEATURE_2_STORAGE_READ_WITHOUT_FORMAT_BIT);
         retval.storageImageStoreWithoutFormat = anyFlag(features, VK_FORMAT_FEATURE_2_STORAGE_WRITE_WITHOUT_FORMAT_BIT);
         retval.depthCompareSampledImage = anyFlag(features, VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT);
-//        retval.hostImageTransfer = anyFlag(features, VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT);
+        retval.hostImageTransfer = anyFlag(features, VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT_EXT);
         //retval.log2MaxSmples = ; // Todo(Erfan)
         return retval;
     };
@@ -1384,6 +1429,72 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 }
 
 #undef RETURN_NULL_PHYSICAL_DEVICE
+
+IPhysicalDevice::SExternalMemoryProperties CVulkanPhysicalDevice::getExternalMemoryProperties_impl(core::bitflag<IGPUBuffer::E_USAGE_FLAGS> usages, IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
+{
+    assert(!(handleType & (handleType - 1)));
+    VkPhysicalDeviceExternalBufferInfo info = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_BUFFER_INFO,
+        .usage = static_cast<VkBufferUsageFlags>(usages.value),
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(handleType)
+    };
+    VkExternalBufferProperties externalProps = { VK_STRUCTURE_TYPE_EXTERNAL_BUFFER_PROPERTIES };
+    vkGetPhysicalDeviceExternalBufferProperties(m_vkPhysicalDevice, &info, &externalProps);
+
+    const auto& externalMemProps = externalProps.externalMemoryProperties;
+    return SExternalMemoryProperties{
+      .exportableTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.exportFromImportedHandleTypes),
+      .compatibleTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.compatibleHandleTypes),
+      .features = static_cast<E_EXTERNAL_MEMORY_FEATURE_FLAGS>(externalMemProps.externalMemoryFeatures)
+    };
+}
+
+IPhysicalDevice::SExternalImageProperties CVulkanPhysicalDevice::getExternalImageProperties_impl(
+  const SImageFormatInfo& info, 
+  IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE handleType) const
+{
+    VkPhysicalDeviceExternalImageFormatInfo externalImageFormatInfo = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO,
+        .handleType = static_cast<VkExternalMemoryHandleTypeFlagBits>(handleType),
+    };
+
+    VkPhysicalDeviceImageFormatInfo2 formatInfo = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2,
+        .pNext = &externalImageFormatInfo,
+        .format = getVkFormatFromFormat(info.format),
+        .type = static_cast<VkImageType>(info.type),
+        .tiling = static_cast<VkImageTiling>(info.tiling),
+        .usage = getVkImageUsageFlagsFromImageUsageFlags(info.usage.value, asset::isDepthOrStencilFormat(info.format)),
+        .flags = static_cast<VkImageCreateFlags>(info.flags.value),
+    };
+
+    VkExternalImageFormatProperties externalProps = { 
+        .sType = VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES,
+    };
+    VkImageFormatProperties2 props = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2,
+        .pNext = &externalProps,
+    };
+    
+    auto re = vkGetPhysicalDeviceImageFormatProperties2(m_vkPhysicalDevice, &formatInfo, &props);
+    assert(VK_SUCCESS == re);
+
+    const auto& externalMemProps = externalProps.externalMemoryProperties;
+    return {
+        .formatProperties = {
+            .maxExtent = props.imageFormatProperties.maxExtent,
+            .maxMipLevels = props.imageFormatProperties.maxMipLevels,
+            .maxArrayLayers = props.imageFormatProperties.maxArrayLayers,
+            .sampleCounts = static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(props.imageFormatProperties.sampleCounts),
+            .maxResourceSize = props.imageFormatProperties.maxResourceSize,
+        },
+        .externalMemoryProperties = {
+            .exportableTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.exportFromImportedHandleTypes),
+            .compatibleTypes = static_cast<IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE>(externalMemProps.compatibleHandleTypes),
+            .features = static_cast<E_EXTERNAL_MEMORY_FEATURE_FLAGS>(externalMemProps.externalMemoryFeatures),
+        } 
+    };
+}
 
 core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params)
 {
@@ -1587,6 +1698,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 
         VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR pipelineExecutablePropertiesFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.pipelineExecutableInfo,VK_KHR_PIPELINE_EXECUTABLE_PROPERTIES_EXTENSION_NAME,&pipelineExecutablePropertiesFeatures);
+
+        VkPhysicalDeviceHostImageCopyFeaturesEXT hostImageCopyFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT,nullptr };
+        REQUIRE_EXTENSION_IF(limits.hostImageCopy,VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME,&hostImageCopyFeatures);
 
         VkPhysicalDeviceDeviceGeneratedCommandsFeaturesNV deviceGeneratedCommandsFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_FEATURES_NV,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.deviceGeneratedCommands,VK_NV_DEVICE_GENERATED_COMMANDS_EXTENSION_NAME,&deviceGeneratedCommandsFeatures);
@@ -1874,6 +1988,8 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         indexTypeUint8Features.indexTypeUint8 = enabledFeatures.indexTypeUint8;
 
         pipelineExecutablePropertiesFeatures.pipelineExecutableInfo = enabledFeatures.pipelineExecutableInfo;
+
+        hostImageCopyFeatures.hostImageCopy = limits.hostImageCopy;
 
         deviceGeneratedCommandsFeatures.deviceGeneratedCommands = enabledFeatures.deviceGeneratedCommands;
 

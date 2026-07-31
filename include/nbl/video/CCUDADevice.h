@@ -4,29 +4,33 @@
 #ifndef _NBL_VIDEO_C_CUDA_DEVICE_H_
 #define _NBL_VIDEO_C_CUDA_DEVICE_H_
 
+#include "nbl/video/declarations.h"
+#include "nbl/video/CUDAInteropHandles.h"
+#include "nbl/video/CCUDAExportableMemory.h"
+#include "nbl/video/CCUDAImportedMemory.h"
+#include "nbl/video/CCUDAImportedSemaphore.h"
 
-#include "nbl/video/IPhysicalDevice.h"
+#include <array>
+#include <memory>
+#include <vector>
 
-
-#ifdef _NBL_COMPILE_WITH_CUDA_
-
-#include "cuda.h"
-#include "nvrtc.h"
-#if CUDA_VERSION < 9000
-	#error "Need CUDA 9.0 SDK or higher."
-#endif
-
-// useful includes in the future
-//#include "cudaEGL.h"
-//#include "cudaVDPAU.h"
+#include "CCUDAHandler.h"
 
 namespace nbl::video
 {
 class CCUDAHandler;
 
-class CCUDADevice : public core::IReferenceCounted
+class NBL_API2 CCUDADevice : public core::IReferenceCounted
 {
-    public:
+	public:
+#ifdef _WIN32
+		static constexpr IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE ExternalMemoryHandleType = IDeviceMemoryAllocation::EHT_OPAQUE_WIN32;
+		static constexpr ISemaphore::E_EXTERNAL_HANDLE_TYPE ExternalSemaphoreHandleType = ISemaphore::EHT_OPAQUE_WIN32;
+#else
+		static constexpr IDeviceMemoryAllocation::E_EXTERNAL_HANDLE_TYPE ExternalMemoryHandleType = IDeviceMemoryAllocation::EHT_OPAQUE_FD;
+		static constexpr ISemaphore::E_EXTERNAL_HANDLE_TYPE ExternalSemaphoreHandleType = ISemaphore::EHT_OPAQUE_FD;
+#endif
+
 		enum E_VIRTUAL_ARCHITECTURE
 		{
 			EVA_30,
@@ -43,156 +47,93 @@ class CCUDADevice : public core::IReferenceCounted
 			EVA_72,
 			EVA_75,
 			EVA_80,
+			EVA_86,
+			EVA_87,
+			EVA_88,
+			EVA_89,
+			EVA_90,
+			EVA_90A,
+			EVA_100,
+			EVA_100A,
+			EVA_100F,
+			EVA_103,
+			EVA_103A,
+			EVA_103F,
+			EVA_110,
+			EVA_110A,
+			EVA_110F,
+			EVA_120,
+			EVA_120A,
+			EVA_120F,
+			EVA_121,
+			EVA_121A,
+			EVA_121F,
 			EVA_COUNT
 		};
-		static inline constexpr const char* virtualArchCompileOption[] = {
-			"-arch=compute_30",
-			"-arch=compute_32",
-			"-arch=compute_35",
-			"-arch=compute_37",
-			"-arch=compute_50",
-			"-arch=compute_52",
-			"-arch=compute_53",
-			"-arch=compute_60",
-			"-arch=compute_61",
-			"-arch=compute_62",
-			"-arch=compute_70",
-			"-arch=compute_72",
-			"-arch=compute_75",
-			"-arch=compute_80"
-		};
-		inline E_VIRTUAL_ARCHITECTURE getVirtualArchitecture() {return m_virtualArchitecture;}
+		E_VIRTUAL_ARCHITECTURE getVirtualArchitecture() const;
 
-		inline core::SRange<const char* const> geDefaultCompileOptions() const
+
+		core::SRange<const char* const> geDefaultCompileOptions() const;
+
+		const CCUDAHandler* getHandler() const;
+		cuda_interop::SCUdevice getInternalObject() const;
+		cuda_interop::SCUcontext getContext() const;
+
+		struct SExportableMemoryCreationParams
 		{
-			return {m_defaultCompileOptions.data(),m_defaultCompileOptions.data()+m_defaultCompileOptions.size()};
-		}
-
-		// TODO/REDO Vulkan: https://docs.nvidia.com/cuda/cuda-driver-api/group__CUDA__EXTRES__INTEROP.html
-		// https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#vulkan-interoperability
-		// Watch out, use Driver API (`cu` functions) NOT the Runtime API (`cuda` functions)
-		// Also maybe separate this out into its own `CCUDA` class instead of nesting it here?
-#if 0
-		template<typename ObjType>
-		struct GraphicsAPIObjLink
-		{
-				GraphicsAPIObjLink() : obj(nullptr), cudaHandle(nullptr), acquired(false)
-				{
-					asImage = {nullptr};
-				}
-				GraphicsAPIObjLink(core::smart_refctd_ptr<ObjType>&& _obj) : GraphicsAPIObjLink()
-				{
-					obj = std::move(_obj);
-				}
-				GraphicsAPIObjLink(GraphicsAPIObjLink&& other) : GraphicsAPIObjLink()
-				{
-					operator=(std::move(other));
-				}
-
-				GraphicsAPIObjLink(const GraphicsAPIObjLink& other) = delete;
-				GraphicsAPIObjLink& operator=(const GraphicsAPIObjLink& other) = delete;
-				GraphicsAPIObjLink& operator=(GraphicsAPIObjLink&& other)
-				{
-					std::swap(obj,other.obj);
-					std::swap(cudaHandle,other.cudaHandle);
-					std::swap(acquired,other.acquired);
-					std::swap(asImage,other.asImage);
-					return *this;
-				}
-
-				~GraphicsAPIObjLink()
-				{
-					assert(!acquired); // you've fucked up, there's no way for us to fix it, you need to release the objects on a proper stream
-					if (obj)
-						CCUDAHandler::cuda.pcuGraphicsUnregisterResource(cudaHandle);
-				}
-
-				//
-				auto* getObject() const {return obj.get();}
-
-			private:
-				core::smart_refctd_ptr<ObjType> obj;
-				CUgraphicsResource cudaHandle;
-				bool acquired;
-
-				friend class CCUDAHandler;
-			public:
-				union
-				{
-					struct
-					{
-						CUdeviceptr pointer;
-					} asBuffer;
-					struct
-					{
-						CUmipmappedArray mipmappedArray;
-						CUarray array;
-					} asImage;
-				};
+			size_t size;
+			uint32_t alignment;
+			uint32_t locationType;
 		};
 
-		//
-		static CUresult registerBuffer(GraphicsAPIObjLink<video::IGPUBuffer>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
-		static CUresult registerImage(GraphicsAPIObjLink<video::IGPUImage>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
-		
-
-		template<typename ObjType>
-		static CUresult acquireResourcesFromGraphics(void* tmpStorage, GraphicsAPIObjLink<ObjType>* linksBegin, GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
+		inline size_t roundToGranularity(uint32_t locationType, size_t size) const
 		{
-			auto count = std::distance(linksBegin,linksEnd);
-
-			auto resources = reinterpret_cast<CUgraphicsResource*>(tmpStorage);
-			auto rit = resources;
-			for (auto iit=linksBegin; iit!=linksEnd; iit++,rit++)
-			{
-				if (iit->acquired)
-					return CUDA_ERROR_UNKNOWN;
-				*rit = iit->cudaHandle;
-			}
-
-			auto retval = cuda.pcuGraphicsMapResources(count,resources,stream);
-			for (auto iit=linksBegin; iit!=linksEnd; iit++)
-				iit->acquired = true;
-			return retval;
-		}
-		template<typename ObjType>
-		static CUresult releaseResourcesToGraphics(void* tmpStorage, GraphicsAPIObjLink<ObjType>* linksBegin, GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
-		{
-			auto count = std::distance(linksBegin,linksEnd);
-
-			auto resources = reinterpret_cast<CUgraphicsResource*>(tmpStorage);
-			auto rit = resources;
-			for (auto iit=linksBegin; iit!=linksEnd; iit++,rit++)
-			{
-				if (!iit->acquired)
-					return CUDA_ERROR_UNKNOWN;
-				*rit = iit->cudaHandle;
-			}
-
-			auto retval = cuda.pcuGraphicsUnmapResources(count,resources,stream);
-			for (auto iit=linksBegin; iit!=linksEnd; iit++)
-				iit->acquired = false;
-			return retval;
+			if (locationType>=m_allocationGranularity.size())
+				return 0u;
+			const auto granularity = m_allocationGranularity[locationType];
+			if (size==0u || granularity==0u)
+				return 0u;
+			return ((size - 1) / granularity + 1) * granularity;
 		}
 
-		static CUresult acquireAndGetPointers(GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes = nullptr);
-		static CUresult acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, CUstream stream);
-		static CUresult acquireAndGetArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream);
-#endif
+		core::smart_refctd_ptr<CCUDAExportableMemory> createExportableMemory(SExportableMemoryCreationParams&& params);
+		core::smart_refctd_ptr<CCUDAImportedMemory> importExternalMemory(core::smart_refctd_ptr<IDeviceMemoryAllocation>&& memoryAllocation);
 
-	protected:
+		core::smart_refctd_ptr<CCUDAImportedSemaphore> importExternalSemaphore(core::smart_refctd_ptr<ISemaphore>&& sem);
+
+	private:
 		friend class CCUDAHandler;
-		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& _vulkanConnection, IPhysicalDevice* const _vulkanDevice, const E_VIRTUAL_ARCHITECTURE _virtualArchitecture);
-		~CCUDADevice() = default;
-		
+
+		static constexpr uint32_t AllocationGranularityLocationTypeCount = 5u;
+		struct SNativeState;
+		CCUDADevice(core::smart_refctd_ptr<CVulkanConnection>&& vulkanConnection, IPhysicalDevice* const vulkanDevice, const E_VIRTUAL_ARCHITECTURE virtualArchitecture, std::unique_ptr<SNativeState>&& nativeState, core::smart_refctd_ptr<CCUDAHandler>&& handler);
+		~CCUDADevice() override;
+		bool isValid() const;
+
+		template<typename... Args>
+		inline void logFail(const char* msg, Args&&... args)
+		{
+			m_logger.log(msg,system::ILogger::ELL_ERROR,std::forward<Args>(args)...);
+		}
+
+		template<typename... Args>
+		inline bool handleCudaCall(cuda_interop::SCUresult result, const char* failMessage) const
+		{
+			return m_handler->defaultHandleResult(result, failMessage);
+		}
+
+		const system::logger_opt_ptr m_logger;
 		std::vector<const char*> m_defaultCompileOptions;
 		core::smart_refctd_ptr<CVulkanConnection> m_vulkanConnection;
-		IPhysicalDevice* const m_vulkanDevice;
+		IPhysicalDevice* const m_physicalDevice;
+		std::array<size_t,AllocationGranularityLocationTypeCount> m_allocationGranularity = {};
 		E_VIRTUAL_ARCHITECTURE m_virtualArchitecture;
+		bool m_valid = false;
+
+		core::smart_refctd_ptr<CCUDAHandler> m_handler;
+		std::unique_ptr<SNativeState> m_native;
 };
 
 }
-
-#endif // _NBL_COMPILE_WITH_CUDA_
 
 #endif

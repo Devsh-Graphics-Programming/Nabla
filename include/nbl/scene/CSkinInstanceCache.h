@@ -35,7 +35,7 @@ class CSkinInstanceCache final : public ISkinInstanceCache
                     auto buffer = params.device->createBuffer(std::move(creationParams));	
                     auto mreqs = buffer->getMemoryReqs();
                     mreqs.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-                    auto gpubufMem = params.device->allocate(mreqs, buffer.get());
+                    auto gpubufMem = params.device->allocate(mreqs, { buffer.get() });
                     return buffer;
                 };
 
