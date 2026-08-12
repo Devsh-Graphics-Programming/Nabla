@@ -80,6 +80,53 @@ struct fast_acos_stegun_poly5
 	}
 };
 
+template<typename T, int order=2>
+T fast_acos_csc(const T arg)
+{
+    const T u = hlsl::log2(_static_cast<T>(1)+arg);
+    T poly;
+    // See https://www.desmos.com/calculator/sdptomhbju
+    if (order==1)
+        poly = (_static_cast<T>(1)-u)*_static_cast<T>(0.627);
+    else if (order==2)
+    {
+        const T a = -0.6509;
+        const T b = -0.6369;
+        const T c = -0.0134;
+        poly = hlsl::fma(u, hlsl::fma(u, a, b), c);
+
+    }
+    else if (order==3)
+    {
+        const T a = 0.6494;
+        const T b = -0.6310;
+        const T c = -0.0123;
+        const T d = -0.0004;
+        poly = hlsl::fma(u, hlsl::fma(u, hlsl::fma(u, d, c), b), a);
+    }
+    return hlsl::exp2<T>(poly);
+}
+
+template <typename T>
+T fast_acos_csc(const T arg, bool overestimate)
+{
+    T u = log2(1.0 + arg);
+
+    T a_under = 0.6505590683f;
+    T b_under = -0.6369475329f;
+    T c_under = -0.0136113553f;
+
+    T a_over = 0.6546594925f;
+    T b_over = -0.6269055372f;
+    T c_over = -0.0067733255f;
+
+    T a = hlsl::spirv::select(overestimate, a_over, a_under);
+    T b = hlsl::spirv::select(overestimate, b_over, b_under);
+    T c = hlsl::spirv::select(overestimate, c_over, c_under);
+    T poly = hlsl::fma(u, hlsl::fma(u, c, b), a);
+    return hlsl::exp2<T>(poly);
+}
+
 }
 }
 }
