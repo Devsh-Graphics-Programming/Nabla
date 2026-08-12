@@ -120,9 +120,9 @@ T fast_acos_csc(const T arg, bool overestimate)
     T b_over = -0.6269055372f;
     T c_over = -0.0067733255f;
 
-    T a = hlsl::spirv::select(overestimate, a_over, a_under);
-    T b = hlsl::spirv::select(overestimate, b_over, b_under);
-    T c = hlsl::spirv::select(overestimate, c_over, c_under);
+    T a = hlsl::select(overestimate, a_over, a_under);
+    T b = hlsl::select(overestimate, b_over, b_under);
+    T c = hlsl::select(overestimate, c_over, c_under);
     T poly = hlsl::fma(u, hlsl::fma(u, c, b), a);
     return hlsl::exp2<T>(poly);
 }
