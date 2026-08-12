@@ -110,7 +110,7 @@ struct fast_acos_csc
   }
 };
 
-template <typename T NBL_STRUCT_CONSTRAINABLE, int order>
+template <typename T NBL_STRUCT_CONSTRAINABLE>
 struct fast_acos_csc_directed
 {
   static T __call(const T val, bool overestimate)
@@ -132,6 +132,7 @@ struct fast_acos_csc_directed
     return hlsl::exp2<T>(poly);
   }
 };
+
 
 }
 }
