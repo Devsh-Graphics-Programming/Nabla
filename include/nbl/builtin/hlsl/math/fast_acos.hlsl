@@ -80,20 +80,22 @@ struct fast_acos_stegun_poly5
 	}
 };
 
-template<typename T, int order=2>
-T fast_acos_csc(const T arg)
+template <typename T NBL_STRUCT_CONSTRAINABLE, int order>
+struct fast_acos_csc
 {
-    const T u = hlsl::log2(_static_cast<T>(1)+arg);
+  static T __call(const T val)
+  {
+    const T u = hlsl::log2(_static_cast<T>(1)+val);
     T poly;
     // See https://www.desmos.com/calculator/sdptomhbju
     if (order==1)
         poly = (_static_cast<T>(1)-u)*_static_cast<T>(0.627);
     else if (order==2)
     {
-        const T a = -0.6509;
+        const T a = 0.6509;
         const T b = -0.6369;
         const T c = -0.0134;
-        poly = hlsl::fma(u, hlsl::fma(u, a, b), c);
+        poly = hlsl::fma(u, hlsl::fma(u, c, b), a);
 
     }
     else if (order==3)
@@ -105,12 +107,15 @@ T fast_acos_csc(const T arg)
         poly = hlsl::fma(u, hlsl::fma(u, hlsl::fma(u, d, c), b), a);
     }
     return hlsl::exp2<T>(poly);
-}
+  }
+};
 
-template <typename T>
-T fast_acos_csc(const T arg, bool overestimate)
+template <typename T NBL_STRUCT_CONSTRAINABLE, int order>
+struct fast_acos_csc_directed
 {
-    T u = log2(1.0 + arg);
+  static T __call(const T val, bool overestimate)
+  {
+    T u = log2(1.0 + val);
 
     T a_under = 0.6505590683f;
     T b_under = -0.6369475329f;
@@ -125,7 +130,8 @@ T fast_acos_csc(const T arg, bool overestimate)
     T c = hlsl::select(overestimate, c_over, c_under);
     T poly = hlsl::fma(u, hlsl::fma(u, c, b), a);
     return hlsl::exp2<T>(poly);
-}
+  }
+};
 
 }
 }
