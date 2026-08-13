@@ -80,7 +80,7 @@ struct fast_acos_stegun_poly5
 	}
 };
 
-template <typename T NBL_STRUCT_CONSTRAINABLE, int order>
+template <typename T , int order NBL_STRUCT_CONSTRAINABLE>
 struct fast_acos_csc
 {
   static T __call(const T val)
