@@ -1,7 +1,8 @@
 #ifndef _NBL_BUILTIN_HLSL_EXT_CURVES_CURVES_INCLUDED_
 #define _NBL_BUILTIN_HLSL_EXT_CURVES_CURVES_INCLUDED_
 
-#ifdef USE_NABLA
+// TODO: make this file HLSL compatible
+#ifndef __HLSL_VERSION
 
 #include <nbl/builtin/hlsl/shapes/beziers.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
@@ -30,26 +31,37 @@ struct ParametricCurve
 {
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 
+	//! compute position at t
+	virtual float_t2 computePosition(float_t t) const = 0;
+
+	//! compute unnormalized tangent vector at t
+	virtual float_t2 computeTangent(float_t t) const = 0;
+
+	//! compute differential arc length at t
+	virtual float_t differentialArcLen(float_t t) const
+	{
+		return nbl::hlsl::length(computeTangent(t));
+	}
+
 	struct ArcLenIntegrand
 	{
-		// TODO: maybe there is a better solution
-		ParametricCurve curve;
+		const ParametricCurve* m_curve;
 
-		inline float_t operator()(const float_t t)
+		ArcLenIntegrand(const ParametricCurve* curve)
+			: m_curve(curve)
+		{}
+
+		inline float_t operator()(const float_t t) const
 		{
-			return curve.differentialArcLen(t);
+			return m_curve->differentialArcLen(t);
 		}
 	};
 
 	//! compute arc length by gauss legendere integration
-	float_t arcLen(float_t t0, float_t t1)
+	float_t arcLen(float_t t0, float_t t1) const
 	{
-		const uint16_t IntegrationOrder = 10u;
-
-		// TODO: maybe there is a better solution
-		ArcLenIntegrand arcLenIntegrand;
-		//arcLenIntegrand.curve = *this; // TODO: copy this
-		return nbl::hlsl::math::quadrature::GaussLegendreIntegration<IntegrationOrder, float_t, ArcLenIntegrand>::calculateIntegral(arcLenIntegrand, t0, t1);
+		constexpr uint16_t IntegrationOrder = 10u;
+		return nbl::hlsl::math::quadrature::GaussLegendreIntegration<IntegrationOrder, float_t, ArcLenIntegrand>::calculateIntegral(ArcLenIntegrand(this), t0, t1);
 	}
 
 	//! compute inverse arc len using bisection search
@@ -87,15 +99,12 @@ struct ParametricCurve
 		return inverseArcLen_BisectionSearch(targetLen, min, max, cdfAccuracyThreshold);
 	}
 
-	float_t differentialArcLen(float_t t)
-	{
-		return nbl::hlsl::length(computeTangent(t));
-	}
-    float_t2 computeSecondOrderDifferential(float_t t)
+    virtual float_t2 computeSecondOrderDifferential(float_t t) const
 	{
 		return float_t2(num_traits<float_t>::quiet_NaN(), num_traits<float_t>::quiet_NaN());
 	}
-    float_t computeInflectionPoint(float_t errorThreshold)
+
+    virtual float_t computeInflectionPoint(float_t errorThreshold) const
 	{
 		return num_traits<float_t>::quiet_NaN();
 	}
@@ -105,16 +114,15 @@ struct ParametricCurve
 
 // TODO: make an `ExplicitCurve` concept, it should require for a type to define `y` and `derivative`
 
-// TODO: rationale this decision
 // It's when t = x in a Parametric Curve
 #define DEFINE_EXPLICIT_CURVE_FUNCTIONS \
-float_t differentialArcLen(float_t x) \
+float_t differentialArcLen(float_t x) const override\
 { \
 	float_t deriv = derivative(x); \
 	return sqrt(1.0 + deriv * deriv); \
 } \
  \
-nbl::hlsl::portable_vector_t2<float_t> computeTangent(float_t x) \
+nbl::hlsl::portable_vector_t2<float_t> computeTangent(float_t x) const override\
 { \
 	const float_t deriv = derivative(x); \
 	nbl::hlsl::portable_vector_t2<float_t> v = nbl::hlsl::portable_vector_t2<float_t>(1.0, deriv); \
@@ -123,11 +131,11 @@ nbl::hlsl::portable_vector_t2<float_t> computeTangent(float_t x) \
 	return v; \
 } \
  \
-inline nbl::hlsl::portable_vector_t2<float_t> computePosition(float_t x) { return nbl::hlsl::portable_vector_t2<float_t>(x, y(x)); }
+inline nbl::hlsl::portable_vector_t2<float_t> computePosition(float_t x) const override { return nbl::hlsl::portable_vector_t2<float_t>(x, y(x)); }
 
 
 template<typename float_t>
-struct Parabola : ParametricCurve<float_t>
+struct Parabola : impl::ParametricCurve<float_t>
 {
 	DEFINE_EXPLICIT_CURVE_FUNCTIONS
 
@@ -156,19 +164,19 @@ struct Parabola : ParametricCurve<float_t>
 		return Parabola(M[0], M[1], M[2]);
 	}
 
-	float_t y(float_t x)
+	float_t y(float_t x) const
 	{
 		return ((a * x) + b) * x + c;
 	}
 
-	float_t derivative(float_t x)
+	float_t derivative(float_t x) const
 	{
 		return 2.0 * a * x + b;
 	}
 };
 
 template<typename float_t>
-struct CubicCurve : ParametricCurve<float_t>
+struct CubicCurve : impl::ParametricCurve<float_t>
 {
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 	using float_t4 = nbl::hlsl::portable_vector_t4<float_t>;
@@ -185,7 +193,7 @@ struct CubicCurve : ParametricCurve<float_t>
 		return output;
 	}
 
-	float_t2 computePosition(float_t t)
+	float_t2 computePosition(float_t t) const override
 	{
 		return float_t2(
 			((X[0] * t + X[1]) * t + X[2]) * t + X[3],
@@ -194,7 +202,7 @@ struct CubicCurve : ParametricCurve<float_t>
 	}
 
 	//! compute unnormalized tangent vector at t
-	float_t2 computeTangent(float_t t)
+	float_t2 computeTangent(float_t t) const override
 	{
 		return float_t2(
 			(3.0 * X[0] * t + 2.0 * X[1]) * t + X[2],
@@ -203,7 +211,7 @@ struct CubicCurve : ParametricCurve<float_t>
 	}
 
 	//! compute second order differential at t
-	float_t2 computeSecondOrderDifferential(float_t t)
+	float_t2 computeSecondOrderDifferential(float_t t) const override
 	{
 		return float_t2(
 			6.0 * X[0] * t + 2.0 * X[1],
@@ -211,12 +219,12 @@ struct CubicCurve : ParametricCurve<float_t>
 		);
 	}
 
-	float_t differentialArcLen(float_t t)
+	float_t differentialArcLen(float_t t) const override
 	{
 		return nbl::hlsl::length(computeTangent(t));
 	}
 
-	float_t computeInflectionPoint(float_t errorThreshold)
+	float_t computeInflectionPoint(float_t errorThreshold) const override
 	{
 		// solve for signed curvature root 
 		// when x'*y''-x''*y' = 0
@@ -238,7 +246,7 @@ struct CubicCurve : ParametricCurve<float_t>
 // specialized circular arc for the purpose of mixing it with another curve of the same type later
 // (r*cos(t*sweep+start), r*sin(t*sweep+start) + originY)
 template<typename float_t>
-struct CircularArc : ParametricCurve<float_t>
+struct CircularArc : impl::ParametricCurve<float_t>
 {
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 
@@ -284,7 +292,7 @@ struct CircularArc : ParametricCurve<float_t>
 	    return output;
 	}
 
-	float_t2 computePosition(float_t t)
+	float_t2 computePosition(float_t t) const override
 	{
 		const float_t actualT = t * sweepAngle + startAngle;
 		return float_t2(
@@ -294,7 +302,7 @@ struct CircularArc : ParametricCurve<float_t>
 	}
 
 	//! compute unnormalized tangent vector at t
-	float_t2 computeTangent(float_t t)
+	float_t2 computeTangent(float_t t) const override
 	{
 		const float_t actualT = t * sweepAngle + startAngle;
 		return float_t2(
@@ -303,7 +311,7 @@ struct CircularArc : ParametricCurve<float_t>
 		);
 	}
 
-	float_t2 computeSecondOrderDifferential(float_t t)
+	float_t2 computeSecondOrderDifferential(float_t t) const override
 	{
 		const float_t actualT = t * sweepAngle + startAngle;
 		return float_t2(
@@ -320,7 +328,7 @@ struct CircularArc : ParametricCurve<float_t>
 
 // Centered at (0,0), aligned with x axis
 template<typename float_t>
-struct ExplicitEllipse : ParametricCurve<float_t>
+struct ExplicitEllipse : impl::ParametricCurve<float_t>
 {
 	DEFINE_EXPLICIT_CURVE_FUNCTIONS
 
@@ -336,12 +344,12 @@ struct ExplicitEllipse : ParametricCurve<float_t>
 	    return output;
 	}
 
-	float_t y(float_t x)
+	float_t y(float_t x) const
 	{
 		return a * sqrt(1.0 - pow((x / b), 2.0));
 	}
 
-	float_t derivative(float_t x)
+	float_t derivative(float_t x) const
 	{
 		return (-a * x) / ((b * b) * sqrt(1.0 - pow((x / b), 2.0)));
 	}
@@ -349,7 +357,7 @@ struct ExplicitEllipse : ParametricCurve<float_t>
 
 // Centered at (0,0), aligned with x 
 template<typename float_t>
-struct AxisAlignedEllipse : ParametricCurve<float_t>
+struct AxisAlignedEllipse : impl::ParametricCurve<float_t>
 {
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 
@@ -366,13 +374,13 @@ struct AxisAlignedEllipse : ParametricCurve<float_t>
 	    return output;
 	}
 
-	float_t2 computePosition(float_t t)
+	float_t2 computePosition(float_t t) const override
 	{
 		const float_t theta = start + (end - start) * t;
 		return float_t2(a * cos(theta), b * sin(theta));
 	}
 
-	float_t2 computeTangent(float_t t) 
+	float_t2 computeTangent(float_t t) const override
 	{
 		const float_t theta = start + (end - start) * t;
 		const float_t dThetaDt = end - start;
@@ -403,7 +411,7 @@ struct EllipticalArcInfo
 };
 
 template<typename float_t>
-struct OffsettedBezier : ParametricCurve<float_t>
+struct OffsettedBezier : impl::ParametricCurve<float_t>
 {
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 
@@ -420,7 +428,7 @@ struct OffsettedBezier : ParametricCurve<float_t>
 	    return output;
 	}
 
-	float_t2 computePosition(float_t t)
+	float_t2 computePosition(float_t t) const override
 	{
 		const float_t2 deriv = quadratic.derivative(t);
 		const float_t2 normal = normalize(float_t2(deriv.y, -deriv.x));
@@ -428,7 +436,7 @@ struct OffsettedBezier : ParametricCurve<float_t>
 	}
 
 	//! compute unnormalized tangent vector at t
-	float_t2 computeTangent(float_t t)
+	float_t2 computeTangent(float_t t) const override
 	{
 		const float_t2 ddt = quadratic.derivative(t);
 		const float_t2 d2dt2 = quadratic.secondDerivative(t);
@@ -477,20 +485,21 @@ NBL_CONCEPT_END(
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 template<typename float_t>
-struct QuadraticBezierFitter
+class QuadraticBezierFitter final
 {
+public:
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 	using float_t3 = nbl::hlsl::portable_vector_t3<float_t>;
 	using float_t4 = nbl::hlsl::portable_vector_t4<float_t>;
 	using float_t2x2 = nbl::hlsl::portable_matrix_t2x2<float_t>;
 
+	typedef std::function<void(nbl::hlsl::shapes::QuadraticBezier<float_t>&&)> AddBezierFunc;
+
 	//! this subdivision algorithm works/converges for any x-monotonic curve (only 1 y for each x) over the [min, max] range and will continue until hits the `maxDepth` or `targetMaxError` threshold
 	//! this function will call the AddBezierFunc when the bezier is finalized, whether to render it directly, write it to file, add it to a vector, etc.. is up to the user.
 	//! the subdivision samples the points based on arc length and the error is computed by distance in y direction, so pre and post transform may be needed for your curve and the outputted beziers
 	//! it will first split at inflection point of the curve; curves are assumed to have at most 1 inflection point, and will get the best convergence rates. but it will work for curves with more inflection points as well.
-	// TODO [Przemek]: add constraints on the `AddBezierFunc` type
-	template<typename AddBezierFunc>
-	static void adaptive(NBL_CONST_REF_ARG(ParametricCurve<float_t>) curve, float_t min, float_t max, float_t targetMaxError, NBL_REF_ARG(AddBezierFunc) addBezierFunc, uint32_t maxDepth = 12)
+	static void adaptive(const impl::ParametricCurve<float_t>& curve, float_t min, float_t max, float_t targetMaxError, AddBezierFunc& addBezierFunc, uint32_t maxDepth = 12)
 	{
 		// The curves we're working with will have at most 1 inflection point.
 		const float_t inflectX = curve.computeInflectionPoint(targetMaxError); // if no inflection point then this will return NaN and the adaptive subdivision will continue as normal (from min to max)
@@ -503,9 +512,7 @@ struct QuadraticBezierFitter
 			adaptive_impl(curve, min, max, targetMaxError, addBezierFunc, maxDepth);
 	}
 
-	// TODO [Przemek]: add constraints on the `AddBezierFunc` type
-	template<typename AddBezierFunc>
-	static void adaptive(NBL_CONST_REF_ARG(EllipticalArcInfo<float_t>) ellipse, float_t targetMaxError, NBL_REF_ARG(AddBezierFunc) addBezierFunc, uint32_t maxDepth = 12)
+	static void adaptive(const EllipticalArcInfo<float_t>& ellipse, float_t targetMaxError, AddBezierFunc& addBezierFunc, uint32_t maxDepth = 12)
 	{
 		using namespace nbl::hlsl;
 
@@ -542,8 +549,6 @@ struct QuadraticBezierFitter
 		}
 	}
 		
-	// TODO [Przemek]: add constraints on the `AddBezierFunc` type
-	template<typename AddBezierFunc>
 	static void adaptive(const OffsettedBezier<float_t>& curve, float_t targetMaxError, AddBezierFunc& addBezierFunc, uint32_t maxDepth = 12)
 	{
 		const float_t2 cusps = curve.findCusps();
@@ -568,7 +573,7 @@ struct QuadraticBezierFitter
 		}
 	}
 
-
+private:
 	// Fix Bezier Hack for when P1 is "outside" P0 -> P2
 	// We project P1 into P0->P2 line and see whether it lies inside.
 	// Because our curves shouldn't go back on themselves in the direction of the chord
@@ -584,8 +589,7 @@ struct QuadraticBezierFitter
 		}
 	}
 
-	template<typename AddBezierFunc>
-	static void adaptive_impl(const ParametricCurve<float_t>& curve, float_t min, float_t max, float_t targetMaxError, AddBezierFunc& addBezierFunc, uint32_t depth)
+	static void adaptive_impl(const impl::ParametricCurve<float_t>& curve, float_t min, float_t max, float_t targetMaxError, AddBezierFunc& addBezierFunc, uint32_t depth)
 	{
 		if (min == max)
 			return;
@@ -671,52 +675,46 @@ namespace curves
 {
 // Mixes/Interpolation of two Parametric Curves t from 0 to 1
 template<typename float_t>
-struct MixedParametricCurves : nbl::ext::curves::ParametricCurve<float_t>
+struct MixedParametricCurves : nbl::hlsl::ext::curves::impl::ParametricCurve<float_t>
 {
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 	using float_t3 = nbl::hlsl::portable_vector_t3<float_t>;
 	using float_t4 = nbl::hlsl::portable_vector_t4<float_t>;
 	using float_t2x2 = nbl::hlsl::portable_matrix_t2x2<float_t>;
 
-	using ParametricCurve = nbl::ext::curves::ParametricCurve<float_t>;
+	using ParametricCurve = nbl::hlsl::ext::curves::impl::ParametricCurve<float_t>;
 
-	// TODO: rememeber these used to be pointers
-	ParametricCurve curve1;
-	ParametricCurve curve2;
+	const ParametricCurve* curve1;
+	const ParametricCurve* curve2;
 
-	static MixedParametricCurves create(NBL_CONST_REF_ARG(ParametricCurve) curve1, NBL_CONST_REF_ARG(ParametricCurve) curve2)
+	MixedParametricCurves(const ParametricCurve* curve1, const ParametricCurve* curve2)
+		: curve1(curve1), curve2(curve2)
+	{}
+
+	float_t2 computePosition(float_t t) const override
 	{
-	    MixedParametricCurves output;
-	    output.curve1 = curve1;
-	    output.curve2 = curve2;
-
-	    return output;
-	}
-
-	float_t2 computePosition(float_t t) 
-	{
-		const float_t2 curve1Pos = curve1.computePosition(t);
-		const float_t2 curve2Pos = curve2.computePosition(t);
+		const float_t2 curve1Pos = curve1->computePosition(t);
+		const float_t2 curve2Pos = curve2->computePosition(t);
 		return t * (curve2Pos - curve1Pos) + curve1Pos;
 	}
 
 	//! compute unnormalized tangent vector at t
-	float_t2 computeTangent(float_t t) 
+	float_t2 computeTangent(float_t t) const override
 	{
-		const float_t2 curve1Pos = curve1.computePosition(t);
-		const float_t2 curve2Pos = curve2.computePosition(t);
-		const float_t2 curve1Tan = curve1.computeTangent(t);
-		const float_t2 curve2Tan = curve2.computeTangent(t);
+		const float_t2 curve1Pos = curve1->computePosition(t);
+		const float_t2 curve2Pos = curve2->computePosition(t);
+		const float_t2 curve1Tan = curve1->computeTangent(t);
+		const float_t2 curve2Tan = curve2->computeTangent(t);
 		return (1 - t) * curve1Tan - curve1Pos + (t)*curve2Tan + curve2Pos;
 	}
 
 	//! compute second order differential at t
-	float_t2 computeSecondOrderDifferential(float_t t) 
+	float_t2 computeSecondOrderDifferential(float_t t) const override
 	{
-		const float_t2 curve1Tan = curve1.computeTangent(t);
-		const float_t2 curve2Tan = curve2.computeTangent(t);
-		const float_t2 curve1SecondDiff = curve1.computeSecondOrderDifferential(t);
-		const float_t2 curve2SecondDiff = curve2.computeSecondOrderDifferential(t);
+		const float_t2 curve1Tan = curve1->computeTangent(t);
+		const float_t2 curve2Tan = curve2->computeTangent(t);
+		const float_t2 curve1SecondDiff = curve1->computeSecondOrderDifferential(t);
+		const float_t2 curve2SecondDiff = curve2->computeSecondOrderDifferential(t);
 		return (1 - t) * curve1SecondDiff + 2.0 * (curve2Tan - curve1Tan) + t * curve2SecondDiff;
 	}
 
@@ -727,7 +725,7 @@ struct MixedParametricCurves : nbl::ext::curves::ParametricCurve<float_t>
 		return float_t(first.x * second.y - second.x * first.y);
 	};
 
-	float_t computeInflectionPoint(float_t errorThreshold) 
+	float_t computeInflectionPoint(float_t errorThreshold) const override
 	{
 		const uint16_t MaxIterations = 32u;
 		float_t low = 0.0;
@@ -769,7 +767,7 @@ struct MixedParametricCurves : nbl::ext::curves::ParametricCurve<float_t>
 
 // Mix between two parabolas from 0 to len
 template<typename float_t>
-struct MixedParabola : nbl::ext::hlsl::curves::ExplicitCurve<float_t>
+struct MixedParabola : nbl::hlsl::ext::curves::impl::ParametricCurve<float_t>
 {
 	DEFINE_EXPLICIT_CURVE_FUNCTIONS
 
@@ -780,7 +778,7 @@ struct MixedParabola : nbl::ext::hlsl::curves::ExplicitCurve<float_t>
 
 	float_t a, b, c, d;
 
-	static MixedParabola create(NBL_CONST_REF_ARG(nbl::ext::hlsl::curves::Parabola<float_t>) parabola1, NBL_CONST_REF_ARG(nbl::ext::hlsl::curves::Parabola<float_t>) parabola2, float_t chordLen)
+	static MixedParabola create(NBL_CONST_REF_ARG(nbl::hlsl::ext::curves::Parabola<float_t>) parabola1, NBL_CONST_REF_ARG(nbl::hlsl::ext::curves::Parabola<float_t>) parabola2, float_t chordLen)
 	{
     	MixedParabola output;
     	output.a = (parabola2.a - parabola1.a) / chordLen;
@@ -800,17 +798,17 @@ struct MixedParabola : nbl::ext::hlsl::curves::ExplicitCurve<float_t>
 		return MixedParabola(parabola1, parabola2, abs(P2.x - P1.x));
 	}
 
-	float_t y(float_t x) 
+	float_t y(float_t x) const
 	{
 		return (((a * x) + b) * x + c) * x + d;
 	}
 
-	float_t derivative(float_t x) 
+	float_t derivative(float_t x) const
 	{
 		return ((3.0 * a * x) + 2.0 * b) * x + c;
 	}
 
-	float_t computeInflectionPoint(float_t errorThreshold) 
+	float_t computeInflectionPoint(float_t errorThreshold) const override
 	{
 		return -b / (3.0 * a);
 	}
@@ -818,7 +816,7 @@ struct MixedParabola : nbl::ext::hlsl::curves::ExplicitCurve<float_t>
 
 // Centered at (0, 0), P1 and P2 on x axis and P1.x = -P2.x
 template<typename float_t>
-struct ExplicitMixedCircle : nbl::hlsl::ext::curves::ParametricCurve<float_t>
+struct ExplicitMixedCircle : nbl::hlsl::ext::curves::impl::ParametricCurve<float_t>
 {
 	DEFINE_EXPLICIT_CURVE_FUNCTIONS
 
@@ -866,7 +864,7 @@ struct ExplicitMixedCircle : nbl::hlsl::ext::curves::ParametricCurve<float_t>
 	//{
 	//}
 
-	float_t y(float_t x) 
+	float_t y(float_t x) const
 	{
 		// https://herbie.uwplse.org/demo/5966aab2781d6c55c07105f5b900f1506cad301e.10eb16397304ba9e003d59ffd34803200ce7cfa6/graph.html
 		const float_t s1 = -1.0 * getSign(origin1Y);
@@ -897,7 +895,7 @@ struct ExplicitMixedCircle : nbl::hlsl::ext::curves::ParametricCurve<float_t>
 		return ret;
 	}
 
-	float_t derivative(float_t x) 
+	float_t derivative(float_t x) const
 	{
 		// https://www.wolframalpha.com/input?i=derivative+%28x%2Fl%2B1%2F2%29*%28s2*sqrt%28r_2%5E2-x%5E2%29%2Borigin2Y-s1*sqrt%28r_1%5E2-x%5E2%29-origin1Y%29%2Bs1*sqrt%28r_1%5E2-x%5E2%29%2Borigin1Y
 		// https ://herbie.uwplse.org/demo/d48eba9a858160f5f8e4283f7e6211d41215d354.10eb16397304ba9e003d59ffd34803200ce7cfa6/graph.html
@@ -911,7 +909,7 @@ struct ExplicitMixedCircle : nbl::hlsl::ext::curves::ParametricCurve<float_t>
 		return ret;
 	}
 
-	float_t computeInflectionPoint(float_t errorThreshold) 
+	float_t computeInflectionPoint(float_t errorThreshold) const override
 	{
 		// bisection search to find inflection point
 		// by seeing the graph of second derivative over wide range of values we have deduced that the inflection point exists iff the secondDerivative has opposite signs at begin and end
