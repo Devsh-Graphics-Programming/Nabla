@@ -63,7 +63,7 @@ struct ParametricCurve
 	}
 
 	//! compute inverse arc len using bisection search
-	float_t inverseArcLen_BisectionSearch(float_t targetLen, float_t min, float_t max, const float_t cdfAccuracyThreshold = 1e-4, const uint16_t iterationThreshold = 16u)
+	float_t inverseArcLen_BisectionSearch(float_t targetLen, float_t min, float_t max, const float_t cdfAccuracyThreshold = 1e-4, const uint16_t iterationThreshold = 16u) const
 	{
 		float_t xi = 0.0;
 		float_t low = min;
@@ -92,7 +92,7 @@ struct ParametricCurve
 	}
 
 	//! compute inverse arc len  
-	float_t inverseArcLen(float_t targetLen, float_t min, float_t max, const float_t cdfAccuracyThreshold = 1e-4)
+	float_t inverseArcLen(float_t targetLen, float_t min, float_t max, const float_t cdfAccuracyThreshold = 1e-4) const
 	{
 		return inverseArcLen_BisectionSearch(targetLen, min, max, cdfAccuracyThreshold);
 	}
@@ -397,7 +397,7 @@ struct EllipticalArcInfo
 	float_t2 angleBounds; // [0, 2Pi)
 	float_t eccentricity; // (0, 1]
 
-	inline bool isValid()
+	inline bool isValid() const
 	{
 		if (eccentricity > 1.0 || eccentricity <= 0.0)
 			return false;
@@ -444,7 +444,7 @@ struct OffsettedBezier : ParametricCurve<float_t>
 	}
 
 	//! if offset is more than minimum radius of curvature then we get an unwanted gouging/cusp
-	float_t2 findCusps()
+	float_t2 findCusps() const
 	{
 		// we're basically solving for t in "offset = radiusOfCurvature(t)"
 		const float_t lhs = pow(offset * 2.0 * abs(quadratic.B.x * quadratic.A.y - quadratic.B.y * quadratic.A.x), 2.0 / 3.0);
@@ -516,7 +516,7 @@ public:
 
 		if (ellipse.angleBounds.x != ellipse.angleBounds.y)
 		{
-			AxisAlignedEllipse aaEllipse(lenghtMajor, lenghtMinor, ellipse.angleBounds.x, ellipse.angleBounds.y);
+			AxisAlignedEllipse<float_t> aaEllipse = AxisAlignedEllipse<float_t>::create(lenghtMajor, lenghtMinor, ellipse.angleBounds.x, ellipse.angleBounds.y);
 			adaptive(aaEllipse, 0.0, 1.0, targetMaxError, addTransformedBezier, maxDepth);
 		}
 	}
