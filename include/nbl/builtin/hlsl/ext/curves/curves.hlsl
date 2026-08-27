@@ -111,30 +111,35 @@ struct ParametricCurve
 // TODO: make an `ExplicitCurve` concept, it should require for a type to define `y` and `derivative`
 
 // It's when t = x in a Parametric Curve
-#define DEFINE_EXPLICIT_CURVE_FUNCTIONS \
-float_t differentialArcLen(float_t x) const override\
-{ \
-	float_t deriv = derivative(x); \
-	return sqrt(1.0 + deriv * deriv); \
-} \
- \
-nbl::hlsl::portable_vector_t2<float_t> computeTangent(float_t x) const override\
-{ \
-	const float_t deriv = derivative(x); \
-	nbl::hlsl::portable_vector_t2<float_t> v = nbl::hlsl::portable_vector_t2<float_t>(1.0, deriv); \
-	if (nbl::hlsl::isinf(deriv)) \
-		v = nbl::hlsl::portable_vector_t2<float_t>(0.0, 1.0); \
-	return v; \
-} \
- \
-inline nbl::hlsl::portable_vector_t2<float_t> computePosition(float_t x) const override { return nbl::hlsl::portable_vector_t2<float_t>(x, y(x)); }
+template<typename float_t>
+struct ExplicitCurve : public ParametricCurve<float_t>
+{
+	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 
+	virtual float_t y(float_t x) const = 0;
+	virtual float_t derivative(float_t x) const = 0;
+
+	float_t differentialArcLen(float_t x) const override
+	{
+		float_t deriv = derivative(x);
+		return sqrt(1.0 + deriv * deriv);
+	}
+
+	float_t2 computeTangent(float_t x) const override
+	{
+		const float_t deriv = derivative(x);
+		float_t2 v = float_t2(1.0, deriv);
+		if (std::isinf(deriv))
+			v = float_t2(0.0, 1.0);
+		return v;
+	}
+
+	inline float_t2 computePosition(float_t x) const override { return float_t2(x, y(x)); }
+};
 
 template<typename float_t>
-struct Parabola : ParametricCurve<float_t>
+struct Parabola : ExplicitCurve<float_t>
 {
-	DEFINE_EXPLICIT_CURVE_FUNCTIONS
-
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 
 	float_t a, b, c;
@@ -324,10 +329,8 @@ struct CircularArc : ParametricCurve<float_t>
 
 // Centered at (0,0), aligned with x axis
 template<typename float_t>
-struct ExplicitEllipse : ParametricCurve<float_t>
+struct ExplicitEllipse : ExplicitCurve<float_t>
 {
-	DEFINE_EXPLICIT_CURVE_FUNCTIONS
-
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 
 	float_t a, b;
@@ -631,8 +634,6 @@ private:
 } // namespace ext
 } // namespace hlsl
 } // namespace nbl
-
-#undef DEFINE_EXPLICIT_CURVE_FUNCTIONS
 
 #endif
 
