@@ -342,12 +342,12 @@ struct ExplicitEllipse : ParametricCurve<float_t>
 
 	float_t y(float_t x) const
 	{
-		return a * sqrt(float_t(1.0) - pow(float_t(x / b), float_t(2.0)));
+		return a * sqrt(static_cast<float_t>(1.0) - pow((x / b), static_cast<float_t>(2.0)));
 	}
 
 	float_t derivative(float_t x) const
 	{
-		return (-a * x) / ((b * b) * sqrt(float_t(1.0) - pow(float_t(x / b), float_t(2.0))));
+		return (-a * x) / ((b * b) * sqrt(static_cast<float_t>(1.0) - pow((x / b), static_cast<float_t>(2.0))));
 	}
 };
 
