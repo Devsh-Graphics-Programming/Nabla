@@ -23,8 +23,6 @@ namespace ext
 namespace curves
 {
 
-namespace impl
-{
 // Base class for all our curves
 template<typename float_t>
 struct ParametricCurve
@@ -101,16 +99,14 @@ struct ParametricCurve
 
     virtual float_t2 computeSecondOrderDifferential(float_t t) const
 	{
-		return float_t2(num_traits<float_t>::quiet_NaN(), num_traits<float_t>::quiet_NaN());
+		return float_t2(numeric_limits<float_t>::quiet_NaN, numeric_limits<float_t>::quiet_NaN);
 	}
 
     virtual float_t computeInflectionPoint(float_t errorThreshold) const
 	{
-		return num_traits<float_t>::quiet_NaN();
+		return numeric_limits<float_t>::quiet_NaN;
 	}
 };
-
-}
 
 // TODO: make an `ExplicitCurve` concept, it should require for a type to define `y` and `derivative`
 
@@ -135,7 +131,7 @@ inline nbl::hlsl::portable_vector_t2<float_t> computePosition(float_t x) const o
 
 
 template<typename float_t>
-struct Parabola : impl::ParametricCurve<float_t>
+struct Parabola : ParametricCurve<float_t>
 {
 	DEFINE_EXPLICIT_CURVE_FUNCTIONS
 
@@ -176,7 +172,7 @@ struct Parabola : impl::ParametricCurve<float_t>
 };
 
 template<typename float_t>
-struct CubicCurve : impl::ParametricCurve<float_t>
+struct CubicCurve : ParametricCurve<float_t>
 {
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 	using float_t4 = nbl::hlsl::portable_vector_t4<float_t>;
@@ -239,14 +235,14 @@ struct CubicCurve : impl::ParametricCurve<float_t>
 			return roots[0];
 		if (roots[1] <= 1.0 && roots[1] >= 0.0)
 			return roots[1];
-		return num_traits<float_t>::quiet_NaN;
+		return numeric_limits<float_t>::quiet_NaN;
 	}
 };
 
 // specialized circular arc for the purpose of mixing it with another curve of the same type later
 // (r*cos(t*sweep+start), r*sin(t*sweep+start) + originY)
 template<typename float_t>
-struct CircularArc : impl::ParametricCurve<float_t>
+struct CircularArc : ParametricCurve<float_t>
 {
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 
@@ -328,7 +324,7 @@ struct CircularArc : impl::ParametricCurve<float_t>
 
 // Centered at (0,0), aligned with x axis
 template<typename float_t>
-struct ExplicitEllipse : impl::ParametricCurve<float_t>
+struct ExplicitEllipse : ParametricCurve<float_t>
 {
 	DEFINE_EXPLICIT_CURVE_FUNCTIONS
 
@@ -346,18 +342,18 @@ struct ExplicitEllipse : impl::ParametricCurve<float_t>
 
 	float_t y(float_t x) const
 	{
-		return a * sqrt(1.0 - pow((x / b), 2.0));
+		return a * sqrt(float_t(1.0) - pow(float_t(x / b), float_t(2.0)));
 	}
 
 	float_t derivative(float_t x) const
 	{
-		return (-a * x) / ((b * b) * sqrt(1.0 - pow((x / b), 2.0)));
+		return (-a * x) / ((b * b) * sqrt(float_t(1.0) - pow(float_t(x / b), float_t(2.0))));
 	}
 };
 
 // Centered at (0,0), aligned with x 
 template<typename float_t>
-struct AxisAlignedEllipse : impl::ParametricCurve<float_t>
+struct AxisAlignedEllipse : ParametricCurve<float_t>
 {
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 
@@ -411,7 +407,7 @@ struct EllipticalArcInfo
 };
 
 template<typename float_t>
-struct OffsettedBezier : impl::ParametricCurve<float_t>
+struct OffsettedBezier : ParametricCurve<float_t>
 {
 	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
 
@@ -457,33 +453,6 @@ struct OffsettedBezier : impl::ParametricCurve<float_t>
 	}
 };
 
-// TODO: should it stay in this header?
-#include <nbl/builtin/hlsl/concepts.hlsl>
-// declare concept
-#define NBL_CONCEPT_NAME BezierAdder
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(int32_t)(int32_t)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(T)(Dims)(Components)
-// not the greatest syntax but works
-#define NBL_CONCEPT_PARAM_0 (a,U)
-#define NBL_CONCEPT_PARAM_1 (uv,vector<uint16_t,Dims>)
-#define NBL_CONCEPT_PARAM_2 (layer,uint16_t)
-#define NBL_CONCEPT_PARAM_3 (data,vector<T,Components>)
-// start concept
-NBL_CONCEPT_BEGIN(4)
-// need to be defined AFTER the cocnept begins
-#define a NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define uv NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define layer NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-#define data NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR)(a.template set<T,Dims>(uv,layer,data)))
-);
-#undef data
-#undef layer
-#undef uv
-#undef a
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
 template<typename float_t>
 class QuadraticBezierFitter final
 {
@@ -499,7 +468,7 @@ public:
 	//! this function will call the AddBezierFunc when the bezier is finalized, whether to render it directly, write it to file, add it to a vector, etc.. is up to the user.
 	//! the subdivision samples the points based on arc length and the error is computed by distance in y direction, so pre and post transform may be needed for your curve and the outputted beziers
 	//! it will first split at inflection point of the curve; curves are assumed to have at most 1 inflection point, and will get the best convergence rates. but it will work for curves with more inflection points as well.
-	static void adaptive(const impl::ParametricCurve<float_t>& curve, float_t min, float_t max, float_t targetMaxError, AddBezierFunc& addBezierFunc, uint32_t maxDepth = 12)
+	static void adaptive(const ParametricCurve<float_t>& curve, float_t min, float_t max, float_t targetMaxError, AddBezierFunc& addBezierFunc, uint32_t maxDepth = 12)
 	{
 		// The curves we're working with will have at most 1 inflection point.
 		const float_t inflectX = curve.computeInflectionPoint(targetMaxError); // if no inflection point then this will return NaN and the adaptive subdivision will continue as normal (from min to max)
@@ -589,7 +558,7 @@ private:
 		}
 	}
 
-	static void adaptive_impl(const impl::ParametricCurve<float_t>& curve, float_t min, float_t max, float_t targetMaxError, AddBezierFunc& addBezierFunc, uint32_t depth)
+	static void adaptive_impl(const ParametricCurve<float_t>& curve, float_t min, float_t max, float_t targetMaxError, AddBezierFunc& addBezierFunc, uint32_t depth)
 	{
 		if (min == max)
 			return;
@@ -658,304 +627,12 @@ private:
 	}
 };
 
-}
-
 } // namespace curves
 } // namespace ext
 } // namespace hlsl
 } // namespace nbl
 
-#include "Shaders/globals.hlsl"
-
-namespace en
-{
-namespace nabla2d
-{
-namespace curves
-{
-// Mixes/Interpolation of two Parametric Curves t from 0 to 1
-template<typename float_t>
-struct MixedParametricCurves : nbl::hlsl::ext::curves::impl::ParametricCurve<float_t>
-{
-	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
-	using float_t3 = nbl::hlsl::portable_vector_t3<float_t>;
-	using float_t4 = nbl::hlsl::portable_vector_t4<float_t>;
-	using float_t2x2 = nbl::hlsl::portable_matrix_t2x2<float_t>;
-
-	using ParametricCurve = nbl::hlsl::ext::curves::impl::ParametricCurve<float_t>;
-
-	const ParametricCurve* curve1;
-	const ParametricCurve* curve2;
-
-	MixedParametricCurves(const ParametricCurve* curve1, const ParametricCurve* curve2)
-		: curve1(curve1), curve2(curve2)
-	{}
-
-	float_t2 computePosition(float_t t) const override
-	{
-		const float_t2 curve1Pos = curve1->computePosition(t);
-		const float_t2 curve2Pos = curve2->computePosition(t);
-		return t * (curve2Pos - curve1Pos) + curve1Pos;
-	}
-
-	//! compute unnormalized tangent vector at t
-	float_t2 computeTangent(float_t t) const override
-	{
-		const float_t2 curve1Pos = curve1->computePosition(t);
-		const float_t2 curve2Pos = curve2->computePosition(t);
-		const float_t2 curve1Tan = curve1->computeTangent(t);
-		const float_t2 curve2Tan = curve2->computeTangent(t);
-		return (1 - t) * curve1Tan - curve1Pos + (t)*curve2Tan + curve2Pos;
-	}
-
-	//! compute second order differential at t
-	float_t2 computeSecondOrderDifferential(float_t t) const override
-	{
-		const float_t2 curve1Tan = curve1->computeTangent(t);
-		const float_t2 curve2Tan = curve2->computeTangent(t);
-		const float_t2 curve1SecondDiff = curve1->computeSecondOrderDifferential(t);
-		const float_t2 curve2SecondDiff = curve2->computeSecondOrderDifferential(t);
-		return (1 - t) * curve1SecondDiff + 2.0 * (curve2Tan - curve1Tan) + t * curve2SecondDiff;
-	}
-
-	float_t signedCurvatureUnnormalized(float_t t)
-	{
-		const float_t2 first = computeTangent(t);
-		const float_t2 second = computeSecondOrderDifferential(t);
-		return float_t(first.x * second.y - second.x * first.y);
-	};
-
-	float_t computeInflectionPoint(float_t errorThreshold) const override
-	{
-		const uint16_t MaxIterations = 32u;
-		float_t low = 0.0;
-		float_t high = 1.0;
-		float_t valLow = signedCurvatureUnnormalized(low);
-		float_t valHigh = signedCurvatureUnnormalized(high);
-		if (getSign(valLow) != getSign(valHigh))
-		{
-			if (valLow > valHigh)
-				hlsl::swap(low, high);
-
-			float_t guess = 0.0;
-			for (uint16_t i = 0u; i < MaxIterations; ++i)
-			{
-				guess = (low + high) / 2.0;
-				float_t valGuess = signedCurvatureUnnormalized(guess);
-				if (abs(valGuess) < errorThreshold)
-					return guess;
-
-				if (valGuess < 0.0)
-					low = guess;
-				else
-					high = guess;
-			}
-
-			return guess;
-		}
-		else
-		{
-			return num_traits<float_t>::quiet_NaN;
-		}
-	}
-
-	static float_t getSign(float_t x)
-	{
-		return _static_cast<float_t>((x > 0.0)) - _static_cast<float_t>((x <= 0.0));
-	}
-};
-
-// Mix between two parabolas from 0 to len
-template<typename float_t>
-struct MixedParabola : nbl::hlsl::ext::curves::impl::ParametricCurve<float_t>
-{
-	DEFINE_EXPLICIT_CURVE_FUNCTIONS
-
-	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
-	using float_t3 = nbl::hlsl::portable_vector_t3<float_t>;
-	using float_t4 = nbl::hlsl::portable_vector_t4<float_t>;
-	using float_t2x2 = nbl::hlsl::portable_matrix_t2x2<float_t>;
-
-	float_t a, b, c, d;
-
-	static MixedParabola create(NBL_CONST_REF_ARG(nbl::hlsl::ext::curves::Parabola<float_t>) parabola1, NBL_CONST_REF_ARG(nbl::hlsl::ext::curves::Parabola<float_t>) parabola2, float_t chordLen)
-	{
-    	MixedParabola output;
-    	output.a = (parabola2.a - parabola1.a) / chordLen;
-    	output.b = (parabola2.b - parabola1.b) / chordLen + parabola1.a;
-    	output.c = (parabola2.c - parabola1.c) / chordLen + parabola1.b;
-    	output.d = parabola1.c;
-
-    	return output;
-	}
-
-	static MixedParabola fromFourPoints(NBL_CONST_REF_ARG(float_t2) P0, NBL_CONST_REF_ARG(float_t2) P1, NBL_CONST_REF_ARG(float_t2) P2, NBL_CONST_REF_ARG(float_t2) P3)
-	{
-		assert(P1.x == 0);
-		assert(P1.y == 0 && P2.y == 0);
-		nbl::hlsl::ext::curves::Parabola<float_t> parabola1 = nbl::hlsl::ext::curves::Parabola<float_t>::fromThreePoints(P0, P1, P2);
-		nbl::hlsl::ext::curves::Parabola<float_t> parabola2 = nbl::hlsl::ext::curves::Parabola<float_t>::fromThreePoints(P1, P2, P3);
-		return MixedParabola(parabola1, parabola2, abs(P2.x - P1.x));
-	}
-
-	float_t y(float_t x) const
-	{
-		return (((a * x) + b) * x + c) * x + d;
-	}
-
-	float_t derivative(float_t x) const
-	{
-		return ((3.0 * a * x) + 2.0 * b) * x + c;
-	}
-
-	float_t computeInflectionPoint(float_t errorThreshold) const override
-	{
-		return -b / (3.0 * a);
-	}
-};
-
-// Centered at (0, 0), P1 and P2 on x axis and P1.x = -P2.x
-template<typename float_t>
-struct ExplicitMixedCircle : nbl::hlsl::ext::curves::impl::ParametricCurve<float_t>
-{
-	DEFINE_EXPLICIT_CURVE_FUNCTIONS
-
-	using float_t2 = nbl::hlsl::portable_vector_t2<float_t>;
-	using float_t3 = nbl::hlsl::portable_vector_t3<float_t>;
-	using float_t4 = nbl::hlsl::portable_vector_t4<float_t>;
-	using float_t2x2 = nbl::hlsl::portable_matrix_t2x2<float_t>;
-
-	struct ExplicitCircle
-	{
-		float_t2 origin;
-		float_t radius;
-
-		static ExplicitCircle create(NBL_CONST_REF_ARG(float_t2) origin, float_t radius)
-		{
-		    ExplicitCircle output;
-		    output.origin = origin;
-		    output.radius = radius;
-		
-		    return output;
-		}
-
-		static ExplicitCircle fromThreePoints(float_t2 P0, float_t2 P1, float_t2 P2)
-		{
-			const float_t2 Mid0 = (P0 + P1) / 2.0;
-			const float_t2 Normal0 = float_t2(P1.y - P0.y, P0.x - P1.x);
-
-			const float_t2 Mid1 = (P1 + P2) / 2.0;
-			const float_t2 Normal1 = float_t2(P2.y - P1.y, P1.x - P2.x);
-
-			const float_t2 origin = shapes::util::LineLineIntersection<float_t>(Mid0, Normal0, Mid1, Normal1);
-			const float_t radius = glm::length(P0 - origin);
-			return ExplicitCircle(origin, radius);
-		}
-	};
-
-	float_t origin1Y;
-	float_t origin2Y;
-	float_t radius1;
-	float_t radius2;
-	float_t chordLen;
-
-	// TODO: I haven't found an implementation
-	//static ExplicitMixedCircle fromFourPoints(NBL_CONST_REF_ARG(float_t2) P0, NBL_CONST_REF_ARG(float_t2) P1, NBL_CONST_REF_ARG(float_t2) P2, NBL_CONST_REF_ARG(float_t2) P3)
-	//{
-	//}
-
-	float_t y(float_t x) const
-	{
-		// https://herbie.uwplse.org/demo/5966aab2781d6c55c07105f5b900f1506cad301e.10eb16397304ba9e003d59ffd34803200ce7cfa6/graph.html
-		const float_t s1 = -1.0 * getSign(origin1Y);
-		const float_t s2 = -1.0 * getSign(origin2Y);
-
-		const float_t t1 = s1 * sqrt(radius1 * radius1 - x * x) + origin1Y;
-		const float_t t2 = s2 * sqrt(radius2 * radius2 - x * x) + origin2Y;
-		const float_t ret = (x / chordLen + 0.5) * (t2 - t1) + t1;
-		return ret;
-	}
-
-	float_t secondDerivative(float_t x)
-	{
-		// https://www.wolframalpha.com/input?i=second+derivative+of+%28x%2Fl%2B1%2F2%29*%28s2*sqrt%28r_2%5E2-x%5E2%29%2Bo2-s1*sqrt%28r_1%5E2-x%5E2%29-o1%29%2Bs1*sqrt%28r_1%5E2-x%5E2%29%2Bo1
-		const float_t s1 = -1.0 * getSign(origin1Y);
-		const float_t s2 = -1.0 * getSign(origin2Y);
-
-		const float_t t1 = sqrt(radius1 * radius1 - x * x);
-		const float_t t2 = sqrt(radius2 * radius2 - x * x);
-
-		const float_t u1 = (s1 * x) / t1;
-		const float_t u2 = (s2 * x) / t2;
-
-		const float_t q1 = (-1.0 * (x * x) / pow(radius1 * radius1 - x * x, 1.5)) - (1.0 / t1);
-		const float_t q2 = (-1.0 * (x * x) / pow(radius2 * radius2 - x * x, 1.5)) - (1.0 / t2);
-
-		const float_t ret = ((2.0 * (u1 - u2)) / chordLen) + (x / chordLen + 0.5) * (s2 * q2 - s1 * q1) + s1 * q1;
-		return ret;
-	}
-
-	float_t derivative(float_t x) const
-	{
-		// https://www.wolframalpha.com/input?i=derivative+%28x%2Fl%2B1%2F2%29*%28s2*sqrt%28r_2%5E2-x%5E2%29%2Borigin2Y-s1*sqrt%28r_1%5E2-x%5E2%29-origin1Y%29%2Bs1*sqrt%28r_1%5E2-x%5E2%29%2Borigin1Y
-		// https ://herbie.uwplse.org/demo/d48eba9a858160f5f8e4283f7e6211d41215d354.10eb16397304ba9e003d59ffd34803200ce7cfa6/graph.html
-		const float_t s1 = -1.0 * getSign(origin1Y);
-		const float_t s2 = -1.0 * getSign(origin2Y);
-
-		const float_t t0 = sqrt(radius1 * radius1 - x * x);
-		const float_t t1 = (s1 * x) / t0;
-		const float_t t2 = sqrt(radius2 * radius2 - x * x);
-		const float_t ret = ((x / chordLen + 0.5) * (t1 - ((x * s2) / t2)) + (((origin2Y - origin1Y) + (s2 * t2) - (s1 * t0)) / chordLen)) - t1;
-		return ret;
-	}
-
-	float_t computeInflectionPoint(float_t errorThreshold) const override
-	{
-		// bisection search to find inflection point
-		// by seeing the graph of second derivative over wide range of values we have deduced that the inflection point exists iff the secondDerivative has opposite signs at begin and end
-		const uint16_t MaxIterations = 64u;
-		float_t low = -chordLen / 2.0;
-		float_t high = chordLen / 2.0;
-		float_t valLow = secondDerivative(low + errorThreshold / 2.0);
-		float_t valHigh = secondDerivative(high - errorThreshold / 2.0);
-		if (getSign(valLow) != getSign(valHigh))
-		{
-			if (valLow > valHigh)
-				hlsl::swap(low, high);
-
-			float_t guess = 0.0;
-			for (uint16_t i = 0u; i < MaxIterations; ++i)
-			{
-				guess = (low + high) / 2.0;
-				float_t valGuess = secondDerivative(guess);
-				if (abs(valGuess) < errorThreshold)
-					return guess;
-
-				if (valGuess < 0.0)
-					low = guess;
-				else
-					high = guess;
-			}
-
-			return guess;
-		}
-		else
-		{
-			return num_traits<float_t>::quiet_NaN;
-		}
-	}
-
-	static float_t getSign(float_t x)
-	{
-		return _static_cast<float_t>((x > 0.0)) - _static_cast<float_t>((x <= 0.0));
-	}
-};
-
 #undef DEFINE_EXPLICIT_CURVE_FUNCTIONS
-
-} // namespace curves
-} // namespace nabla2d
-} // namespace en
 
 #endif
 
