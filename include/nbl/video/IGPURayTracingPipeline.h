@@ -84,7 +84,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                     }
 
                     // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03471
-                    if (cached.flags.hasFlags(FLAGS::NO_NULL_CLOSEST_HIT_SHADERS) && !shaderGroup.intersection.shader)
+                    if (cached.flags.hasFlags(FLAGS::NO_NULL_CLOSEST_HIT_SHADERS) && !shaderGroup.closestHit.shader)
                         return {};
                 }
 
