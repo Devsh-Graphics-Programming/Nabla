@@ -11,7 +11,7 @@
                 {
                     "type": "uint32_t",
                     "name": "MinMaxSSBOSize",
-                    "value": "(0x1u << 30u) - 4"
+                    "value": "134217728"
                 },
                 {
                     "type": "uint16_t",
@@ -360,7 +360,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxFragmentCombinedOutputResources",
-                    "value": 127
+                    "value": 104
                 }
             ]
         },
@@ -808,7 +808,7 @@
                 {
                     "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
                     "name": "subgroupOpsShaderStages",
-                    "value": "asset::IShader::E_SHADER_STAGE::ESS_COMPUTE | asset::IShader::E_SHADER_STAGE::ESS_ALL_GRAPHICS"
+                    "value": "asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN"
                 },
                 {
                     "type": "bool",
@@ -1110,7 +1110,7 @@
                 {
                     "type": "core::bitflag<RESOLVE_MODE_FLAGS>",
                     "name": "supportedDepthResolveModes",
-                    "value": "RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT | RESOLVE_MODE_FLAGS::MIN_BIT | RESOLVE_MODE_FLAGS::MAX_BIT"
+                    "value": "RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT"
                 },
                 {
                     "type": "core::bitflag<RESOLVE_MODE_FLAGS>",
