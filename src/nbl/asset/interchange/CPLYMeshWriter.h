@@ -41,8 +41,8 @@ class CPLYMeshWriter : public IGeometryWriter
             size_t fileOffset = 0;
         };
 
-        void writeBinary(const ICPUPolygonGeometry* geom, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
-        void writeText(const ICPUPolygonGeometry* geom, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
+        void writeBinary(const ICPUPolygonGeometry* geom, const bool attrsToWrite[4], bool _forceFaces, SContext& context) const;
+        void writeText(const ICPUPolygonGeometry* geom, const bool attrsToWrite[4], bool _forceFaces, SContext& context) const;
 
         void writeAttribBinary(SContext& context, ICPUPolygonGeometry* geom, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute = false) const;
 
@@ -51,27 +51,23 @@ class CPLYMeshWriter : public IGeometryWriter
 
         static std::string getTypeString(asset::E_FORMAT _t);
 
-        template<typename T>
-        void writeVectorAsText(SContext& context, const T* _vec, size_t _elementsToWrite, bool flipVectors = false) const
+        inline void writeVertexAsText(SContext& context, const hlsl::float32_t3& pos, const hlsl::float32_t3* normal) const
         {
-			constexpr size_t xID = 0u;
-            std::stringstream ss;
-            ss << std::fixed;
-			bool currentFlipOnVariable = false;
-			for (size_t i = 0u; i < _elementsToWrite; ++i)
-			{
-				if (flipVectors && i == xID)
-					currentFlipOnVariable = true;
-				else
-					currentFlipOnVariable = false;
+           std::stringstream ss;
+           ss << std::fixed << std::setprecision(6) << pos.x << " " << pos.y << " " << pos.z;
 
-					ss << std::setprecision(6) << _vec[i] * (currentFlipOnVariable ? -1 : 1) << " ";
-			}
-            auto str = ss.str();
+           if (normal)
+           {
+              ss << " " << normal->x << " " << normal->y << " " << normal->z << "\n";
+           }
+           else
+              ss << "\n";
 
-            system::IFile::success_t succ;
-            context.writeContext.outputFile->write(succ, str.c_str(), context.fileOffset, str.size());
-            context.fileOffset += succ.getBytesProcessed();
+           const auto& str = ss.str();
+
+           system::IFile::success_t success;
+           context.writeContext.outputFile->write(success, str.data(), context.fileOffset, str.size());
+           context.fileOffset += success.getBytesProcessed();
         }
 };
 
