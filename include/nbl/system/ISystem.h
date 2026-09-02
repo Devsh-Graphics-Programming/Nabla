@@ -274,6 +274,10 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                 {
                     //waitForInitComplete(); init is a NOOP
                 }
+                inline ~CAsyncQueue()
+                {
+                    this->shutdown();
+                }
 
                 void process_request(base_t::future_base_t* _future_base, SRequestType& req);
 

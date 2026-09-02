@@ -32,6 +32,31 @@ struct to_string_helper<T>
 };
 
 template<>
+struct to_string_helper<core::blake3_hash_t>
+{
+    static std::string __call(const core::blake3_hash_t& value)
+    {
+        // fast base64 optimized for this without leaking deps
+        std::string retval(44,'=');
+        constexpr const char* base = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        auto out = retval.data();
+        // every 3 bytes of input create 4 bytes of output
+        for (auto i=0; i<11; i++)
+        {
+            const uint8_t bytes[3] = {value.data[3*i+0],value.data[3*i+1],i!=10 ? value.data[3*i+2]:uint8_t(0)};
+            *(out++) = base[bytes[0]>>2];
+            // take bottom bits of first byte to be top of the 6 bit, and 4 top bits of next byte to be bottom 4 bits of 6 bit
+            *(out++) = base[((bytes[0]&0x03u)<<4)|(bytes[1]>>4)];
+            // take bottom bits of the second byte to be top 4 bits of next byte, and top 2 bits of last byte to be bottom 2
+            *(out++) = base[((bytes[1]&0x0fu)<<2)|(bytes[2]>>6)];
+            *(out++) = base[bytes[2]&0x3Fu];
+        }
+        // padding is inferred from length
+        return retval;
+    }
+};
+
+template<>
 struct to_string_helper<hlsl::emulated_uint64_t>
 {
     static std::string __call(const hlsl::emulated_uint64_t& value)

@@ -1,20 +1,13 @@
-﻿// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
+﻿
+// Copyright (C) 2022-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_MATERIAL_COMPILER_V3_C_FRONTEND_IR_H_INCLUDED_
 #define _NBL_ASSET_MATERIAL_COMPILER_V3_C_FRONTEND_IR_H_INCLUDED_
 
 
-#include "nbl/system/ILogger.h"
+#include "nbl/asset/material_compiler3/CTrueIR.h"
 
-#include "nbl/asset/material_compiler3/CNodePool.h"
-#include "nbl/asset/format/EColorSpace.h"
-#include "nbl/asset/ICPUImageView.h"
-
-
-
-// temporary
-#define NBL_API
 
 namespace nbl::asset::material_compiler3
 {
@@ -35,7 +28,7 @@ namespace nbl::asset::material_compiler3
 // 
 // 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
 // 
-// Where `l(w_i,w_o)` is a Contributor Node BxDF such as Oren Nayar or Cook-Torrance, which is doesn't model absorption and is usually Monochrome.
+// Where `l(w_i,w_o)` is a Contributor Node BxDF such as Oren Nayar or Cook-Torrance, which doesn't model absorption and is usually Monochrome.
 // These are assumed to be 100% valid BxDFs with White Furnace Test <= 1 and obeying Helmholtz Reciprocity. This is why you can't multiply two "Contributor Nodes" together.
 // We make an attempt to implement Energy Normalized versions of `l_i` but not always, so there might be energy loss due to single scattering assumptions.
 // 
@@ -61,8 +54,9 @@ namespace nbl::asset::material_compiler3
 // both the Top and Bottom BRDF treat the Eta as being the speed of light in the medium above over the speed of light in the medium below.
 // This means that for modelling air-vs-glass you use the same Eta for the Top BRDF, the middle BTDF and Bottom BRDF.
 // We don't track the IoRs per layer because that would deprive us of the option to model each layer interface as a mixture of materials (metalness workflow).
+// NOTE: We cannot check consistency of refractive indices between BRDFs and BTDFs !
 // 
-// The backend can expand the Top BRDF, Middle BTDF, Bottom BRDF into 4 separate instruction streams for Front-Back BRDF and BTDF. This is because we can
+// The backends can expand the Top BRDF, Middle BTDF, Bottom BRDF into 4 separate instruction streams for Front-Back BRDF and BTDF. This is because we can
 // throw away the first or last BRDF+BTDF in the stack, as well as use different pre-computed Etas if we know the sign of `cos(theta_i)` as we interact with each layer.
 // Whether the backend actually generates a separate instruction stream depends on the impact of Instruction Cache misses due to not sharing streams for layers.
 // 
@@ -71,9 +65,9 @@ namespace nbl::asset::material_compiler3
 // I've considered expressing the layers using only a BTDF and BRDF (same top and bottom hemisphere) but that would lead to more layers in for materials,
 // requiring the placing of a mirror then vantablack layer for most one-sided materials, and most importantly disallow the expression of certain front-back correlations.
 // 
-// Because we implement Schussler et. al 2017 we also ensure that signs of dot products with shading normals are identical to smooth normals.
+// Because we implement Schussler et. al 2017 or Yining 2019 we also ensure that signs of dot products with shading normals are identical to smooth normals.
 // However the smooth normals are not identical to geometric normals, we reserve the right to use the "normal pull up trick" to make them consistent.
-// Schussler can't help with disparity of Smooth Normal and Geometric Normal, it turns smooth surfaces into glistening "disco balls" really outlining the
+// Schussler and Yining can't help with disparity of Smooth Normal and Geometric Normal, it turns smooth surfaces into glistening "disco balls" really outlining the
 // polygonization. Using PN-Triangles/displacement would be the optimal solution here. 
 class CFrontendIR final : public CNodePool
 {
@@ -90,116 +84,6 @@ class CFrontendIR final : public CNodePool
 				return nullptr;
 			return core::smart_refctd_ptr<CFrontendIR>(new CFrontendIR(std::move(params)),core::dont_grab);
 		}
-		template<typename T, uint16_t N, uint16_t M>
-		static inline void printMatrix(std::ostringstream& sstr, const hlsl::matrix<T,N,M>& m)
-		{
-			for (uint16_t i=0; i<N; i++)
-			{
-				if (i)
-					sstr << "\\n";
-				for (uint16_t j=0; j<M; j++)
-				{
-					if (j)
-						sstr << ",";
-					sstr << std::to_string(m[i][j]);
-				}
-			}
-		}
-		
-		struct SParameter
-		{
-			inline operator bool() const
-			{
-				return abs(scale)<std::numeric_limits<float>::infinity() && (!view || viewChannel<getFormatChannelCount(view->getCreationParameters().format));
-			}
-			inline bool operator!=(const SParameter& other) const
-			{
-				if (scale!=other.scale)
-					return true;
-				if (viewChannel!=other.viewChannel)
-					return true;
-				// don't compare paddings!
-				if (view!=other.view)
-					return true;
-				return sampler!=other.sampler;
-			}
-			inline bool operator==(const SParameter& other) const {return !operator!=(other);}
-
-			NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const;
-
-			// at this stage we store the multipliers in highest precision
-			float scale = std::numeric_limits<float>::infinity();
-			// rest are ignored if the view is null
-			uint8_t viewChannel : 2 = 0;
-			uint8_t padding[3] = {0,0,0}; // TODO: padding stores metadata, shall we exclude from assignment and copy operators?
-			core::smart_refctd_ptr<const ICPUImageView> view = {};
-			// shadow comparison functions are ignored
-			// NOTE: could take only things that matter from the sampler and pack the viewChannel and reduce padding
-			ICPUSampler::SParams sampler = {};
-		};
-		// In the forest, this is not a node, we'll deduplicate later
-		template<uint8_t Count>
-		struct SParameterSet
-		{
-			private:
-				friend class CSpectralVariable;
-				template<typename StringConstIterator=const core::string*>
-				inline void printDot(const uint8_t _count, std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}, const bool uvRequired=false) const
-				{
-					bool imageUsed = false;
-					for (uint8_t i=0; i<_count; i++)
-					{
-						const auto paramID = selfID+"_param"+std::to_string(i);
-						if (params[i].view)
-							imageUsed = true;
-						params[i].printDot(sstr,paramID);
-						sstr << "\n\t" << selfID << " -> " << paramID;
-						if (paramNameBegin)
-							sstr <<" [label=\"" << *(paramNameBegin++) << "\"]";
-						else
-							sstr <<" [label=\"Param " << std::to_string(i) <<"\"]";
-					}
-					if (uvRequired || imageUsed)
-					{
-						const auto uvTransformID = selfID+"_uvTransform";
-						sstr << "\n\t" << uvTransformID << " [label=\"uvSlot = " << std::to_string(uvSlot()) << "\\n";
-						printMatrix(sstr,*reinterpret_cast<const decltype(uvTransform)*>(params+_count));
-						sstr << "\"]";
-						sstr << "\n\t" << selfID << " -> " << uvTransformID << "[label=\"UV Transform\"]";
-					}
-				}
-
-			public:
-				inline operator bool() const
-				{
-					for (uint8_t i=0; i<Count; i++)
-					if (!params[i])
-						return false;
-					return true;
-				}
-				// Ignored if no modulator textures and isotropic BxDF
-				uint8_t& uvSlot() {return params[0].padding[0];}
-				const uint8_t& uvSlot() const {return params[0].padding[0];}
-				// Note: the padding abuse
-				static_assert(sizeof(SParameter::padding)>0);
-
-				template<typename StringConstIterator=const core::string*>
-				inline void printDot(std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}, const bool uvRequired=false) const
-				{
-					printDot<StringConstIterator>(Count,sstr,selfID,std::forward<StringConstIterator>(paramNameBegin),uvRequired);
-				}
-
-				// identity transform by default, ignored if no UVs
-				// NOTE: a transform could be applied per-param, whats important that the UV slot remains the smae across all of them.
-				hlsl::float32_t2x3 uvTransform = hlsl::float32_t2x3(
-					1,0,0,
-					0,1,0
-				);
-				SParameter params[Count] = {};
-
-				// to make sure there will be no padding inbetween
-				static_assert(alignof(SParameter)>=alignof(hlsl::float32_t2x3));
-		};
 
 		// basic "built-in" nodes
 		class INode : public CNodePool::INode
@@ -258,6 +142,7 @@ class CFrontendIR final : public CNodePool
 					return retval;
 				}
 
+				// TODO: rename to `EType` and the `getType` to `getExprNodeType`
 				// A "contributor" of a term to the lighting equation: a BxDF (reflection or tranmission) or Emitter term
 				// Contributors are not allowed to be multiplied together, but every additive term in the Expression must contain a contributor factor.
 				enum class Type : uint8_t
@@ -265,7 +150,9 @@ class CFrontendIR final : public CNodePool
 					Contributor = 0,
 					Mul = 1,
 					Add = 2,
-					Other = 3
+					Complement = 3,
+					SpectralVariable = 4,
+					Other = 5
 				};
 				virtual inline Type getType() const {return Type::Other;}
 				
@@ -275,11 +162,7 @@ class CFrontendIR final : public CNodePool
 				virtual _typed_pointer_type<IExprNode> copy(CFrontendIR* ir) const = 0;
 #define COPY_DEFAULT_IMPL inline _typed_pointer_type<IExprNode> copy(CFrontendIR* ir) const override final \
 				{ \
-					auto& pool = ir->getObjectPool(); \
-					const auto copyH = pool.emplace<std::remove_const_t<std::remove_pointer_t<decltype(this)> > >(); \
-					if (auto* const copy = pool.deref(copyH); copyH) \
-						*copy = *this; \
-					return copyH; \
+					return CNodePool::copyNode<std::remove_const_t<std::remove_pointer_t<decltype(this)> > >(this,ir); \
 				}
 
 				// child managment
@@ -314,7 +197,7 @@ class CFrontendIR final : public CNodePool
 
 				virtual bool inline reciprocatable() const {return false;}
 				// unless you override it, you're not supposed to call it
-				virtual void reciprocate(IExprNode* dst) const {assert(reciprocatable() && dst);}
+				virtual void reciprocate() {assert(reciprocatable());}
 				
 				virtual inline core::string getLabelSuffix() const {return "";}
 				virtual inline std::string_view getChildName_impl(const uint8_t ix) const {return "";}
@@ -326,156 +209,44 @@ class CFrontendIR final : public CNodePool
 		{
 			public:
 				inline Type getType() const override final {return Type::Contributor;}
+
+			protected:
+				friend class CFrontendIR;
+				using ir_contributor_handle_t = CTrueIR::typed_pointer_type<CTrueIR::IContributor>;
+				virtual ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const = 0;
 		};
 
 		// This node could also represent non directional emission, but we have another node for that
-		class CSpectralVariable final : public obj_pool_type::IVariableSize, public IExprNode
+		class ISpectralVariableExpr : public CTrueIR::ISpectralVariable, public IExprNode
 		{
 			public:
-				inline uint8_t getChildCount() const override final { return 0; }
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CSpectralVariable);}
 				// Variable length but has no children
-
-				enum class Semantics : uint8_t
-				{
-					NoneUndefined = 0,
-					// 3 knots, their wavelengths are implied and fixed at color primaries
-					Fixed3_SRGB = 1,
-					Fixed3_DCI_P3 = 2,
-					Fixed3_BT2020 = 3,
-					Fixed3_AdobeRGB = 4,
-					Fixed3_AcesCG = 5,
-					// Ideas: each node is described by (wavelength,value) pair
-					// PairsLinear = 5, // linear interpolation
-					// PairsLogLinear = 5, // linear interpolation in wavelenght log space
-				};
+				inline uint8_t getChildCount() const override final {return 0;}
 
 				//
-				template<uint8_t Count>
-				struct SCreationParams
-				{
-					// Knots are "data points" on the (wavelength,value) plot, from which we can interpolate the rest of the spectrum
-					SParameterSet<Count> knots = {};
-
-					// a little bit of abuse and padding reuse
-					static_assert(sizeof(SParameter::padding)>2);
-					template<bool Enable=true> requires (Enable==(Count>1))
-					Semantics& getSemantics() {return reinterpret_cast<Semantics&>(knots.params[0].padding[2]); }
-					template<bool Enable=true> requires (Enable==(Count>1))
-					const Semantics& getSemantics() const {return const_cast<const Semantics&>(const_cast<SCreationParams<Count>*>(this)->getSemantics());}
-				};
-				//
-				template<uint8_t Count>
-				inline CSpectralVariable(SCreationParams<Count>&& params)
-				{
-					// back up the count
-					params.knots.params[0].padding[1] = Count;
-					// set it correctly for monochrome
-					if constexpr (Count==1)
-						params.knots.params[0].padding[2] = static_cast<uint8_t>(Semantics::NoneUndefined);
-					else
-					{
-						assert(params.getSemantics()!=Semantics::NoneUndefined);
-					}
-					std::construct_at(reinterpret_cast<SCreationParams<Count>*>(this+1),std::move(params));
-				}
-				inline CSpectralVariable(const CSpectralVariable& other)
-				{
-					std::uninitialized_copy_n(other.pWonky(),other.getKnotCount(),pWonky());
-				}
-
-				// encapsulation due to padding abuse
-				inline uint8_t& uvSlot() {return pWonky()->knots.uvSlot();}
-				inline const uint8_t& uvSlot() const {return pWonky()->knots.uvSlot();}
-
-				// these getters are immutable
-				inline uint8_t getKnotCount() const
-				{
-					static_assert(sizeof(SParameter::padding)>1);
-					return paramsBeginPadding()[1];
-				}
-				inline Semantics getSemantics() const
-				{
-					static_assert(sizeof(SParameter::padding)>2);
-					const auto retval = static_cast<Semantics>(paramsBeginPadding()[2]);
-					assert((getKnotCount()==1)==(retval==Semantics::NoneUndefined));
-					return retval;
-				}
+				inline IExprNode::Type getType() const override final {return Type::SpectralVariable;}
 
 				//
-				inline SParameter* getParam(const uint8_t i)
-				{
-					if (i<getKnotCount())
-						return &pWonky()->knots.params[i];
-					return nullptr;
-				}
-				inline const SParameter* getParam(const uint8_t i) const {return const_cast<const SParameter*>(const_cast<CSpectralVariable*>(this)->getParam(i));}
-
-				//
-				template<uint8_t Count>
-				static inline uint32_t calc_size(const SCreationParams<Count>&)
-				{
-					return sizeof(CSpectralVariable)+sizeof(SCreationParams<Count>);
-				}
-				// for copying
-				static inline uint32_t calc_size(const CSpectralVariable& other)
-				{
-					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(other.getKnotCount()-1)*sizeof(SParameter);
-				}
-
-				inline operator bool() const {return !invalid(SInvalidCheckArgs{.pool=nullptr,.logger=nullptr});}
+				inline operator bool() const {return valid(nullptr);}
 
 			protected:
-				inline ~CSpectralVariable()
-				{
-					std::destroy_n(pWonky()->knots.params,getKnotCount());
-				}
 				inline _typed_pointer_type<IExprNode> copy(CFrontendIR* ir) const override final
 				{
-					auto& pool = ir->getObjectPool();
-					const uint8_t count = getKnotCount();
-					return pool.emplace<CSpectralVariable>(*this);
+					return static_cast<const CSpectralVariableExpr*>(this)->copy(ir->getObjectPool());
 				}
 
-				inline bool invalid(const SInvalidCheckArgs& args) const override
-				{
-					const auto knotCount = getKnotCount();
-					// non-monochrome spectral variable 
-					if (const auto semantic=getSemantics(); knotCount>1)
-					switch (semantic)
-					{
-						case Semantics::Fixed3_SRGB: [[fallthrough]];
-						case Semantics::Fixed3_DCI_P3: [[fallthrough]];
-						case Semantics::Fixed3_BT2020: [[fallthrough]];
-						case Semantics::Fixed3_AdobeRGB: [[fallthrough]];
-						case Semantics::Fixed3_AcesCG:
-							if (knotCount!=3)
-							{
-								args.logger.log("Semantic %d is only usable with 3 knots, this has %d knots",system::ILogger::ELL_ERROR,static_cast<uint8_t>(semantic),knotCount);
-								return false;
-							}
-							break;
-						default:
-							args.logger.log("Invalid Semantic %d",system::ILogger::ELL_ERROR,static_cast<uint8_t>(semantic));
-							return true;
-					}
-					for (auto i=0u; i<knotCount; i++)
-					if (!*getParam(i))
-					{
-						args.logger.log("Knot %u parameters invalid",system::ILogger::ELL_ERROR,i);
-						return true;
-					}
-					return false;
-				}
+				//
+				inline bool invalid(const SInvalidCheckArgs& args) const override final {return !valid(args.logger);}
 				
-				NBL_API2 core::string getLabelSuffix() const override;
-				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+				//
+				NBL_API2 core::string getLabelSuffix() const override final;
+				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override final;
 
-			private:
-				SCreationParams<1>* pWonky() {return reinterpret_cast<SCreationParams<1>*>(this+1);}
-				const SCreationParams<1>* pWonky() const {return reinterpret_cast<const SCreationParams<1>*>(this+1);}
-				const uint8_t* paramsBeginPadding() const {return pWonky()->knots.params[0].padding;}
+				//
+				friend class CFrontendIR;
+				NBL_API2 CTrueIR::typed_pointer_type<CTrueIR::CSpectralVariableFactor> createIRNode(const CFrontendIR* ast, CTrueIR* ir) const;
 		};
+		using CSpectralVariableExpr = CTrueIR::CSpectralVariable<ISpectralVariableExpr>;
 		//
 		class IUnaryOp : public obj_pool_type::INonTrivial, public IExprNode
 		{
@@ -532,6 +303,7 @@ class CFrontendIR final : public CNodePool
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CComplement);}
+				inline Type getType() const override {return Type::Complement;}
 
 				// you can set the children later
 				inline CComplement() = default;
@@ -552,7 +324,7 @@ class CFrontendIR final : public CNodePool
 
 				// This can be anything like an IES profile, if invalid, there's no directionality to the emission
 				// `profile.scale` can still be used to influence the light strength without influencing NEE light picking probabilities
-				SParameter profile = {};
+				CTrueIR::SParameter profile = {};
 				hlsl::float32_t3x3 profileTransform = hlsl::float32_t3x3(
 					1,0,0,
 					0,1,0,
@@ -566,13 +338,21 @@ class CFrontendIR final : public CNodePool
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+
+				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const override;
+		};
+		//! Nodes which must obey standard AST DFS traversal to evaluate using function composition and can't be reassociated
+		class IFunctionNode : public obj_pool_type::INonTrivial, public IExprNode
+		{
+			public:
+				virtual CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const = 0;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, their behaviour depends on the IContributor in its MUL node relative subgraph.
 		//! If you use a different contributor node type or normal for shading, these nodes get split and duplicated into two in our Final IR.
 		//! Due to the Helmholtz Reciprocity handling outlined in the comments for the entire front-end you can usually count on these nodes
 		//! getting applied once using `VdotH` for Cook-Torrance BRDF, twice using `VdotN` and `LdotN` for Diffuse BRDF, and using their
 		//! complements before multiplication for BTDFs. 
-		class IContributorDependant : public obj_pool_type::INonTrivial, public IExprNode
+		class IContributorDependant : public IFunctionNode
 		{
 		};
 		// Beer's Law Node, behaves differently depending on where it is:
@@ -585,25 +365,26 @@ class CFrontendIR final : public CNodePool
 			public:
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CBeer);}
 				inline uint8_t getChildCount() const override {return 2;}
+				
+				NBL_API2 CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const override;
 
 				// you can set the members later
 				inline CBeer() = default;
 
-				// Effective transparency = exp2(log2(perpTransmittance)*thickness/dot(refract(V,X,eta),X)) = exp2(log2(perpTransmittance)*thickness*inversesqrt(1.f+(LdotX-1)*rcpEta))
-				// Eta and `LdotX` is taken from the leaf BTDF node. With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same
-				typed_pointer_type<CSpectralVariable> perpTransmittance = {};
-				typed_pointer_type<CSpectralVariable> thickness = {};
+				// See `CTrueIR::Beer` for docs
+				typed_pointer_type<CSpectralVariableExpr> perpTransmittance = {};
+				typed_pointer_type<CSpectralVariableExpr> thickness = {};
 
 			protected:
 				COPY_DEFAULT_IMPL
 
-				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? perpTransmittance:thickness;}
+				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? thickness:perpTransmittance;}
 				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<IExprNode> newChild) override
 				{
-					*(ix ? &perpTransmittance:&thickness) = block_allocator_type::_static_cast<CSpectralVariable>(newChild);
+					*(ix ? &thickness:&perpTransmittance) = block_allocator_type::_static_cast<CSpectralVariableExpr>(newChild);
 				}
 				
-				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Perpendicular\\nTransmittance";}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Thickness":"Perpendicular\\nTransmittance";}
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
@@ -611,15 +392,17 @@ class CFrontendIR final : public CNodePool
 		class CFresnel final : public IContributorDependant
 		{
 			public:
+				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFresnel);}
 				inline uint8_t getChildCount() const override {return 2;}
 
-				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CFresnel);}
+				NBL_API2 CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const override;
+
 				inline CFresnel() = default;
 
 				// Already pre-divided Index of Refraction, e.g. exterior/interior since VdotG>0 the ray always arrives from the exterior.
-				typed_pointer_type<CSpectralVariable> orientedRealEta = {};
+				typed_pointer_type<CSpectralVariableExpr> orientedRealEta = {};
 				// Specifying this turns your Fresnel into a conductor one, note that currently these are disallowed on BTDFs!
-				typed_pointer_type<CSpectralVariable> orientedImagEta = {};
+				typed_pointer_type<CSpectralVariableExpr> orientedImagEta = {};
 				// if you want to reuse the same parameter but want to flip the interfaces around
 				uint8_t reciprocateEtas : 1 = false;
 
@@ -629,18 +412,22 @@ class CFrontendIR final : public CNodePool
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
 				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<IExprNode> newChild) override
 				{
-					*(ix ? &orientedImagEta:&orientedRealEta) = block_allocator_type::_static_cast<CSpectralVariable>(newChild);
+					*(ix ? &orientedImagEta:&orientedRealEta) = block_allocator_type::_static_cast<CSpectralVariableExpr>(newChild);
 				}
 
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 
 				inline bool reciprocatable() const override {return true;}
-				inline void reciprocate(IExprNode* dst) const override
+				inline void reciprocate() override
 				{
-					(*static_cast<CFresnel*>(dst) = *this).reciprocateEtas = ~reciprocateEtas;
+					reciprocateEtas = ~reciprocateEtas;
 				}
 
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? "Imaginary":"Real";}
+				inline core::string getLabelSuffix() const override
+				{
+					return "\\nReciprocateEta = "+core::string(reciprocateEtas ? "true" : "false");
+				}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// Compute Inifinite Scatter and extinction between two parallel infinite planes.
@@ -678,7 +465,7 @@ class CFrontendIR final : public CNodePool
 		// ------------------
 		// 
 		// The obvious downside of using this node for transmission is that its impossible to get "milky" glass because a spread of refractions is needed
-		class CThinInfiniteScatterCorrection final : public obj_pool_type::INonTrivial, public IExprNode
+		class CThinInfiniteScatterCorrection final : public IFunctionNode
 		{
 			protected:
 				COPY_DEFAULT_IMPL
@@ -690,12 +477,17 @@ class CFrontendIR final : public CNodePool
 				}
 
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
+
+				inline bool reciprocatable() const override {return true;}
+				inline void reciprocate() override {std::swap(reflectanceTop,reflectanceBottom);}
 				
 				inline std::string_view getChildName_impl(const uint8_t ix) const override {return ix ? (ix>1 ? "reflectanceBottom":"extinction"):"reflectanceTop";}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 3;}
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CThinInfiniteScatterCorrection);}
+
+				NBL_API2 CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const override;
 
 				// you can set the children later
 				inline CThinInfiniteScatterCorrection() = default;
@@ -710,46 +502,7 @@ class CFrontendIR final : public CNodePool
 		class IBxDF : public obj_pool_type::INonTrivial, public IContributor
 		{
 			public:
-				// Why are all of these kept together and forced to fetch from the same UV ?
-				// Because they're supposed to be filtered together with the knowledge of the NDF
-				// TODO: should really be 5 parameters (2+3) cause of rotatable anisotropic roughness
-				struct SBasicNDFParams : SParameterSet<4>
-				{
-					inline auto getDerivMap() {return std::span<SParameter,2>(params,2);}
-					inline auto getDerivMap() const {return std::span<const SParameter,2>(params,2);}
-					inline auto getRougness() {return std::span<SParameter,2>(params+2,2);}
-					inline auto getRougness() const {return std::span<const SParameter,2>(params+2,2);}
-					
-					inline SBasicNDFParams()
-					{
-						// initialize with constant flat deriv map and smooth roughness
-						for (auto& param : params)
-							param.scale = 0.f;
-					}
-
-					// conservative check, checks if we can optimize certain things this way
-					inline bool definitelyIsotropic() const
-					{
-						// a derivative map from a texture allows for anisotropic NDFs at higher mip levels when pre-filtered properly
-						for (auto i=0; i<2; i++)
-						if (getDerivMap()[i].scale!=0.f && getDerivMap()[i].view)
-							return false;
-						// if roughness inputs are not equal (same scale, same texture) then NDF can be anisotropic in places
-						if (getRougness()[0]!=getRougness()[1])
-							return false;
-						// if a reference stretch is used, stretched triangles can turn the distribution anisotropic
-						return stretchInvariant();
-					}
-					// whether the derivative map and roughness is constant regardless of UV-space texture stretching
-					inline bool stretchInvariant() const {return !(abs(hlsl::determinant(reference))>std::numeric_limits<float>::min());}
-
-					NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const;
-
-					// Ignored if not invertible, otherwise its the reference "stretch" (UV derivatives) at which identity roughness and normalmapping occurs
-					hlsl::float32_t2x2 reference = hlsl::float32_t2x2(0,0,0,0);
-				};
-
-				// For Schussler et. al 2017 we'll spawn 2-3 additional BRDF leaf nodes in the proper IR for every normalmap present
+				// ?
 		};
 		// Delta Transmission is the only Special Delta Distribution Node, because of how useful it is for compiling Anyhit shaders, the rest can be done easily with:
 		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 attached as BRDF
@@ -775,6 +528,8 @@ class CFrontendIR final : public CNodePool
 
 			protected:
 				COPY_DEFAULT_IMPL
+
+				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 		//! Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
 		// Base diffuse node
@@ -783,9 +538,12 @@ class CFrontendIR final : public CNodePool
 			public:
 				inline uint8_t getChildCount() const override {return 0;}
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(COrenNayar);}
-				inline COrenNayar() = default;
+				inline COrenNayar()
+				{
+					ndParams.getDistribution() = CTrueIR::SBasicNDFParams::EDistribution::Invalid;
+				}
 
-				SBasicNDFParams ndParams = {};
+				CTrueIR::SBasicNDFParams ndParams = {};
 
 			protected:
 				COPY_DEFAULT_IMPL
@@ -793,6 +551,8 @@ class CFrontendIR final : public CNodePool
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+
+				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 		// Supports anisotropy for all models
 		class CCookTorrance final : public IBxDF
@@ -800,47 +560,52 @@ class CFrontendIR final : public CNodePool
 			public:
 				inline uint8_t getChildCount() const override {return 1;}
 
-				enum class NDF : uint8_t
-				{
-					GGX = 0,
-					Beckmann = 1
-				};
-
 				inline const std::string_view getTypeName() const override {return TYPE_NAME_STR(CCookTorrance);}
-				inline CCookTorrance() = default;
 
-				SBasicNDFParams ndParams = {};
-				// We need this eta to compute the refractions of `L` when importance sampling and the Jacobian during H to L generation for rough dielectrics
-				// It does not mean we compute the Fresnel weights though! You might ask why we don't do that given that state of the art importance sampling
-				// (at time of writing) is to decide upon reflection vs. refraction after the microfacet normal `H` is already sampled,
-				// producing an estimator with just Masking and Shadowing function ratios. The reason is because we can simplify our IR by separating out
-				// BRDFs and BTDFs components into separate expressions, and also importance sample much better, for details see comments in CTrueIR. 
-				typed_pointer_type<CSpectralVariable> orientedRealEta = {};
-				// 
-				NDF ndf : 7 = NDF::GGX;
-				uint8_t reciprocateEta : 1 = false;
+				inline CCookTorrance()
+				{
+					ndParams.getDistribution() = CTrueIR::SBasicNDFParams::EDistribution::GGX;
+				}
+				
+				inline bool isEtaReciprocal() const {return ndParams.params[2].padding[0];}
+				inline void setEtaReciprocal(const bool value) {ndParams.params[2].padding[0] = value;}
+
+				CTrueIR::SBasicNDFParams ndParams = {};
+				// See the comments in CTrueIR about this on a matching class 
+				typed_pointer_type<CSpectralVariableExpr> orientedRealEta = {};
 
 			protected:
 				COPY_DEFAULT_IMPL
 
 				inline typed_pointer_type<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return orientedRealEta;}
-				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<IExprNode> newChild) override {orientedRealEta = block_allocator_type::_static_cast<CSpectralVariable>(newChild);}
+				inline void setChild_impl(const uint8_t ix, _typed_pointer_type<IExprNode> newChild) override {orientedRealEta = block_allocator_type::_static_cast<CSpectralVariableExpr>(newChild);}
 
 				NBL_API2 bool invalid(const SInvalidCheckArgs& args) const override;
 				
+				// TODO: should this only return true when `orientedRealEta` is present?
 				inline bool reciprocatable() const override {return true;}
-				inline void reciprocate(IExprNode* dst) const override
-				{
-					(*static_cast<CCookTorrance*>(dst) = *this).reciprocateEta = ~reciprocateEta;
-				}
+				inline void reciprocate() override {setEtaReciprocal(!isEtaReciprocal());}
 
-				inline core::string getLabelSuffix() const override {return ndf!=NDF::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";}
-				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented η";}
+				inline core::string getLabelSuffix() const override
+				{
+					core::string retval = ndParams.getDistribution()!=CTrueIR::SBasicNDFParams::EDistribution::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";
+					if (orientedRealEta)
+						retval += "\\nReciprocateEta = "+core::string(isEtaReciprocal() ? "true":"false");
+					return retval;
+				}
+				inline std::string_view getChildName_impl(const uint8_t ix) const override {return "Oriented Eta";}
 				NBL_API2 void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
+
+				NBL_API2 ir_contributor_handle_t createIRNode(const bool forBTDF, const CFrontendIR* ast, CTrueIR* ir) const;
 		};
 #undef COPY_DEFAULT_IMPL
 #undef TYPE_NAME_STR
 
+		//
+		inline void reset()
+		{
+			getObjectPool().reset();
+		}
 
 		// basic utilities
 		inline typed_pointer_type<CMul> createMul(const typed_pointer_type<IExprNode> lhs, const typed_pointer_type<IExprNode> rhs)
@@ -888,20 +653,27 @@ class CFrontendIR final : public CNodePool
 		{
 			auto& pool = getObjectPool();
 			const auto fresnelH = pool.emplace<CFresnel>();
-			CSpectralVariable::SCreationParams<1> params = {};
-			params.knots.params[0].scale = orientedRealEta;
 			if (auto* const fresnel=pool.deref(fresnelH); fresnel)
-				fresnel->orientedRealEta = pool.emplace<CSpectralVariable>(std::move(params));
+			{
+				fresnel->orientedRealEta = pool.emplace<CSpectralVariableExpr>(uint8_t(1));
+				if (auto* const var=pool.deref<CSpectralVariableExpr>(fresnel->orientedRealEta); var)
+					var->setParameter(0,{.scale=orientedRealEta});
+				else
+					return {};
+			}
 			return fresnelH;
 		}
+		
+		// To copy every node in the tree keeping same dedup, optionally can take an `orig` from another AST/pool and have the reciprocal copy over to our pool
+		NBL_API2 typed_pointer_type<const IExprNode> deepCopy(const typed_pointer_type<const IExprNode> orig, const CFrontendIR* pSourceIR=nullptr);
 
-		// To quickly make a matching backface BxDF from a frontface or vice versa
-		NBL_API2 typed_pointer_type<const IExprNode> reciprocate(const typed_pointer_type<const IExprNode> orig);
+		// To quickly make a matching backface BxDF from a frontface or vice versa, optionally can take an `orig` from another AST/pool and have the reciprocal copy over to our pool
+		NBL_API2 typed_pointer_type<const IExprNode> reciprocate(const typed_pointer_type<const IExprNode> orig, const CFrontendIR* pSourceIR=nullptr);
 
-		// a deep copy of the layer stack, wont copy the BxDFs
-		NBL_API2 typed_pointer_type<CLayer> copyLayers(const typed_pointer_type<const CLayer> orig);
-		// Reverse the linked list of layers and reciprocate their Etas
-		NBL_API2 typed_pointer_type<CLayer> reverse(const typed_pointer_type<const CLayer> orig);
+		// a deep copy of the layer stack, wont copy the BxDFs, optionally can take an `orig` from another AST/pool and have the reciprocal copy over to our pool
+		NBL_API2 typed_pointer_type<CLayer> copyLayers(const typed_pointer_type<const CLayer> orig, const CFrontendIR* pSourceIR=nullptr);
+		// Reverse the linked list of layers and reciprocate their Etas, optionally can take an `orig` from another AST/pool and have the reciprocal copy over to our pool
+		NBL_API2 typed_pointer_type<CLayer> reverse(const typed_pointer_type<const CLayer> orig, const CFrontendIR* pSourceIR=nullptr);
 
 		// first query, we check presence of btdf layers all the way through the layer stack
 		inline bool transmissive(const typed_pointer_type<const CLayer> rootHandle) const
@@ -921,30 +693,67 @@ class CFrontendIR final : public CNodePool
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
 		NBL_API2 bool valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
 
-		inline std::span<const typed_pointer_type<const CLayer>> getMaterials() {return m_rootNodes;}
-
-		// Each material comes down to this, YOU MUST NOT MODIFY THE NODES AFTER ADDING THEIR PARENT TO THE ROOT NODES!
-		// TODO: shall we copy and hand out a new handle? Allow RootNode from a foreign const pool
-		inline bool addMaterial(const typed_pointer_type<const CLayer> rootNode, system::logger_opt_ptr logger)
+		// Each material comes down to this, after lowering to the true IR ir the indices into `ir->getMaterials()` are returned
+		// We take the trees from the forest, and canonicalize them into our weird Domain Specific IR with Upside down expression trees.
+		// Process:
+		// 1. Decompression (duplicating nodes, etc.)
+		// 2. Canonicalize Expressions (Transform into Sum-Product form, DCE, etc.)
+		// 3. Split BTDFs (front vs. back part), reciprocate Etas
+		// 4. Simplify and Hoist Layer terms (delta sampling property)
+		// 5. Subexpression elimination
+		// Further transforms in the IR can be done by invoking IR passes
+		struct SAddMaterialsArgs
 		{
-			if (valid(rootNode,logger))
+			explicit inline operator bool() const {return !rootNodes.empty() && ir && result;}
+
+			std::span<const typed_pointer_type<const CLayer>> rootNodes;
+			CTrueIR* ir;
+			CTrueIR::SMaterialHandle* result;
+			system::logger_opt_ptr logger;
+		};
+		// returns the number of materials successfully converted
+		inline uint32_t addMaterials(const SAddMaterialsArgs args) const
+		{
+			uint32_t retval = 0;
+			if (!args)
 			{
-				m_rootNodes.push_back(rootNode);
-				return true;
+				args.logger.log("Invalid Arguments to `CTrueIR::addMaterials`",system::ILogger::ELL_ERROR);
+				return retval;
 			}
-			return false;
+			SAdd2IRSession session = {args};
+			auto outIt = args.result;
+			for (const auto& rootH : args.rootNodes)
+			{
+				if (!rootH) // its a valid material (blackhole)
+					*outIt = CTrueIR::BlackholeMaterialHandle;
+				else if (valid(rootH,args.logger))
+					*outIt = session.makeFinalIR(rootH,this);
+				// now check for failure
+				if (*outIt)
+					retval++;
+			}
+			return retval;
 		}
 
 		// For Debug Visualization
 		struct SDotPrinter final
 		{
 			public:
+				inline SDotPrinter() = default;
 				inline SDotPrinter(const CFrontendIR* ir) : m_ir(ir) {}
 				// assign in reverse because we want materials to print in order
 				inline SDotPrinter(const CFrontendIR* ir, std::span<const typed_pointer_type<const CLayer>> roots) : m_ir(ir), layerStack(roots.rbegin(),roots.rend())
 				{
 					// should probably size it better, if I knew total node count allocated or live
 					visitedNodes.reserve(roots.size()<<3);
+				}
+
+				inline void reset(const CFrontendIR* ir)
+				{
+					visitedNodes.clear();
+					layerStack.clear();
+					exprStack.clear();
+					m_ir = ir;
 				}
 
 				NBL_API2 void operator()(std::ostringstream& output);
@@ -958,13 +767,98 @@ class CFrontendIR final : public CNodePool
 				core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
 				// TODO: track layering depth and indent  accordingly?
 				core::vector<typed_pointer_type<const CLayer>> layerStack;
-				core::stack<typed_pointer_type<const IExprNode>> exprStack;
+				core::vector<typed_pointer_type<const IExprNode>> exprStack;
 			private:
-				const CFrontendIR* m_ir;
+				const CFrontendIR* m_ir = nullptr;
 		};
 
 	protected:
 		using CNodePool::CNodePool;
+		
+		struct SAdd2IRSession final
+		{
+			public:
+				inline SAdd2IRSession(const SAddMaterialsArgs& _args) : args(_args)
+				{
+					tmpAST = CFrontendIR::create({.composed={.blockSizeKBLog2=10},.maxBlocks=64});
+					// give slightly more memory to IR, since the AST tends to be a bit more compact
+					tmpIR = CTrueIR::create({.composed={.blockSizeKBLog2=12},.maxBlocks=64});
+				}
+
+				NBL_API2 CTrueIR::SMaterialHandle makeFinalIR(const typed_pointer_type<const CLayer> rootH, const CFrontendIR* ast);
+
+			private:
+				inline void printSubtree(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> nodeH)
+				{
+					assert(astPrinter.exprStack.empty());
+					astPrinter.exprStack.push_back(nodeH);
+					args.logger.log("Subtree Dot3 : \n%s\n",system::ILogger::ELL_DEBUG,astPrinter().c_str());
+					assert(astPrinter.exprStack.empty());
+					astPrinter.visitedNodes.clear();
+				}
+				inline void printIRLayer(const CTrueIR::typed_pointer_type<const CTrueIR::COrientedLayer> layerH, const CTrueIR* ir)
+				{
+					irPrinter.reset(ir);
+					irPrinter.layerStack.push_back(layerH);
+					args.logger.log("IR Layer Dot3 : \n%s\n",system::ILogger::ELL_DEBUG,irPrinter(true).c_str());
+					irPrinter.visitedNodes.clear();
+				}
+				
+				using oriented_material_t = CTrueIR::SMaterial::SOriented;
+				NBL_API2 oriented_material_t makeOrientedMaterial(const CFrontendIR::typed_pointer_type<const CFrontendIR::CLayer> rootH, const CFrontendIR* _srcAST);
+
+				NBL_API2 CTrueIR::typed_pointer_type<const CTrueIR::CContributorSum> makeContributors(const CFrontendIR::typed_pointer_type<const CFrontendIR::IExprNode> bxdfRootH);
+
+				// inputs to the addMaterials function
+				const SAddMaterialsArgs& args;
+				// for rewriting AST expressions
+				core::smart_refctd_ptr<CFrontendIR> tmpAST;
+				// for making IR nodes before we Merkle Hash them and remove duplicates (so main IR doesn't get bloated)
+				core::smart_refctd_ptr<CTrueIR> tmpIR;
+				// changes dynamically
+				const CFrontendIR* srcAST;
+				SDotPrinter astPrinter;
+				CTrueIR::SDotPrinter irPrinter;
+				bool btdfSubtree = false;
+				// for going over layers in the AST
+				core::vector<const CLayer*> layerStack;
+				// Holds the single `Product_j` of full expression in the form:
+				// 	   f(w_i,w_o) = Sum_i^N Product_j^{N_i} h_{ij}(w_i,w_o) l_i(w_i,w_o)
+				// Everything on the `irChain` multiplies together, everything on the `astStack` before the current top is our relative through a MUL node.
+				// CONTRIBUTOR and OTHER are leaf nodes which don't add any children onto the `astStack`. 
+				// ADD node (and COMPLEMENT which is a specialization of `ADD 1 (-X)`) duplicates the `astStack`, the ADD node at the top of the stack,
+				// itself was in a MUL relationship with all of the preceding AST nodes which are not explored yet, so its children will also be.
+				// The key is to not add both children of the ADD onto the same `astStack` because they themselves are not MUL together.
+				struct SCanonicalProduct
+				{
+					// Deal with optimizing this later on, not sure if `DoublyLinkedList` is appropriate, maybe I'd need a `DoublyLinkedBeadedCurtain` data structure
+					// also the mulChain needs to be sorted later on, and doubly linked list is PITA to sort
+					core::vector<typed_pointer_type<const IExprNode>> astStack = {}; // its also a stack
+					// Expressions for `h_{ij}` can also have ADD/MUL inside and we distribute and canonicalize them at the same time
+					// Distribute/hoist the ADD over the MUL. So replace a `MUL ADD A B C` with `ADD MUL A C MUL B C`
+					core::vector<CTrueIR::typed_pointer_type<const CTrueIR::IFactorLeaf>> irChain = {};
+					// this is to help us hash in reverse properly
+					union
+					{
+						// without the `rest` filled out yet
+						CTrueIR::typed_pointer_type<CTrueIR::CContributorSum> contribSumH;
+						// we're targetting a particular argument of this node, and this node shall have binary adds below it
+						CTrueIR::typed_pointer_type<CTrueIR::IFunctionNode> funcH = {};
+					};
+					uint16_t hasContributor : 1 = false;
+					uint16_t targetArg : CTrueIR::IFunctionNode::MaxFuncArgsLog2 = 0;
+					// extend later when allowing variable bucket count
+					uint16_t negate : 3 = 0b000;
+					uint16_t liveSpectralChannels : 3 = 0b111;
+				};
+				// We rework the expression Top down because Bottom up would require descent from the top anyway to find ADD within MUL.
+				// The List<Stack<>> allows us to descend the AST dually with multiple traversals at once, so we never actually need to rewrite the AST into something else.
+				core::list<SCanonicalProduct> canonicalSum;
+				// TODO: Visit Cache? Every original AST node has its own set of partial mul chains which can be slapped on later ?
+				// For the visited cache, we'd somehow need to cache a "2D slice" from this, meaning storing a part of the `irChain` prefix of a node
+				// (would need linked list IR so span/front-back of an irChain subsection can be kept)
+				// Maybe we could actually keep each IExprNode's irChains as reference to another IExprNode's irChains with a bitmask of the terms to take (merge sort to apply during traversal) 
+		};
 
 		inline core::string getNodeID(const typed_pointer_type<const INode> handle) const {return core::string("_")+std::to_string(handle.value);}
 		inline core::string getLabelledNodeID(const typed_pointer_type<const INode> handle) const
@@ -983,9 +877,43 @@ class CFrontendIR final : public CNodePool
 			retval += "\"]";
 			return retval;
 		}
-
-		core::vector<typed_pointer_type<const CLayer>> m_rootNodes;
 };
+
+template class CTrueIR::CSpectralVariable<CFrontendIR::ISpectralVariableExpr>;
+}
+
+// specialize the `to_string
+namespace nbl::system::impl
+{
+template<>
+struct to_string_helper<nbl::asset::material_compiler3::CFrontendIR::IExprNode::Type>
+{
+	using type = nbl::asset::material_compiler3::CFrontendIR::IExprNode::Type;
+
+	static inline std::string __call(const type value)
+	{
+		switch (value)
+		{
+			case type::Contributor:
+				return "Contributor";
+			case type::Mul:
+				return "Mul";
+			case type::Complement:
+				return "Complement";
+			case type::SpectralVariable:
+				return "SpectralVariable";
+			case type::Other:
+				return "Other";
+			default:
+				break;
+		}
+		return "";
+	}
+};
+}
+
+namespace nbl::asset::material_compiler3
+{
 
 inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle, system::logger_opt_ptr logger) const
 {
@@ -1008,10 +936,9 @@ inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle
 	core::stack<StackEntry> exprStack;
 	// why a separate stack to the main one? Because we don't push siblings.
 	core::vector<typed_pointer_type<const IExprNode>> ancestorPrefix;
-	// unused yet
+	// TODO: unused yet
 	core::unordered_set<typed_pointer_type<const INode>> visitedNodes;
-	// should probably size it better, if I knew total node count allocated or live
-	visitedNodes.reserve(m_rootNodes.size()<<3);
+	visitedNodes.reserve(128);
 	//
 	auto validateExpression = [&](const typed_pointer_type<const IExprNode> exprRoot, const bool isBTDF) -> bool
 	{
@@ -1058,7 +985,8 @@ inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle
 				const auto childHandle = node->getChildHandle(childIx);
 				if (const auto child=getObjectPool().deref(childHandle); child)
 				{
-					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && nodeIsMul;
+					// Only Add nodes can have Contributors in any subtree, Mul only the first, and others can't have them at all. Especially don't allow the complementing of a BxDF!
+					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && !nodeIsAdd || nodeType==IExprNode::Type::Other || nodeType==IExprNode::Type::Complement;
 					StackEntry newEntry = {.node=child,.handle=childHandle};
 					if (noContribBelow)
 					{
@@ -1109,8 +1037,12 @@ inline bool CFrontendIR::valid(const typed_pointer_type<const CLayer> rootHandle
 				logger.log("Node %u of type %s is invalid!",ELL_ERROR,entry.handle.value,node->getTypeName().data());
 				return false;
 			}
-			if (entry.contribSlot<MaxContributors)
+			if (nodeType==IExprNode::Type::Contributor)
+			{
+				assert(entry.contribSlot<MaxContributors);
+				assert(entry.contribState==SubtreeContributorState::Required);
 				contributorsFound.set(entry.contribSlot);
+			}
 		}
 		for (uint8_t i=0; i<contributorCount; i++)
 		if (!contributorsFound.test(i))

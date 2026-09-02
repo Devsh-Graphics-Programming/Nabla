@@ -90,10 +90,10 @@ void fill(vk_barrier_t& out, const ResourceBarrier& in, uint32_t selfQueueFamily
         switch (in.ownershipOp)
         {
             case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::RELEASE:
-                out.dstQueueFamilyIndex = in.otherQueueFamilyIndex;
+                out.dstQueueFamilyIndex = getVkQueueIndexFrom(in.otherQueueFamilyIndex);
                 break;
             case IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP::ACQUIRE:
-                out.srcQueueFamilyIndex = in.otherQueueFamilyIndex;
+                out.srcQueueFamilyIndex = getVkQueueIndexFrom(in.otherQueueFamilyIndex);
                 break;
         }
     }

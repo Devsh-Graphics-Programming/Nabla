@@ -108,7 +108,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getDownStreamingMemoryTypeBits();
 
-                auto deviceMemAllocation = device->allocate(reqs, buffer.get(), allocateFlags);
+                auto deviceMemAllocation = device->allocate(reqs, { buffer.get(), allocateFlags });
                                 
                 if (!deviceMemAllocation.isValid())
                 {
@@ -143,7 +143,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getUpStreamingMemoryTypeBits();
-                auto deviceMemAllocation = device->allocate(reqs, buffer.get(), allocateFlags);
+                auto deviceMemAllocation = device->allocate(reqs, { buffer.get(), allocateFlags });
                 
                 if (!deviceMemAllocation.isValid())
                 {
@@ -524,7 +524,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
             auto allocFlags = (params.usage & asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) ?
                 IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_DEVICE_ADDRESS_BIT : IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE;
-            auto mem = m_device->allocate(mreqs,buffer.get(), allocFlags);
+            auto mem = m_device->allocate(mreqs, { buffer.get(), allocFlags });
 
             auto submitSuccess = autoSubmit(
                 submit,

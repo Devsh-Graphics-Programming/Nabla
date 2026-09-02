@@ -38,6 +38,12 @@ class CMemoryPool final : public Uncopyable
 
         using creation_params_type = block_allocator_st_type::SCreationParams;
         inline CMemoryPool(creation_params_type&& params) : m_block_alctr(std::move(params)) {}
+
+        //
+        inline void reset()
+        {
+            m_block_alctr.reset();
+        }
         
 		//
 		template<typename T> requires (!std::is_const_v<T>)
@@ -49,6 +55,11 @@ class CMemoryPool final : public Uncopyable
 		inline const T* deref(typed_pointer_type<T> p) const
 		{
 			return m_block_alctr.deref<const T>(p);
+		}
+		template<typename T, typename U>
+		inline typed_pointer_type<T> _dynamic_cast(const typed_pointer_type<U> h) const
+		{
+			return m_block_alctr._dynamic_cast<T,U>(h);
 		}
     
         //

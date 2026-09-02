@@ -5,7 +5,7 @@
 #ifndef __NBL_EXT_OPTIX_DENOISER_H_INCLUDED__
 #define __NBL_EXT_OPTIX_DENOISER_H_INCLUDED__
 
-#include "../../../../src/nbl/video/CCUDAHandler.h"
+#include "nbl/video/CCUDAHandler.h"
 
 #include <optix.h>
 #include <optix_denoiser_tiling.h>

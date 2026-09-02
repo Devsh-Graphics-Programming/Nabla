@@ -38,7 +38,7 @@ struct SContext final
 
 		inline void writeFrontendForestDot3(system::ISystem* system, const system::path& filepath)
 		{
-			asset::material_compiler3::CFrontendIR::SDotPrinter printer = {frontIR.get(),frontIR->getMaterials()};
+			asset::material_compiler3::CFrontendIR::SDotPrinter printer = {frontIR.get(),debugAllMaterials};
 			writeDot3File(system,filepath,printer);
 		}
 
@@ -48,6 +48,10 @@ struct SContext final
 			meta->setGeometryCollectionMeta(std::move(groupCache));
 		}
 
+		using true_ir_t = asset::material_compiler3::CTrueIR;
+		using frontend_ir_t = asset::material_compiler3::CFrontendIR;
+		inline const frontend_ir_t* getMaterialFrontend() const {return frontIR.get();}
+
 		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
 		std::function<interm_getAssetInHierarchy_t> interm_getAssetInHierarchy;
@@ -56,7 +60,6 @@ struct SContext final
 		core::smart_refctd_ptr<asset::ICPUScene> scene;
 
 	private:
-		using frontend_ir_t = asset::material_compiler3::CFrontendIR;
 		using frontend_material_t = frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer>;
 		// not `frontend_ir_t::CEmitter` because the color factor gets multiplied in
 		using frontend_emitter_t = frontend_ir_t::typed_pointer_type<const frontend_ir_t::CMul>;
@@ -65,10 +68,12 @@ struct SContext final
 		//
 		void writeDot3File(system::ISystem* system, const system::path& filepath, frontend_ir_t::SDotPrinter& printer);
 		//
-		hlsl::float32_t2x3 getParameters(const std::span<frontend_ir_t::SParameter> out, const CElementTexture::FloatOrTexture& src);
-		hlsl::float32_t2x3 getParameters(const std::span<frontend_ir_t::SParameter,3> out, const CElementTexture::SpectrumOrTexture& src);
-		frontend_ir_t::SParameter getTexture(const CElementTexture* tex, hlsl::float32_t2x3* outUvTransform);
-		frontend_ir_t::SParameter genProfile(const CElementEmissionProfile* profile);
+		hlsl::float32_t2x3 getParameters(const std::span<true_ir_t::SParameter> out, const CElementTexture::FloatOrTexture& src);
+		void getParameters(asset::material_compiler3::CFrontendIR::CSpectralVariableExpr* const out, const CElementTexture::FloatOrTexture& src);
+		hlsl::float32_t2x3 getParameters(const std::span<true_ir_t::SParameter,3> out, const CElementTexture::SpectrumOrTexture& src);
+		void getParameters(asset::material_compiler3::CFrontendIR::CSpectralVariableExpr* const out, const CElementTexture::SpectrumOrTexture& src);
+		true_ir_t::SParameter getTexture(const CElementTexture* tex, hlsl::float32_t2x3* outUvTransform);
+		true_ir_t::SParameter genProfile(const CElementEmissionProfile* profile);
 
 		//
 		core::unordered_map<const CElementShape*,CMitsubaMetadata::SGeometryCollectionMetaPair> shapeCache;
@@ -77,7 +82,7 @@ struct SContext final
 		//
 		core::unordered_map<const CElementEmitter*,frontend_emitter_t> emitterCache;
 		core::unordered_map<const CElementBSDF*,frontend_material_t> bsdfCache;
-		core::unordered_map<const CElementEmissionProfile*,frontend_ir_t::SParameter> profileCache;
+		core::unordered_map<const CElementEmissionProfile*,true_ir_t::SParameter> profileCache;
 
 #if 0 // stuff that belongs in the Material Compiler backend
 		//image, sampler
@@ -86,8 +91,10 @@ struct SContext final
 		core::map<core::smart_refctd_ptr<asset::ICPUImage>,float> derivMapCache;
 #endif
 		core::smart_refctd_ptr<frontend_ir_t> frontIR;
+		// for a debug print
+		core::vector<frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer>> debugAllMaterials;
 		// common frontend nodes
-		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CSpectralVariable> unityFactor;
+		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CSpectralVariableExpr> unityFactor;
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::IExprNode> errorBRDF;
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CLayer> errorMaterial, unsupportedPhong, unsupportedWard;
 		frontend_ir_t::typed_pointer_type<const frontend_ir_t::CDeltaTransmission> deltaTransmission;

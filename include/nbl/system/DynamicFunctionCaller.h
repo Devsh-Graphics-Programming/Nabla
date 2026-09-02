@@ -16,7 +16,7 @@ class DynamicFunctionCallerBase : public core::Unmovable
 {
 	protected:
 		static_assert(std::is_base_of<FuncPtrLoader,FuncPtrLoaderT>::value, "Need a function pointer loader derived from `FuncPtrLoader`");
-		FuncPtrLoaderT loader;
+		mutable FuncPtrLoaderT loader;
 	public:
 		//DynamicFunctionCallerBase() : loader() {}
 		DynamicFunctionCallerBase(DynamicFunctionCallerBase&& other) : DynamicFunctionCallerBase()
@@ -28,6 +28,16 @@ class DynamicFunctionCallerBase : public core::Unmovable
 		{
 		}
 		virtual ~DynamicFunctionCallerBase() = default;
+
+		inline bool isLibraryLoaded() const
+		{
+			return loader.isLibraryLoaded();
+		}
+
+		inline void* loadFuncPtr(const char* funcname) const
+		{
+			return loader.loadFuncPtr(funcname);
+		}
 
 		DynamicFunctionCallerBase& operator=(DynamicFunctionCallerBase&& other)
 		{
@@ -41,6 +51,8 @@ class DynamicFunctionCallerBase : public core::Unmovable
 
 #define NBL_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR(FUNC_NAME) ,NBL_CONCATENATE(p , FUNC_NAME)(Base::loader.loadFuncPtr( #FUNC_NAME ))
 #define NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(NBL_CONCATENATE(p, FUNC_NAME),other.NBL_CONCATENATE(p, FUNC_NAME));
+// Load an extra function from an already loaded dynamic library without adding it to the generated caller class.
+#define NBL_SYSTEM_LOAD_DYNLIB_FUNCPTR(CALLER, FUNC_NAME) nbl::system::DynamicLibraryFunctionPointer<decltype(FUNC_NAME),NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(#FUNC_NAME)>((CALLER).loadFuncPtr(#FUNC_NAME))
 
 #define NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS( CLASS_NAME, FUNC_PTR_LOADER_TYPE, ... ) \
 class CLASS_NAME : public nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>\

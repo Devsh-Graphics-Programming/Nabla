@@ -19,7 +19,7 @@ namespace nbl::video
     m_shaderGroupHandles(std::move(shaderGroupHandles)),
     m_missStackSizes(core::make_refctd_dynamic_array<GeneralGroupStackSizeContainer>(params.shaderGroups.misses.size())),
     m_hitGroupStackSizes(core::make_refctd_dynamic_array<HitGroupStackSizeContainer>(params.shaderGroups.hits.size())),
-    m_callableStackSizes(core::make_refctd_dynamic_array<GeneralGroupStackSizeContainer>(params.shaderGroups.hits.size()))
+    m_callableStackSizes(core::make_refctd_dynamic_array<GeneralGroupStackSizeContainer>(params.shaderGroups.callables.size()))
   {
     const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     auto* vk = vulkanDevice->getFunctionTable();

@@ -86,6 +86,15 @@ class CObjectPool final : public IObjectPoolBase
 			for (auto& entry : m_allocations)
 				destroy(deref<INonTrivial>(entry.first),entry.second.count,entry.second.stride);
 		}
+		
+		//
+		inline void reset()
+		{
+			for (auto& entry : m_allocations)
+				destroy(deref<INonTrivial>(entry.first),entry.second.count,entry.second.stride);
+			m_allocations.clear();
+			m_pool.reset();
+		}
 
 		//
 		struct check_t
@@ -117,6 +126,11 @@ class CObjectPool final : public IObjectPoolBase
 			else
 				mutableH = h;
 			return const_cast<this_t*>(this)->deref<non_const_t>(mutableH,check);
+		}
+		template<typename T, typename U>// requires (std::is_const_v<T> == std::is_const_v<U>)
+		inline typed_pointer_type<T> _dynamic_cast(const typed_pointer_type<U> h) const
+		{
+			return m_pool._dynamic_cast<T,U>(h);
 		}
 
 		//

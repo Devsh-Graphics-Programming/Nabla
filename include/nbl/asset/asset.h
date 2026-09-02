@@ -41,6 +41,9 @@
 #include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/CSPIRVIntrospector.h"
 
+// material compiler
+#include "nbl/asset/material_compiler3/CFrontendIR.h"
+
 // pipelines
 
 // skinning

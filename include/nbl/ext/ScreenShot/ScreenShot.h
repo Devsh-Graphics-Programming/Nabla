@@ -110,7 +110,7 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 				logger->log("ScreenShot: no down-streaming memory type for texel buffer.", system::ILogger::ELL_ERROR);
 			return nullptr;
 		}
-		auto gpuTexelBufferMem = logicalDevice->allocate(gpuTexelBufferMemReqs, gpuTexelBuffer.get());
+		auto gpuTexelBufferMem = logicalDevice->allocate(gpuTexelBufferMemReqs, { gpuTexelBuffer.get() });
 		if (!gpuTexelBufferMem.isValid())
 		{
 			if (auto* logger = logicalDevice->getLogger())

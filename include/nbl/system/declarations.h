@@ -41,4 +41,7 @@
 // frameworks (ugh, doesn't work!)
 //#include "nbl/system/IApplicationFramework.h"
 
+// Handle for import and export gpu resource
+#include "nbl/system/ExternalHandle.h"
+
 #endif

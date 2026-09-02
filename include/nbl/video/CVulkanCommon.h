@@ -704,6 +704,32 @@ inline VkImageLayout getVkImageLayoutFromImageLayout(asset::IImage::LAYOUT in)
     }
 }
 
+inline asset::IImage::LAYOUT getImageLayoutFromVkImageLayout(VkImageLayout in)
+{
+    using layout_t = asset::IImage::LAYOUT;
+    switch (in)
+    {
+        case VK_IMAGE_LAYOUT_GENERAL:
+            return layout_t::GENERAL;
+        case VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL:
+            return layout_t::READ_ONLY_OPTIMAL;
+        case VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL:
+            return layout_t::ATTACHMENT_OPTIMAL;
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            return layout_t::TRANSFER_SRC_OPTIMAL;
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            return layout_t::TRANSFER_DST_OPTIMAL;
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            return layout_t::PREINITIALIZED;
+        case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+            return layout_t::PRESENT_SRC;
+        case VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR:
+            return layout_t::SHARED_PRESENT;
+        default:
+            return layout_t::UNDEFINED;
+    }
+}
+
 inline VkColorSpaceKHR getVkColorSpaceKHRFromColorSpace(ISurface::SColorSpace in)
 {
     if (in.primary == asset::ECP_SRGB && in.eotf == asset::EOTF_sRGB)
@@ -791,6 +817,7 @@ inline VkImageUsageFlags getVkImageUsageFlagsFromImageUsageFlags(const core::bit
     if (in.hasFlags(IGPUImage::EUF_INPUT_ATTACHMENT_BIT)) ret |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
     if (in.hasFlags(IGPUImage::EUF_SHADING_RATE_ATTACHMENT_BIT)) ret |= VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
     if (in.hasFlags(IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT)) ret |= VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT;
+    if (in.hasFlags(IGPUImage::EUF_HOST_TRANSFER_BIT)) ret |= VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT;
     return ret;
 }
 
@@ -806,6 +833,7 @@ inline core::bitflag<IGPUImage::E_USAGE_FLAGS> getImageUsageFlagsFromVkImageUsag
     if (in&VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) ret |= IGPUImage::EUF_INPUT_ATTACHMENT_BIT;
     if (in&VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR) ret |= IGPUImage::EUF_SHADING_RATE_ATTACHMENT_BIT;
     if (in&VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT) ret |= IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT;
+    if (in&VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT) ret |= IGPUImage::EUF_HOST_TRANSFER_BIT;
     return ret;
 }
 
