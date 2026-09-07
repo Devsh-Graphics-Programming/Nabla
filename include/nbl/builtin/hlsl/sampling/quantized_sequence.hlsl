@@ -57,7 +57,7 @@ struct encode_helper
     {
         uniform_storage_type asuint;
         NBL_UNROLL for(uint16_t i = 0; i < Dim; i++)
-            asuint[i] = uniform_storage_scalar_type(unormvec[i] * UNormMultiplier);
+            asuint[i] = _static_cast<uniform_storage_scalar_type>(unormvec[i] * UNormMultiplier);
         NBL_IF_CONSTEXPR(Dim==1)
             return sequence_type::create(asuint[0]);
         else
@@ -80,7 +80,7 @@ struct decode_before_scramble_helper
         uvec_type seqVal;
         NBL_UNROLL for(uint16_t i = 0; i < Dim; i++)
             seqVal[i] = val.get(i) << Q::DiscardBits; // restore high bits
-        seqVal ^= scrambleKey;
+        (void)(seqVal ^= scrambleKey); // glm declares operator^= [[nodiscard]] even though it returns a self-reference
         return return_type(seqVal) * bit_cast<float_of_size_t<sizeof(storage_scalar_type)> >(UNormConstant);
     }
 

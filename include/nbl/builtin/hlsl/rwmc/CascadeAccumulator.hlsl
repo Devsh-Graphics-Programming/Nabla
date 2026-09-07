@@ -77,7 +77,8 @@ struct CascadeAccumulator
     }
 
     // most of this code is stolen from https://cg.ivd.kit.edu/publications/2018/rwmc/tool/split.cpp
-    void addSample(const sample_count_type sampleCount, input_sample_type _sample)
+    template<typename SampleCountType>
+    void addSample(const SampleCountType sampleCount, input_sample_type _sample)
     {
         const uint16_t lastCascade = accumulation.getLastCascade();
 
@@ -97,7 +98,7 @@ struct CascadeAccumulator
         if (cascade > lastCascade)
             lowerCascadeWeight = hlsl::exp2(_static_cast<weight_t>(splattingParameters.BrightSampleLumaBias - log2Luma));
 
-        accumulation.addSampleIntoCascadeEntry(_sample, lowerCascadeIndex, lowerCascadeWeight, higherCascadeWeight, sampleCount);
+        accumulation.addSampleIntoCascadeEntry(_sample, lowerCascadeIndex, lowerCascadeWeight, higherCascadeWeight, _static_cast<sample_count_type>(sampleCount));
     }
      
     

@@ -1171,11 +1171,14 @@ struct beta
 
 // currently throws a boost preprocess error, see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/932
 // #ifdef __HLSL_VERSION
+        #pragma warning(suppress: 4068)
         #pragma dxc diagnostic push
+		#pragma warning(suppress: 4068)
 		#pragma dxc diagnostic ignored "-Wliteral-range"
 // #endif
 		const T thresholds[4] = { 0, 5e5, 1e6, 1e15 };	// threshold values gotten from testing when the function returns nan/inf/1
 // #ifdef __HLSL_VERSION
+        #pragma warning(suppress: 4068)
         #pragma dxc diagnostic pop
 // #endif
 		if (x+y > thresholds[mpl::find_lsb_v<sizeof(T)>])

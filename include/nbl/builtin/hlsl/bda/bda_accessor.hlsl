@@ -45,19 +45,19 @@ struct BdaAccessor : impl::BdaAccessorBase
 
     T get(const uint64_t index)
     {
-        bda::__ptr<T> target = ptr + index;
+        bda::__ptr<T> target = ptr + _static_cast<int64_t>(index);
         return target.template deref().load();
     }
 
     void get(const uint64_t index, NBL_REF_ARG(T) value)
     {
-        bda::__ptr<T> target = ptr + index;
+        bda::__ptr<T> target = ptr + _static_cast<int64_t>(index);
         value = target.template deref().load();
     }
 
     void set(const uint64_t index, const T value)
     {
-        bda::__ptr<T> target = ptr + index;
+        bda::__ptr<T> target = ptr + _static_cast<int64_t>(index);
         return target.template deref().store(value);
     }
 
@@ -65,7 +65,7 @@ struct BdaAccessor : impl::BdaAccessorBase
     enable_if_t<is_same_v<S,T> && is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8), T>
     atomicAdd(const uint64_t index, const T value)
     {
-        bda::__ptr<T> target = ptr + index;
+        bda::__ptr<T> target = ptr + _static_cast<int64_t>(index);
         return glsl::atomicAdd(target.template deref().ptr.value, value);
     }
 
@@ -73,7 +73,7 @@ struct BdaAccessor : impl::BdaAccessorBase
     enable_if_t<is_same_v<S,T> && is_integral<T>::value && (sizeof(T) == 4 || sizeof(T) == 8), T>
     atomicSub(const uint64_t index, const T value)
     {
-        bda::__ptr<T> target = ptr + index;
+        bda::__ptr<T> target = ptr + _static_cast<int64_t>(index);
         return glsl::atomicSub(target.template deref().ptr.value, value);
     }
 
@@ -94,19 +94,19 @@ struct DoubleBdaAccessor : impl::BdaAccessorBase
 
     T get(const uint64_t index)
     {
-        bda::__ptr<T> target = inputPtr + index;
+        bda::__ptr<T> target = inputPtr + _static_cast<int64_t>(index);
         return target.template deref().load();
     }
 
     void get(const uint64_t index, NBL_REF_ARG(T) value)
     {
-        bda::__ptr<T> target = inputPtr + index;
+        bda::__ptr<T> target = inputPtr + _static_cast<int64_t>(index);
         value = target.template deref().load();
     }
 
     void set(const uint64_t index, const T value)
     {
-        bda::__ptr<T> target = outputPtr + index;
+        bda::__ptr<T> target = outputPtr + _static_cast<int64_t>(index);
         return target.template deref().store(value);
     }
 

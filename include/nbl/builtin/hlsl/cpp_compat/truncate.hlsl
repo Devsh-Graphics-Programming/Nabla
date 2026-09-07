@@ -23,7 +23,7 @@ struct Truncate
 {
     NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(U) v)
     {
-        return T(v);
+        return _static_cast<T>(v);
     }
 };
 
@@ -36,7 +36,7 @@ struct Truncate<To, From NBL_PARTIAL_REQ_BOT(concepts::can_truncate_vector<To, F
         array_set<To, typename vector_traits<To>::scalar_type> setter;
         To output;
         [[unroll]]
-        for (int i = 0; i < vector_traits<To>::Dimension; ++i)
+        for (uint32_t i = 0; i < vector_traits<To>::Dimension; ++i)
             setter(output, i, getter(v, i));
         return output;
     }

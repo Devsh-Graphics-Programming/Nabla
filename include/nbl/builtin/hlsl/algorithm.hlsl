@@ -135,9 +135,9 @@ struct bound_t
     bool compare(const typename Accessor::value_type lhs, const typename Accessor::value_type rhs)
     {
         if (IsUpper)
-            return !comp(rhs,lhs);
+            return !_static_cast<bool>(comp(rhs,lhs));
         else
-            return comp(lhs,rhs);
+            return _static_cast<bool>(comp(lhs,rhs));
     }
 
     void comp_step(NBL_REF_ARG(Accessor) accessor, const uint32_t testPoint, const uint32_t rightBegin)

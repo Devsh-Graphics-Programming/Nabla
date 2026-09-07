@@ -59,10 +59,10 @@ inline uint64_t castFloat32ToStorageType(float32_t val)
         if (hlsl::isinf(val))
             return ieee754::traits<float64_t>::inf | sign;
         uint32_t asUint = ieee754::impl::bitCastToUintType(val);
-        const int f32BiasedExp = int(ieee754::extractBiasedExponent(val));
+        const int f32BiasedExp = _static_cast<int>(ieee754::extractBiasedExponent(val));
         if (f32BiasedExp == 0)
             return sign;
-        const uint64_t biasedExp = uint64_t(f32BiasedExp - ieee754::traits<float32_t>::exponentBias + ieee754::traits<float64_t>::exponentBias) << (ieee754::traits<float64_t>::mantissaBitCnt);
+        const uint64_t biasedExp = _static_cast<uint64_t>(f32BiasedExp - ieee754::traits<float32_t>::exponentBias + ieee754::traits<float64_t>::exponentBias) << (ieee754::traits<float64_t>::mantissaBitCnt);
         const uint64_t mantissa = (uint64_t(ieee754::traits<float32_t>::mantissaMask) & asUint) << (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float32_t>::mantissaBitCnt);
 
         return sign | biasedExp | mantissa;
@@ -85,46 +85,24 @@ inline uint64_t reinterpretAsFloat64BitPattern(T);
 template<>
 inline uint64_t reinterpretAsFloat64BitPattern<uint64_t>(uint64_t val)
 {
-    if (isZero(val))
+    if (val == 0ull)
         return val;
 
-    int exp = findMSB(val);
+    const int exp = findMSB(val);
     uint64_t mantissa;
 
-    int shiftCnt = 52 - exp;
+    const int shiftCnt = 52 - exp;
     if (shiftCnt >= 0)
     {
-        mantissa = val << shiftCnt;
+        mantissa = val << _static_cast<uint64_t>(shiftCnt);
     }
     else
     {
-        const int shiftCntAbs = -shiftCnt;
-        uint64_t roundingBit = 1ull << (shiftCnt - 1);
-        uint64_t stickyBitMask = roundingBit - 1;
-        uint64_t stickyBit = val & stickyBitMask;
-
-        mantissa = val >> shiftCntAbs;
-
-        if ((val & roundingBit) && (!stickyBit))
-        {
-            bool isEven = mantissa & 1;
-            if (!isEven)
-                mantissa++;
-        }
-        else if ((val & roundingBit) && (stickyBit || (mantissa & 1)))
-            val += roundingBit;
-
-        //val += (1ull << (shiftCnt)) - 1;
-        //mantissa = val >> shiftCntAbs;
-
-        if (mantissa & 1ull << 53)
-        {
-            mantissa >>= 1;
-            exp++;
-        }
+        // Integer conversions use the same round-toward-zero mode as arithmetic.
+        mantissa = val >> _static_cast<uint64_t>(-shiftCnt);
     }
     mantissa &= ieee754::traits<float64_t>::mantissaMask;
-    const uint64_t biasedExp = uint64_t(ieee754::traits<float64_t>::exponentBias + exp) << ieee754::traits<float64_t>::mantissaBitCnt;
+    const uint64_t biasedExp = _static_cast<uint64_t>(ieee754::traits<float64_t>::exponentBias + exp) << ieee754::traits<float64_t>::mantissaBitCnt;
 
     return biasedExp | mantissa;
 };
@@ -132,8 +110,9 @@ inline uint64_t reinterpretAsFloat64BitPattern<uint64_t>(uint64_t val)
 template<>
 inline uint64_t reinterpretAsFloat64BitPattern<int64_t>(int64_t val)
 {
-    const uint64_t sign = val & ieee754::traits<float64_t>::signMask;
-    const uint64_t absVal = uint64_t(abs(val));
+    const uint64_t bits = _static_cast<uint64_t>(val);
+    const uint64_t sign = bits & ieee754::traits<float64_t>::signMask;
+    const uint64_t absVal = val < 0 ? 0ull - bits : bits;
     return sign | reinterpretAsFloat64BitPattern(absVal);
 };
 
@@ -297,8 +276,8 @@ inline uint64_t subMantissas128NormalizeResult(const uint64_t greaterNumberManti
     if (shiftAmount < 0)
     {
         shiftAmount = -shiftAmount;
-        diffHigh <<= shiftAmount;
-        const uint64_t shiftedOutBits = diffLow >> (64 - shiftAmount);
+        diffHigh <<= _static_cast<uint64_t>(shiftAmount);
+        const uint64_t shiftedOutBits = diffLow >> _static_cast<uint64_t>(64 - shiftAmount);
         diffHigh |= shiftedOutBits;
     }
 
