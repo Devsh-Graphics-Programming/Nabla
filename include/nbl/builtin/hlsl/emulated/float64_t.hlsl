@@ -107,8 +107,8 @@ namespace hlsl
                         return bit_cast<this_t>(rhs.data);
                 }
 
-                const int lhsBiasedExp = ieee754::extractBiasedExponent(data);
-                const int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
+                const int lhsBiasedExp = _static_cast<int>(ieee754::extractBiasedExponent(data));
+                const int rhsBiasedExp = _static_cast<int>(ieee754::extractBiasedExponent(rhs.data));
 
                 uint64_t lhsSign = ieee754::extractSignPreserveBitPattern(data);
                 uint64_t rhsSign = ieee754::extractSignPreserveBitPattern(rhs.data);
@@ -138,7 +138,7 @@ namespace hlsl
                 const int expDiff = lhsBiasedExp - rhsBiasedExp;
 
                 int exp = max(lhsBiasedExp, rhsBiasedExp) - ieee754::traits<float64_t>::exponentBias;
-                const uint32_t shiftAmount = abs(expDiff);
+                const uint32_t shiftAmount = _static_cast<uint32_t>(abs(expDiff));
 
                 if (expDiff < 0)
                 {
@@ -244,8 +244,8 @@ namespace hlsl
 
                 this_t retval = this_t::create(0ull);
 
-                int lhsBiasedExp = ieee754::extractBiasedExponent(data);
-                int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
+                int lhsBiasedExp = _static_cast<int>(ieee754::extractBiasedExponent(data));
+                int rhsBiasedExp = _static_cast<int>(ieee754::extractBiasedExponent(rhs.data));
 
                 int exp = int(lhsBiasedExp + rhsBiasedExp) - ieee754::traits<float64_t>::exponentBias;
 
@@ -289,8 +289,8 @@ namespace hlsl
             {
                 const uint64_t sign = (data ^ rhs.data) & ieee754::traits<float64_t>::signMask;
 
-                int lhsBiasedExp = ieee754::extractBiasedExponent(data);
-                int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
+                int lhsBiasedExp = _static_cast<int>(ieee754::extractBiasedExponent(data));
+                int rhsBiasedExp = _static_cast<int>(ieee754::extractBiasedExponent(rhs.data));
 
                 if(!FastMath)
                 {
@@ -324,7 +324,7 @@ namespace hlsl
                 {
                     const int shiftAmount = 52 - msb;
                     assert(shiftAmount >= 0);
-                    mantissa <<= shiftAmount;
+                    mantissa <<= _static_cast<uint64_t>(shiftAmount);
                     exp -= shiftAmount;
                 }
 
@@ -478,7 +478,7 @@ NBL_CONSTEXPR_FUNC __VA_ARGS__ replaceBiasedExponent(__VA_ARGS__ x, typename uns
 template <>\
 NBL_CONSTEXPR_FUNC __VA_ARGS__ fastMulExp2(__VA_ARGS__ x, int n)\
 {\
-    return __VA_ARGS__(replaceBiasedExponent(x.data, extractBiasedExponent(x) + uint32_t(n)));\
+    return __VA_ARGS__(replaceBiasedExponent(x.data, extractBiasedExponent(x) + _static_cast<uint32_t>(n)));\
 }\
 \
 template <>\

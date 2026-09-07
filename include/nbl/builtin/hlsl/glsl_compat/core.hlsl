@@ -255,9 +255,9 @@ struct bitfieldInsert<T NBL_PARTIAL_REQ_BOT(concepts::Integral<typename vector_t
 {
     static T __call( T base, T insert, uint32_t offset, uint32_t bits )
     {
-        const T mask = (_static_cast<T>(1u) << bits) - _static_cast<T>(1u);
-        const T shifted_mask = mask << offset;
-        return (base & ~shifted_mask) | ((insert & mask) << T(offset));
+        const T mask = (_static_cast<T>(1u) << _static_cast<T>(bits)) - _static_cast<T>(1u);
+        const T shifted_mask = mask << _static_cast<T>(offset);
+        return (base & ~shifted_mask) | ((insert & mask) << _static_cast<T>(offset));
     }
 };
 
@@ -267,7 +267,7 @@ struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::SignedIntegral<typename v
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
-        const T ret = (val >> T(offsetBits)) & T((T(1u) << numBits) - T(1u));
+        const T ret = (val >> _static_cast<T>(offsetBits)) & _static_cast<T>((_static_cast<T>(1u) << _static_cast<T>(numBits)) - _static_cast<T>(1u));
         if (ret & (T(1u) << (numBits-1u)))
             ret |= T(~0ull) << numBits;
         return ret;
@@ -280,7 +280,7 @@ struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegral<typename
 {
     static T __call( T val, uint32_t offsetBits, uint32_t numBits )
     {
-        return (val >> T(offsetBits)) & T((T(1u) << numBits) - T(1u));
+        return (val >> _static_cast<T>(offsetBits)) & _static_cast<T>((_static_cast<T>(1u) << _static_cast<T>(numBits)) - _static_cast<T>(1u));
     }
 };
 }

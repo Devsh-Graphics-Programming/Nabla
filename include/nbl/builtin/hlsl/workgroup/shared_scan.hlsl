@@ -91,7 +91,7 @@ struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShad
     {
         __base.template __call<Accessor>(value,scratchAccessor);
         
-        const uint16_t subgroupID = uint16_t(glsl::gl_SubgroupID());
+        const uint16_t subgroupID = _static_cast<uint16_t>(glsl::gl_SubgroupID());
         // abuse integer wraparound to map 0 to 0xffffu
         const uint16_t prevSubgroupID = subgroupID-_static_cast<uint16_t>(1);
         
@@ -99,7 +99,7 @@ struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShad
         const uint16_t lastInvocation = ItemCount-_static_cast<uint16_t>(1);
         if(lastInvocation>=uint16_t(glsl::gl_SubgroupSize()))
         {
-            const uint16_t subgroupSizeLog2 = uint16_t(glsl::gl_SubgroupSizeLog2());
+            const uint16_t subgroupSizeLog2 = _static_cast<uint16_t>(glsl::gl_SubgroupSizeLog2());
             // different than Upsweep cause we need to translate high level inclusive scans into exclusive on the fly, so we get the value of the subgroup behind our own in each level
             const uint16_t storeLoadIndexDiff = SubgroupContiguousIndex()-prevSubgroupID;
             
@@ -108,7 +108,7 @@ struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShad
             #define scanStoreIndex __base.scanLoadIndex
             // we sloop over levels from highest to penultimate
             // as we iterate some previously active (higher level) invocations hold their exclusive prefix sum in `lastLevelScan`
-            const uint16_t temp = uint16_t(firstbithigh(uint32_t(lastInvocation))/subgroupSizeLog2); // doing division then multiplication might be optimized away by the compiler
+            const uint16_t temp = _static_cast<uint16_t>(firstbithigh(uint32_t(lastInvocation))/subgroupSizeLog2); // doing division then multiplication might be optimized away by the compiler
             const uint16_t initialLogShift = temp*subgroupSizeLog2;
             // TODO: later [unroll(scan_levels<ItemCount,MinSubgroupSize>::value-1)]
             [unroll(1)]

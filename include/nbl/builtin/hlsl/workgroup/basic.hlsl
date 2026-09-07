@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BASIC_INCLUDED_
 
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_ballot.hlsl"
+#include "nbl/builtin/hlsl/type_traits.hlsl"
 
 //! all functions must be called in uniform control flow (all workgroup invocations active)
 namespace nbl
@@ -25,7 +26,7 @@ uint16_t Volume()
     
 uint16_t SubgroupContiguousIndex()
 {
-    const uint16_t retval = (uint16_t(glsl::gl_SubgroupID())<<glsl::gl_SubgroupSizeLog2())+uint16_t(glsl::gl_SubgroupInvocationID());
+    const uint16_t retval = _static_cast<uint16_t>((glsl::gl_SubgroupID()<<glsl::gl_SubgroupSizeLog2())+glsl::gl_SubgroupInvocationID());
     assert(retval<Volume());
     return retval;
 }
