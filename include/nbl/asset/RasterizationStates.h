@@ -20,9 +20,8 @@ struct SViewport
     float x = 0.f;
     float y = 0.f;
     float width, height;
-    // Reverse-Z is our framework default
-    float minDepth = 1.f;
-    float maxDepth = 0.f;
+    float minDepth = 0.f;
+    float maxDepth = 1.f;
 };
 
 
@@ -145,7 +144,7 @@ struct SRasterizationParams
         uint8_t alphaToCoverageEnable : 1 = false;
         uint8_t alphaToOneEnable : 1 = false;
         uint8_t depthWriteEnable : 1 = true;
-        E_COMPARE_OP depthCompareOp : 3 = ECO_GREATER;
+        E_COMPARE_OP depthCompareOp : 3 = ECO_LESS;
         uint8_t depthBoundsTestEnable : 1 = false;
     };
     SStencilOpParams frontStencilOps;
