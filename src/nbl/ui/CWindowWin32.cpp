@@ -76,7 +76,7 @@ LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, L
 		}
 		case WM_SHOWWINDOW:
 		{
-			if (wParam = TRUE)
+			if (wParam)
 			{
 				if(!eventCallback->onWindowShown(window)) shouldCallDefProc = false;
 			}
@@ -219,7 +219,7 @@ LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, L
 					RAWMOUSE rawMouse = rawInput->data.mouse;
 					SMouseEvent event(timestamp);
 
-					if ((rawMouse.usFlags & MOUSE_MOVE_RELATIVE) == MOUSE_MOVE_RELATIVE)
+					if (!(rawMouse.usFlags & MOUSE_MOVE_ABSOLUTE))
 					{
 						// XD apparently a flag can be set, but there will be no actual movement
 						if (rawMouse.lLastX != 0 || rawMouse.lLastY != 0)
