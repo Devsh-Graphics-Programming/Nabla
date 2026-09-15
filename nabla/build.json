@@ -1,6 +1,6 @@
 {
-  "color": "brightgreen",
-  "message": "passing",
   "label": "build",
+  "message": "passing",
+  "color": "brightgreen",
   "schemaVersion": 1
 }
