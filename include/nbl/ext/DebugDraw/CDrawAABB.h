@@ -48,6 +48,7 @@ namespace nbl::ext::debug_draw
             core::smart_refctd_ptr<video::IGPUPipelineLayout> singlePipelineLayout = nullptr;
             core::smart_refctd_ptr<video::IGPUPipelineLayout> batchPipelineLayout = nullptr;
             core::smart_refctd_ptr<video::IGPURenderpass> renderpass = nullptr;
+            asset::E_COMPARE_OP depthCompareOp = asset::ECO_GREATER;
 
             inline bool validate() const
             {
