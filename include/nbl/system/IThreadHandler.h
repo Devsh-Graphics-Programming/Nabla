@@ -165,6 +165,11 @@ class IThreadHandler
         }
 
     protected:
+        void stopThread()
+        {
+            terminate();
+        }
+
         void thread()
         {
             CRTP* this_ = static_cast<CRTP*>(this);

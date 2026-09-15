@@ -144,10 +144,14 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 	pipelineParams[0].layout = pipelineLayout;
 	pipelineParams[0].vertexShader = { .shader = unifiedShader.get(), .entryPoint = (mode & ADM_DRAW_SINGLE) ? "aabb_vertex_single" : "aabb_vertex_instances" };
 	pipelineParams[0].fragmentShader = { .shader = unifiedShader.get(), .entryPoint = "aabb_fragment" };
+	asset::SRasterizationParams rasterParams;
+	rasterParams.depthCompareOp = params.depthCompareOp;
+
 	pipelineParams[0].cached = {
 		.primitiveAssembly = {
 			.primitiveType = asset::E_PRIMITIVE_TOPOLOGY::EPT_LINE_LIST,
-		}
+		},
+		.rasterization = rasterParams,
 	};
 	pipelineParams[0].renderpass = params.renderpass.get();
 
@@ -188,7 +192,7 @@ bool DrawAABB::createStreamingBuffer(SCreationParameters& params)
 		auto memoryReqs = buffer->getMemoryReqs();
 		memoryReqs.memoryTypeBits &= params.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 
-		auto allocation = params.utilities->getLogicalDevice()->allocate(memoryReqs, buffer.get(), SCachedCreationParameters::RequiredAllocateFlags);
+		auto allocation = params.utilities->getLogicalDevice()->allocate(memoryReqs, { buffer.get(), SCachedCreationParameters::RequiredAllocateFlags });
 		{
 			const bool allocated = allocation.isValid();
 			assert(allocated);
@@ -282,7 +286,7 @@ smart_refctd_ptr<IGPUBuffer> DrawAABB::createIndicesBuffer(SCreationParameters& 
 		video::IDeviceMemoryBacked::SDeviceMemoryRequirements reqs = indicesBuffer->getMemoryReqs();
 		reqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 
-		auto bufMem = device->allocate(reqs, indicesBuffer.get());
+		auto bufMem = device->allocate(reqs, { indicesBuffer.get() });
 		if (!bufMem.isValid())
 		{
 			params.utilities->getLogger()->log("Failed to allocate device memory compatible with index buffer!\n");

@@ -16,10 +16,10 @@ namespace hlsl
 namespace math
 {
 
-template <typename T>
+template <typename T, template<typename NBL_STRUCT_CONSTRAINABLE> class AcosHelper = tgmath_impl::acos_helper>
 struct sincos_accumulator
 {
-    using this_t = sincos_accumulator<T>;
+    using this_t = sincos_accumulator<T, AcosHelper>;
 
     static this_t create(T cosA)
     {
@@ -66,10 +66,29 @@ struct sincos_accumulator
         addAngle(cosA, sqrt<T>(T(1.0) - cosA * cosA));
     }
 
-    // TODO: rename to `getSumOfArccos`
-    T getSumofArccos()
+    T getSumOfArccos()
     {
-        return acos<T>(runningSum.real()) + wraparound;
+        return AcosHelper<T>::__call(runningSum.real()) + wraparound;
+    }
+
+    // Returns (sum of angles) - pi using the identity acos(x) - pi = -acos(-x).
+    // Avoids catastrophic cancellation when wraparound == 0 and sum ~ pi,
+    // where the naive `acos(~-1) - pi` subtracts two values both near pi.
+    // Note: when wraparound == pi (typical for spherical triangles with small
+    // excess e), the naive path `acos(cos(e))` is actually slightly more precise
+    // since it returns a small value directly without a near-pi cancellation.
+    T getSumOfArccosMinusPi()
+    {
+        return -AcosHelper<T>::__call(-runningSum.real()) + wraparound;
+    }
+
+    // Same as getSumOfArccosMinusPi but clamps the accumulated cosine to [-1,1]
+    // before calling acos. The angle addition in addAngle() uses sum-of-products
+    // which can push the accumulated cosine slightly outside the unit circle due
+    // to FP rounding, causing acos to return NaN on GPU where max(NaN,0)=0.
+    T getClampedSumOfArccosMinusPi()
+    {
+        return -AcosHelper<T>::__call(clamp<T>(-runningSum.real(), T(-1), T(1))) + wraparound;
     }
 
     complex_t<T> runningSum;

@@ -4,14 +4,40 @@
 namespace nbl::video
 {
 CVulkanMemoryAllocation::CVulkanMemoryAllocation(
-    const CVulkanLogicalDevice* dev, const size_t size,
-    const core::bitflag<E_MEMORY_ALLOCATE_FLAGS> flags,
-    const core::bitflag<E_MEMORY_PROPERTY_FLAGS> memoryPropertyFlags,
-    const bool isDedicated, const VkDeviceMemory deviceMemoryHandle
-) : IDeviceMemoryAllocation(dev,size,flags,memoryPropertyFlags,isDedicated), m_vulkanDevice(dev), m_deviceMemoryHandle(deviceMemoryHandle) {}
+    const CVulkanLogicalDevice* dev, 
+    const VkDeviceMemory deviceMemoryHandle,
+    std::unique_ptr<system::external_handle_t[]> externalHandles,
+    SCreationParams&& params
+) : IDeviceMemoryAllocation(dev,std::move(params)), m_vulkanDevice(dev), m_deviceMemoryHandle(deviceMemoryHandle), m_externalHandles(std::move(externalHandles)) {}
+
+system::external_handle_t CVulkanMemoryAllocation::getExportHandle(E_EXTERNAL_HANDLE_TYPE handleType) const
+{
+  using U = typename core::bitflag<E_EXTERNAL_HANDLE_TYPE>::UNDERLYING_TYPE;
+
+  if (!std::has_single_bit(static_cast<U>(handleType))) return nullptr;
+
+  const auto externalHandleTypes = getCreationParams().externalHandleTypes;
+  if (!externalHandleTypes.hasFlags(handleType)) return nullptr;
+
+  const auto mask = core::bitflag<E_EXTERNAL_HANDLE_TYPE>(handleType - 1);
+  const auto handleIndex = hlsl::bitCount(externalHandleTypes & mask);
+
+  return m_externalHandles[handleIndex];
+}
 
 CVulkanMemoryAllocation::~CVulkanMemoryAllocation()
 {
+    if (m_externalHandles != nullptr)
+    {
+        const auto externalHandleCount = hlsl::bitCount(getCreationParams().externalHandleTypes);
+
+        for (auto i = 0; i < externalHandleCount; i++)
+        {
+            const auto externalHandle = m_externalHandles[i];
+            const auto success = system::CloseExternalHandle(externalHandle);
+            if (!success) m_vulkanDevice->getLogger()->log("Failed to close external handle for Vulkan memory allocation", system::ILogger::ELL_ERROR);
+        }
+    }
     m_vulkanDevice->getFunctionTable()->vk.vkFreeMemory(m_vulkanDevice->getInternalObject(),m_deviceMemoryHandle,nullptr);
 }
 

@@ -18,10 +18,10 @@ namespace reflection
 {
 
 template<class Config>
-using SBeckmannIsotropic = SCookTorrance<Config, ndf::Beckmann<typename Config::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
+using SBeckmannIsotropic = SCookTorrance<Config, ndf::Beckmann<typename Config::sample_type::scalar_type, false, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
 
 template<class Config>
-using SBeckmannAnisotropic = SCookTorrance<Config, ndf::Beckmann<typename Config::scalar_type, true, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
+using SBeckmannAnisotropic = SCookTorrance<Config, ndf::Beckmann<typename Config::sample_type::scalar_type, true, ndf::MTT_REFLECT>, fresnel::Conductor<typename Config::spectral_type> >;
 
 }
 

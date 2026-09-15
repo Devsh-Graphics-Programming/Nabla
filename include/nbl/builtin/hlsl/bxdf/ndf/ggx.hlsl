@@ -226,8 +226,10 @@ struct GGX
     enable_if_t<C::value && !IsAnisotropic, dg1_query_type> createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         dg1_query_type dg1_query;
-        bool dummy;
-        dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache, dummy);
+        bool isInfinity;
+        dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache, isInfinity);
+        if (isInfinity)
+            return dg1_query;
         scalar_type clampedNdotV = interaction.getNdotV(BxDFClampMode::BCM_ABS);
         dg1_query.G1_over_2NdotV = G1_wo_numerator(clampedNdotV, __ndf_base.devsh_part(interaction.getNdotV2()));
         return dg1_query;
@@ -244,8 +246,10 @@ struct GGX
     enable_if_t<C::value && IsAnisotropic, dg1_query_type> createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache) NBL_CONST_MEMBER_FUNC
     {
         dg1_query_type dg1_query;
-        bool dummy;
-        dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache, dummy);
+        bool isInfinity;
+        dg1_query.ndf = __ndf_base.template D<MicrofacetCache>(cache, isInfinity);
+        if (isInfinity)
+            return dg1_query;
         scalar_type clampedNdotV = interaction.getNdotV(BxDFClampMode::BCM_ABS);
         dg1_query.G1_over_2NdotV = G1_wo_numerator(clampedNdotV, __ndf_base.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2()));
         return dg1_query;

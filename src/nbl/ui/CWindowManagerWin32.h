@@ -202,6 +202,10 @@ class NBL_API2 CWindowManagerWin32 final : public IWindowManagerWin32, public IC
 				{
 					//waitForInitComplete(); init is a NOOP
 				}
+				inline ~CAsyncQueue()
+				{
+					this->shutdown();
+				}
 
 				inline void init() {}
 

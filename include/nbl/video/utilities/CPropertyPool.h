@@ -59,7 +59,7 @@ class CPropertyPool final : public IPropertyPool
                 blocks[i].buffer = device->createBuffer(std::move(params));
                 auto bufferReqs = blocks[i].buffer->getMemoryReqs();
                 bufferReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-                auto gpubufferMem = device->allocate(bufferReqs, blocks[i].buffer.get());
+                auto gpubufferMem = device->allocate(bufferReqs, { blocks[i].buffer.get() });
             }
             return create(device, blocks, capacity, contiguous, allocator<uint8_t>());
         }

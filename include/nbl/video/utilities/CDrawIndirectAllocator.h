@@ -52,7 +52,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
             explicit_params.drawCommandBuffer.buffer = params.device->createBuffer(std::move(creationParams));
             auto mreqsDrawCmdBuf = explicit_params.drawCommandBuffer.buffer->getMemoryReqs();
             mreqsDrawCmdBuf.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-            auto gpubufMem = params.device->allocate(mreqsDrawCmdBuf, explicit_params.drawCommandBuffer.buffer.get());
+            auto gpubufMem = params.device->allocate(mreqsDrawCmdBuf, { explicit_params.drawCommandBuffer.buffer.get() });
 
             explicit_params.drawCountBuffer.offset = 0ull;
             explicit_params.drawCountBuffer.size = core::roundUp<size_t>(params.drawCountCapacity*sizeof(uint32_t),limits.minSSBOAlignment);
@@ -62,7 +62,7 @@ class CDrawIndirectAllocator final : public IDrawIndirectAllocator
                 explicit_params.drawCountBuffer.buffer = params.device->createBuffer(std::move(creationParams));
                 auto mreqsDrawCountBuf = explicit_params.drawCountBuffer.buffer->getMemoryReqs();
                 mreqsDrawCountBuf.memoryTypeBits &= params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-                auto gpubufMem = params.device->allocate(mreqsDrawCountBuf, explicit_params.drawCountBuffer.buffer.get());
+                auto gpubufMem = params.device->allocate(mreqsDrawCountBuf, { explicit_params.drawCountBuffer.buffer.get() });
             }
             else
                 explicit_params.drawCountBuffer.buffer = nullptr;

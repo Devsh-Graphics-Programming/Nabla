@@ -4,6 +4,7 @@
 #include <nbl/builtin/hlsl/portable/float64_t.hlsl>
 #include <nbl/builtin/hlsl/emulated/vector_t.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
+#include <nbl/builtin/hlsl/array_accessors.hlsl>
 
 namespace nbl
 {
@@ -142,6 +143,39 @@ struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_v
     }
 };
 }
+
+namespace impl
+{
+
+// this concept will check whether MatrixType is a matrix and whether its component is not a native type scalar, should work only for emulated matrices
+#define MATRIX_COMPONENT_IS_EMULATED nbl::hlsl::matrix_traits<MatrixType>::IsMatrix && !nbl::hlsl::is_scalar_v<typename nbl::hlsl::matrix_traits<MatrixType>::scalar_type> && (nbl::hlsl::concepts::FloatingPointLikeScalar<typename nbl::hlsl::matrix_traits<MatrixType>::scalar_type> || nbl::hlsl::concepts::IntegralLikeScalar<typename nbl::hlsl::matrix_traits<MatrixType>::scalar_type>)
+
+template<typename MatrixType>
+NBL_PARTIAL_REQ_TOP(MATRIX_COMPONENT_IS_EMULATED)
+struct MatrixComponentSetterHelper<MatrixType NBL_PARTIAL_REQ_BOT(MATRIX_COMPONENT_IS_EMULATED) >
+{
+    using ComponentType = typename nbl::hlsl::matrix_traits<MatrixType>::scalar_type;
+    static void __call(NBL_REF_ARG(MatrixType) mat, uint16_t row, uint16_t column, ComponentType value)
+    {
+       mat.rows[row].setComponent(column, value);
+    }
+};
+
+template<typename MatrixType>
+NBL_PARTIAL_REQ_TOP(MATRIX_COMPONENT_IS_EMULATED)
+struct MatrixComponentGetterHelper<MatrixType NBL_PARTIAL_REQ_BOT(MATRIX_COMPONENT_IS_EMULATED) >
+{
+    using ComponentType = typename nbl::hlsl::matrix_traits<MatrixType>::scalar_type;
+    static ComponentType __call(NBL_REF_ARG(MatrixType) mat, uint16_t row, uint16_t column)
+    {
+        return mat.rows[row].getComponent(column);
+    }
+};
+
+#undef MATRIX_COMPONENT_IS_EMULATED
+
+}
+
 
 }
 }

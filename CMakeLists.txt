@@ -70,15 +70,15 @@ else()
 	message(STATUS "Vulkan SDK is not found")
 endif()
 
-option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
+option(NBL_COMPILE_WITH_CUDA "Build CUDA interop support?" OFF)
+set(NBL_CUDA_TOOLKIT_ROOT "" CACHE PATH "Optional CUDA Toolkit root used when NBL_COMPILE_WITH_CUDA is ON")
 
 if(NBL_COMPILE_WITH_CUDA)
-	find_package(CUDAToolkit REQUIRED)
-	if(${CUDAToolkit_VERSION} VERSION_GREATER "9.0")
-		message(STATUS "CUDA version 9.0+ found!")
-	else()
-		message(FATAL_ERROR "CUDA version 9.0+ needed for C++14 support!")
+	if(NBL_CUDA_TOOLKIT_ROOT)
+		set(CUDAToolkit_ROOT "${NBL_CUDA_TOOLKIT_ROOT}")
 	endif()
+	find_package(CUDAToolkit 13.0 REQUIRED)
+	message(STATUS "CUDA version ${CUDAToolkit_VERSION} found!")
 endif()
 
 get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
@@ -183,19 +183,21 @@ option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
 option(NBL_BUILD_DEBUG_DRAW "Enable Nabla Debug Draw extension?" ON)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
-if(NBL_COMPILE_WITH_CUDA)
-	find_package(OPTIX REQUIRED)
-	message(STATUS "CUDA enabled and OptiX found!")
-else()
-	if(NBL_BUILD_OPTIX)
+if(NBL_BUILD_OPTIX)
+	if(NOT NBL_COMPILE_WITH_CUDA)
 		message(FATAL_ERROR "You cannot build Optix without enabled CUDA! NBL_COMPILE_WITH_CUDA must be ON!")
 	endif()
+	find_package(OPTIX REQUIRED)
+	message(STATUS "CUDA enabled and OptiX found!")
 endif()
 
 option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" OFF)
+set(NBL_NSC_MODE "PACKAGE" CACHE STRING "How to provide the nsc build tool. Valid values: SOURCE and PACKAGE")
+set_property(CACHE NBL_NSC_MODE PROPERTY STRINGS SOURCE PACKAGE)
+option(NBL_NSC_USE_PACKAGE_BUILTINS "When NBL_NSC_MODE=PACKAGE, use builtin resources embedded in the packaged nsc instead of host checkout builtins." OFF)
 option(NBL_ENABLE_DOCKER_INTEGRATION "Enables docker integration, if client is not found Docker Desktop will be installed" OFF)
 option(NBL_ENABLE_CONFIG_INSTALL "Install Relocatable NablaConfig.cmake and NablaConfigVersion.cmake scripts" ON)
 
@@ -313,6 +315,7 @@ if(NBL_ENABLE_CONFIG_INSTALL)
 		set(_NBL_NABLA_CONFIG_FILES
 			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
 			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+			"${CMAKE_CURRENT_LIST_DIR}/cmake/NablaCUDAInteropHelpers.cmake"
 		)
 
 		install(EXPORT NablaExportTargets

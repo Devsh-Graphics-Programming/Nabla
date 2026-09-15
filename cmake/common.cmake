@@ -1185,9 +1185,9 @@ define_property(TARGET PROPERTY NBL_MOUNT_POINT_DEFINES
 	BRIEF_DOCS "List of preprocessor defines with mount points"
 )
 
+option(NSC_DEBUG_EDIF_SOURCE_BIT "Add \"-fspv-debug=source\" to NSC Debug CLI" ON)
 option(NSC_DEBUG_EDIF_FILE_BIT "Add \"-fspv-debug=file\" to NSC Debug CLI" ON)
-option(NSC_DEBUG_EDIF_SOURCE_BIT "Add \"-fspv-debug=source\" to NSC Debug CLI" OFF)
-option(NSC_DEBUG_EDIF_LINE_BIT "Add \"-fspv-debug=line\" to NSC Debug CLI" OFF)
+option(NSC_DEBUG_EDIF_LINE_BIT "Add \"-fspv-debug=line\" to NSC Debug CLI" ON)
 option(NSC_DEBUG_EDIF_TOOL_BIT "Add \"-fspv-debug=tool\" to NSC Debug CLI" ON)
 option(NSC_DEBUG_EDIF_NON_SEMANTIC_BIT "Add \"-fspv-debug=vulkan-with-source\" to NSC Debug CLI" OFF)
 option(NSC_USE_DEPFILE "Generate depfiles for NSC custom commands" ON)
@@ -1235,26 +1235,35 @@ struct DeviceConfigCaps
 	)
 
 	if(NSC_DEBUG_EDIF_FILE_BIT)
-    	list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=file>)
-	endif()
-	
-	if(NSC_DEBUG_EDIF_SOURCE_BIT)
-	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=source>)
-	endif()
-	
-	if(NSC_DEBUG_EDIF_LINE_BIT)
-	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=line>)
-	endif()
-	
-	if(NSC_DEBUG_EDIF_TOOL_BIT)
-	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=tool>)
-	endif()
-	
-	if(NSC_DEBUG_EDIF_NON_SEMANTIC_BIT)
-	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug>:-fspv-debug=vulkan-with-source>)
+    	list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=file>)
 	endif()
 
-	if(NOT NBL_EMBED_BUILTIN_RESOURCES)
+	if(NSC_DEBUG_EDIF_SOURCE_BIT)
+	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=source>)
+	endif()
+
+	if(NSC_DEBUG_EDIF_LINE_BIT)
+	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=line>)
+	endif()
+
+	if(NSC_DEBUG_EDIF_TOOL_BIT)
+	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=tool>)
+	endif()
+
+	if(NSC_DEBUG_EDIF_NON_SEMANTIC_BIT)
+	    list(APPEND REQUIRED_OPTIONS $<$<CONFIG:Debug,RelWithDebInfo>:-fspv-debug=vulkan-with-source>)
+	endif()
+
+	set(_NBL_NSC_USE_HOST_BUILTINS FALSE)
+	if(NBL_NSC_MODE STREQUAL "PACKAGE")
+		if(NOT NBL_NSC_USE_PACKAGE_BUILTINS)
+			set(_NBL_NSC_USE_HOST_BUILTINS TRUE)
+		endif()
+	elseif(NOT NBL_EMBED_BUILTIN_RESOURCES)
+		set(_NBL_NSC_USE_HOST_BUILTINS TRUE)
+	endif()
+
+	if(_NBL_NSC_USE_HOST_BUILTINS)
 		list(APPEND REQUIRED_OPTIONS
 			-no-nbl-builtins
 			-isystem "${NBL_ROOT_PATH}/include"
@@ -1263,6 +1272,7 @@ struct DeviceConfigCaps
 			-isystem "${NBL_ROOT_PATH_BINARY}/src/nbl/device/include"
 		)
 	endif()
+	unset(_NBL_NSC_USE_HOST_BUILTINS)
 
     set(REQUIRED_SINGLE_ARGS TARGET BINARY_DIR OUTPUT_VAR INPUTS INCLUDE NAMESPACE MOUNT_POINT_DEFINE)
     set(OPTIONAL_SINGLE_ARGS GLOB_DIR)

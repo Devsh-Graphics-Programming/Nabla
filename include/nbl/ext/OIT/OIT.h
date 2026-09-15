@@ -69,7 +69,7 @@ class COIT
                     assert(img);
                     auto mreq = img->getMemoryReqs();
                     mreq.memoryTypeBits &= dev->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-                    auto imgMem = dev->allocate(mreq, img.get());
+                    auto imgMem = dev->allocate(mreq, { img.get() });
 
                     if (!img || !imgMem.isValid())
                         return nullptr;

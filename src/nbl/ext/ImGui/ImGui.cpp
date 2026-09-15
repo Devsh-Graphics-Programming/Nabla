@@ -1008,7 +1008,7 @@ bool UI::createMDIBuffer(SCreationParameters& creationParams)
 			reqs.memoryTypeBits &= typeBits;
 			if (!reqs.memoryTypeBits)
 				return {};
-			return device->allocate(reqs,buffer.get(),SCachedCreationParams::RequiredAllocateFlags);
+			return device->allocate(reqs, { buffer.get(),SCachedCreationParams::RequiredAllocateFlags });
 		};
 
 		auto allocation = tryAllocate(upStreamingBits);

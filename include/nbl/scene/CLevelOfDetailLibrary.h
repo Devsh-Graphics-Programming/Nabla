@@ -53,7 +53,7 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 				auto lodTableInfoBuffer = params.device->createBuffer(std::move(lodTableInfoBufferParams));
 				auto lodTableInfoMReqs = lodTableInfoBuffer->getMemoryReqs();
 				lodTableInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;
-				params.device->allocate(lodTableInfoMReqs, lodTableInfoBuffer.get());
+				params.device->allocate(lodTableInfoMReqs, { lodTableInfoBuffer.get() });
 
 				explicitParams.lodTableInfoBuffer = {0ull,tableBufferSize,lodTableInfoBuffer};
 				explicitParams.lodTableInfoBuffer.buffer->setObjectDebugName("LoD Table Infos");
@@ -65,7 +65,7 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 				auto lodInfoBuffer = params.device->createBuffer(std::move(lodInfoBufferParams));
 				auto lodInfoMReqs = lodInfoBuffer->getMemoryReqs();
 				lodInfoMReqs.memoryTypeBits &= deviceLocalMemTypeBits;
-				params.device->allocate(lodInfoMReqs, lodInfoBuffer.get());
+				params.device->allocate(lodInfoMReqs, { lodInfoBuffer.get() });
 
 				explicitParams.lodInfoBuffer = {0ull,lodBufferSize,lodInfoBuffer};
 				explicitParams.lodInfoBuffer.buffer->setObjectDebugName("LoD Infos");

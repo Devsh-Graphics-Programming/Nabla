@@ -28,6 +28,7 @@ struct traits<bxdf::reflection::SOrenNayar<C> >
     NBL_CONSTEXPR_STATIC_INLINE bool IsMicrofacet = false;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool TractablePdf = true;
 };
 
 }

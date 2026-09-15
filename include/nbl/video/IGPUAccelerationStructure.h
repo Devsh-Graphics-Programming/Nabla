@@ -503,6 +503,13 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 					return oit;
 				}
 
+				// to get the section that `trackedBLASes` get written into
+				template<typename ForwardIterator> // TODO: requires
+				inline ForwardIterator getBLASTrackingOffset(ForwardIterator begin) const
+				{
+					return begin+(Base::isUpdate ? 4:3);
+				}
+
 
 				core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
 				// What we use to indicate `VkAccelerationStructureGeometryInstancesDataKHR::arrayOfPointers`

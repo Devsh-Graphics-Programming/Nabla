@@ -1554,25 +1554,25 @@
             "type": "bool",
             "name": "shaderTrinaryMinmax",
             "value": false,
-            "comment": ["VK_AMD_shader_trinary_minmax"]
+            "comment": [ "VK_AMD_shader_trinary_minmax" ]
         },
         {
             "type": "bool",
             "name": "shaderExplicitVertexParameter",
             "value": false,
-            "comment": ["VK_AMD_shader_explicit_vertex_parameter"]
+            "comment": [ "VK_AMD_shader_explicit_vertex_parameter" ]
         },
         {
             "type": "bool",
             "name": "gpuShaderHalfFloatAMD",
             "value": false,
-            "comment": ["VK_AMD_gpu_shader_half_float"]
+            "comment": [ "VK_AMD_gpu_shader_half_float" ]
         },
         {
             "type": "bool",
             "name": "shaderImageLoadStoreLod",
             "value": false,
-            "comment": ["VK_AMD_shader_image_load_store_lod"]
+            "comment": [ "VK_AMD_shader_image_load_store_lod" ]
         },
         {
             "type": "uint32_t",
@@ -1662,13 +1662,13 @@
             "type": "bool",
             "name": "queueFamilyForeign",
             "value": false,
-            "comment": ["VK_EXT_queue_family_foreign"]
+            "comment": [ "VK_EXT_queue_family_foreign" ]
         },
         {
             "type": "bool",
             "name": "shaderStencilExport",
             "value": false,
-            "comment": ["VK_EXT_shader_stencil_export"]
+            "comment": [ "VK_EXT_shader_stencil_export" ]
         },
         {
             "comment": [
@@ -1763,7 +1763,7 @@
                     "name": "shaderGroupHandleSize",
                     "value": 32,
                     "expose": "DISABLE",
-                    "comment": ["`exact` limit type"]
+                    "comment": [ "`exact` limit type" ]
                 },
                 {
                     "type": "uint32_t",
@@ -1812,7 +1812,7 @@
             "type": "bool",
             "name": "postDepthCoverage",
             "value": false,
-            "comment": ["VK_EXT_post_depth_coverage"]
+            "comment": [ "VK_EXT_post_depth_coverage" ]
         },
         {
             "comment": [
@@ -1893,7 +1893,7 @@
             "type": "bool",
             "name": "decorateString",
             "value": false,
-            "comment": ["VK_GOOGLE_decorate_string"]
+            "comment": [ "VK_GOOGLE_decorate_string" ]
         },
         {
             "comment": [
@@ -2068,7 +2068,7 @@
             "type": "bool",
             "name": "shaderNonSemanticInfo",
             "value": false,
-            "comment": ["VK_KHR_shader_non_semantic_info"]
+            "comment": [ "VK_KHR_shader_non_semantic_info" ]
         },
         {
             "comment": [
@@ -2095,7 +2095,7 @@
             "type": "bool",
             "name": "fragmentShaderBarycentric",
             "value": false,
-            "comment": ["VK_KHR_fragment_shader_barycentric"]
+            "comment": [ "VK_KHR_fragment_shader_barycentric" ]
         },
         {
             "type": "bool",
@@ -2179,6 +2179,27 @@
             "comment": [
                 "CooperativeMatrixPropertiesKHR",
                 "VK_KHR_cooperative_matrix"
+            ]
+        },
+        {
+            "comment": [
+                "VK_EXT_ray_tracing_invocation_reorder",
+                "RayTracingInvocationReorderPropertiesEXT "
+            ],
+            "entries": [
+                {
+                    "type": "uint32_t",
+                    "name": "maxHitObjectReplacementSBTIndex",
+                    "value": 0,
+                    "comment": [
+                        "This is only a limit on OpHitObjectSetShaderBindingTableRecordIndexEXT"
+                    ]
+                },
+                {
+                    "type": "bool",
+                    "name": "actuallyReordersRayTracingInvocations",
+                    "value": false
+                }
             ]
         }
     ],

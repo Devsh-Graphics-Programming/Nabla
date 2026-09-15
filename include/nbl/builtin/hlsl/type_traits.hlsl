@@ -193,18 +193,15 @@ template<class T> struct remove_const : type_identity<T> {};
 template<class T> struct remove_const<const T> : type_identity<T> {};
 
 template<class T> struct remove_volatile : type_identity<T> {};
-template<class T> struct remove_volatile<volatile T> : type_identity<T> {};
 
 template<class T> struct remove_cv : type_identity<T> {};
 template<class T> struct remove_cv<const T> : type_identity<T> {};
-template<class T> struct remove_cv<volatile T> : type_identity<T> {};
-template<class T> struct remove_cv<const volatile T> : type_identity<T> {};
 
 template<class T> struct remove_cvref : remove_cv<typename impl::remove_reference<T>::type> {};
 
 template<class T> struct add_const : type_identity<const T> {};
-template<class T> struct add_volatile : type_identity<volatile T> {};
-template<class T> struct add_cv : type_identity<const volatile T> {};
+template<class T> struct add_volatile : type_identity<T> {};
+template<class T> struct add_cv : type_identity<const T> {};
 
 
 template<class T, T val>
@@ -368,9 +365,6 @@ struct is_const<const T> : bool_constant<true> {};
 
 template<class T>
 struct is_volatile : bool_constant<false> {};
-
-template<class T>
-struct is_volatile<volatile T> : bool_constant<true> {};
 
 template<class>
 struct is_trivial : bool_constant<true> {};

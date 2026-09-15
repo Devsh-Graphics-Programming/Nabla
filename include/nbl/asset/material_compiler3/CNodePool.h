@@ -26,6 +26,22 @@ class CNodePool : public core::IReferenceCounted
 		};
 
 	public:
+		template<typename T, uint16_t N, uint16_t M>
+		static inline void printMatrix(std::ostringstream& sstr, const hlsl::matrix<T,N,M>& m)
+		{
+			for (uint16_t i=0; i<N; i++)
+			{
+				if (i)
+					sstr << "\\n";
+				for (uint16_t j=0; j<M; j++)
+				{
+					if (j)
+						sstr << ",";
+					sstr << std::to_string(m[i][j]);
+				}
+			}
+		}
+
 		//
 		using obj_pool_type = nbl::core::CObjectPool<Config>;
 
@@ -79,7 +95,18 @@ class CNodePool : public core::IReferenceCounted
 			protected:
 				const uint32_t m_size;
 		};
+		// copy the debug nodes between pools
+		inline typed_pointer_type<CDebugInfo> copyDebugInfo(const typed_pointer_type<const CDebugInfo> orig, const CNodePool* pSource)
+		{
+			assert(pSource);
+			if (!orig)
+				return {};
+			const auto span = pSource->getObjectPool().deref(orig)->data();
+			const auto oldView = std::string_view(reinterpret_cast<const char*>(span.data()),span.size()-1);
+			return getObjectPool().emplace<CDebugInfo>(oldView);
+		}
 
+		//
 		template<typename T>
 		inline const std::string_view getTypeName(const typed_pointer_type<T> h) const
 		{
@@ -91,9 +118,20 @@ class CNodePool : public core::IReferenceCounted
 	protected:
 		inline CNodePool(typename obj_pool_type::creation_params_type&& params) : m_composed(std::move(params)) {}
 
+		// does a shallow copy (no need to deref any of the children/deeper references), the pool itself must have a `deepCopy` method for that
+		template<typename T> requires std::is_copy_assignable_v<T>
+		static typed_pointer_type<T> copyNode(const T* src, CNodePool* dstPool)
+		{
+			assert(src);
+			auto& pool = dstPool->getObjectPool();
+			const auto copyH = pool.emplace<T>();
+			if (auto* const copy=pool.deref(copyH); copyH)
+				*copy = *src;
+			return copyH;
+		}
+
 		obj_pool_type m_composed;
 };
-
 
 } // namespace nbl::asset::material_compiler3
 #endif

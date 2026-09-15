@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_CORE_CONTAINERS_DOUBLY_LINKED_LIST_H_INCLUDED__
-#define __NBL_CORE_CONTAINERS_DOUBLY_LINKED_LIST_H_INCLUDED__
+#ifndef _NBL_CORE_CONTAINERS_DOUBLY_LINKED_LIST_H_INCLUDED_
+#define _NBL_CORE_CONTAINERS_DOUBLY_LINKED_LIST_H_INCLUDED_
 
 
 #include "nbl/core/alloc/PoolAddressAllocator.h"
@@ -11,9 +10,8 @@
 
 #include <functional>
 
-namespace nbl
-{
-namespace core
+
+namespace nbl::core
 {
 
 //Struct for use in a doubly linked list. Stores data and pointers to next and previous elements the list, or invalid iterator if it is first/last
@@ -65,6 +63,7 @@ struct alignas(void*) SDoublyLinkedNode
 	}
 };
 
+// TODO: this could use the ObjectPool that CNodePool does
 template<typename Value, class allocator = core::allocator<SDoublyLinkedNode<Value>> >
 class DoublyLinkedList
 {
@@ -99,6 +98,9 @@ public:
 		return (m_array + address);
 	}
 
+	//
+	inline bool empty() const {return m_begin==m_back;}
+
 	//get node ptr of the first item in the list
 	inline node_t* getBegin() { return m_array + m_begin; }
 	inline const node_t* getBegin() const { return m_array + m_begin; }
@@ -120,9 +122,9 @@ public:
 	}
 
 	template <typename... Args>
-	inline void emplaceFront(Args&&... args)
+	inline node_t* emplaceFront(Args&&... args)
 	{
-		insertAt(reserveAddress(), std::forward<Args>(args)...);
+		return insertAt(reserveAddress(), std::forward<Args>(args)...);
 	}
 
 	/**
@@ -328,7 +330,7 @@ private:
 
 	//create a new node which stores data at already allocated address
 	template <typename... Args>
-	inline void insertAt(uint32_t addr, Args&&... args)
+	inline node_t* insertAt(uint32_t addr, Args&&... args)
 	{
 		assert(addr < m_cap);
 		assert(addr != invalid_iterator);
@@ -342,6 +344,7 @@ private:
 		if (m_back == invalid_iterator)
 			m_back = addr;
 		m_begin = addr;
+		return n;
 	}
 
 	/**
@@ -506,8 +509,6 @@ std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::const_iterato
 	return std::reverse_iterator<const_iterator>(const_iterator(this, m_begin));
 }
 
-} //namespace core
-} //namespace nbl
-
+} //namespace nbl::core
 
 #endif

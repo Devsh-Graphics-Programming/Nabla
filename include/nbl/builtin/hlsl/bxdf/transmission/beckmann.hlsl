@@ -18,10 +18,16 @@ namespace transmission
 {
 
 template<class Config>
-using SBeckmannDielectricIsotropic = SCookTorrance<Config, ndf::Beckmann<typename Config::scalar_type, false, ndf::MTT_REFLECT_REFRACT>, fresnel::Dielectric<typename Config::monochrome_type> >;
+using SBeckmannDielectricIsotropic = SCookTorrance<Config,
+	ndf::Beckmann<typename Config::sample_type::scalar_type, false, ndf::MTT_REFLECT_REFRACT>,
+	fresnel::Dielectric<vector<typename Config::sample_type::scalar_type,1> > 
+>;
 
 template<class Config>
-using SBeckmannDielectricAnisotropic = SCookTorrance<Config, ndf::Beckmann<typename Config::scalar_type, true, ndf::MTT_REFLECT_REFRACT>, fresnel::Dielectric<typename Config::monochrome_type> >;
+using SBeckmannDielectricAnisotropic = SCookTorrance<Config,
+	ndf::Beckmann<typename Config::sample_type::scalar_type, true, ndf::MTT_REFLECT_REFRACT>,
+	fresnel::Dielectric<vector<typename Config::sample_type::scalar_type,1> >
+>;
 
 }
 

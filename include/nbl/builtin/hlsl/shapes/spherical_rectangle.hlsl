@@ -9,6 +9,7 @@
 #include <nbl/builtin/hlsl/numbers.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/math/angle_adding.hlsl>
+#include <nbl/builtin/hlsl/math/fast_acos.hlsl>
 
 namespace nbl
 {
@@ -82,42 +83,110 @@ struct SphericalRectangle
     using scalar_type = Scalar;
     using vector2_type = vector<Scalar, 2>;
     using vector3_type = vector<Scalar, 3>;
+    using vector4_type = vector<Scalar, 4>;
     using matrix3x3_type = matrix<Scalar, 3, 3>;
 
-    static SphericalRectangle<Scalar> create(const vector3_type rectangleOrigin, const vector3_type right, const vector3_type up)
+    struct solid_angle_type
+    {
+        scalar_type value;
+        vector3_type r0;
+        vector4_type n_z;
+        vector4_type cosGamma;
+    };
+
+    static SphericalRectangle<Scalar> create(NBL_CONST_REF_ARG(CompressedSphericalRectangle<Scalar>) compressed)
     {
         SphericalRectangle<scalar_type> retval;
-        retval.origin = rectangleOrigin;
-        retval.extents = vector2_type(hlsl::length(right), hlsl::length(up));
-        retval.basis[0] = right / retval.extents[0];
-        retval.basis[1] = up / retval.extents[1];
+        retval.origin = compressed.origin;
+        retval.extents = vector2_type(hlsl::length(compressed.right), hlsl::length(compressed.up));
+        retval.basis[0] = compressed.right / retval.extents[0];
+        retval.basis[1] = compressed.up / retval.extents[1];
+        assert(hlsl::abs(hlsl::dot(retval.basis[0], retval.basis[1])) < scalar_type(1e-5));
         retval.basis[2] = hlsl::normalize(hlsl::cross(retval.basis[0], retval.basis[1]));
         return retval;
     }
 
-    static SphericalRectangle<Scalar> create(NBL_CONST_REF_ARG(CompressedSphericalRectangle<Scalar>) compressed)
+    solid_angle_type solidAngle(const vector3_type observer) NBL_CONST_MEMBER_FUNC
     {
-        return create(compressed.origin, compressed.right, compressed.up);
+        solid_angle_type result;
+        result.r0 = hlsl::mul(basis, origin - observer);
+
+        const vector4_type denorm_n_z = vector4_type(-result.r0.y, result.r0.x + extents.x, result.r0.y + extents.y, -result.r0.x);
+        result.n_z = denorm_n_z * hlsl::rsqrt<vector4_type>(hlsl::promote<vector4_type>(result.r0.z * result.r0.z) + denorm_n_z * denorm_n_z);
+        result.cosGamma = vector4_type(
+            -result.n_z[0] * result.n_z[1],
+            -result.n_z[1] * result.n_z[2],
+            -result.n_z[2] * result.n_z[3],
+            -result.n_z[3] * result.n_z[0]
+        );
+        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(result.cosGamma[0]);
+        angle_adder.addCosine(result.cosGamma[1]);
+        angle_adder.addCosine(result.cosGamma[2]);
+        angle_adder.addCosine(result.cosGamma[3]);
+        result.value = angle_adder.getSumOfArccos() - scalar_type(2.0) * numbers::pi<scalar_type>;
+        return result;
     }
 
-    scalar_type solidAngle(const vector3_type observer)
+    // Kelvin-Stokes theorem: signed projected solid angle = integral_{rect} (n . omega) d_omega
+    scalar_type projectedSolidAngle(const vector3_type observer, const vector3_type receiverNormal) NBL_CONST_MEMBER_FUNC
     {
-        const vector3_type r0 = hlsl::mul(basis, origin - observer);
+        return projectedSolidAngleFromLocal(hlsl::mul(basis, origin - observer), hlsl::mul(basis, receiverNormal));
+    }
 
-        using vector4_type = vector<Scalar, 4>;
-        const vector4_type denorm_n_z = vector4_type(-r0.y, r0.x + extents.x, r0.y + extents.y, -r0.x);
-        const vector4_type n_z = denorm_n_z / nbl::hlsl::sqrt((vector4_type)(r0.z * r0.z) + denorm_n_z * denorm_n_z);
-        const vector4_type cosGamma = vector4_type(
-            -n_z[0] * n_z[1],
-            -n_z[1] * n_z[2],
-            -n_z[2] * n_z[3],
-            -n_z[3] * n_z[0]
+    // Overload for when r0 and localNormal are already computed (avoids redundant mul(basis, ...)).
+    // Exploits rectangle structure: all 4 corners share the same z, so cross products
+    // have only 2 nonzero components each, and externalProducts can be computed without
+    // normalizing the corner directions.
+    scalar_type projectedSolidAngleFromLocal(const vector3_type r0, const vector3_type n) NBL_CONST_MEMBER_FUNC
+    {
+        const scalar_type x0 = r0.x, y0 = r0.y, z = r0.z;
+        const scalar_type x1 = x0 + extents.x;
+        const scalar_type y1 = y0 + extents.y;
+        const scalar_type ex = extents.x, ey = extents.y;
+        const scalar_type zSq = z * z;
+
+        // Unnormalized cross products of adjacent corners (each has one zero component):
+        //   cross(r0,r1) = ex*(0, z, -y0),  cross(r1,r2) = ey*(-z, 0, x1)
+        //   cross(r2,r3) = ex*(0, -z, y1),  cross(r3,r0) = ey*(z, 0, -x0)
+        // |cross|^2: the ex/ey factors cancel in externalProducts (dot/|cross|)
+        const vector4_type crossLenSq = vector4_type(
+            zSq + y0 * y0,
+            zSq + x1 * x1,
+            zSq + y1 * y1,
+            zSq + x0 * x0
         );
-        math::sincos_accumulator<scalar_type> angle_adder = math::sincos_accumulator<scalar_type>::create(cosGamma[0]);
-        angle_adder.addCosine(cosGamma[1]);
-        angle_adder.addCosine(cosGamma[2]);
-        angle_adder.addCosine(cosGamma[3]);
-        return angle_adder.getSumofArccos() - scalar_type(2.0) * numbers::pi<float>;
+
+        // dot(cross(ri,rj), n) / |cross(ri,rj)| the ex/ey scale factors cancel
+        const vector4_type crossDotN = vector4_type(
+            z * n.y - y0 * n.z,
+            -z * n.x + x1 * n.z,
+            -z * n.y + y1 * n.z,
+            z * n.x - x0 * n.z
+        );
+        // The ABS makes the computation correct for abs(cos(theta)) (BSDF projected solid angle).
+        const vector4_type externalProducts = hlsl::abs(crossDotN) * hlsl::rsqrt<vector4_type>(crossLenSq);
+
+        // cos(arc length) between adjacent corners: dot(ri,rj) / (|ri|*|rj|)
+        const vector4_type lenSq = vector4_type(
+            x0 * x0 + y0 * y0,
+            x1 * x1 + y0 * y0,
+            x1 * x1 + y1 * y1,
+            x0 * x0 + y1 * y1
+        ) + hlsl::promote<vector4_type>(zSq);
+        const vector4_type rcpLen = hlsl::rsqrt<vector4_type>(lenSq);
+
+        const vector4_type unnormDots = vector4_type(
+            x0 * x1 + y0 * y0 + zSq,
+            x1 * x1 + y0 * y1 + zSq,
+            x0 * x1 + y1 * y1 + zSq,
+            x0 * x0 + y0 * y1 + zSq
+        );
+        // rcpLen[i]*rcpLen[j] for adjacent pairs: (0,1), (1,2), (2,3), (3,0)
+        const vector4_type cos_sides = unnormDots * rcpLen * rcpLen.yzwx;
+
+        const vector4_type pyramidAngles = hlsl::acos<vector4_type>(cos_sides);
+
+        return hlsl::dot(pyramidAngles, externalProducts) * scalar_type(0.5);
     }
 
     vector3_type origin;

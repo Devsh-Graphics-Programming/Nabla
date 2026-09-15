@@ -101,7 +101,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				retval.prefixSumScratch.buffer = gpubuffer;
 				auto mreqs = gpubuffer->getMemoryReqs();
 				mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-				auto gpubufMem = logicalDevice->allocate(mreqs, gpubuffer.get());
+				auto gpubufMem = logicalDevice->allocate(mreqs, { gpubuffer.get() });
 
 				retval.pvsInstances.buffer->setObjectDebugName("Culling Scratch Buffer");
 			}
@@ -136,7 +136,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			auto buffer = logicalDevice->createBuffer(std::move(params));
 			auto mreqs = buffer->getMemoryReqs();
 			mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-			auto gpubufMem = logicalDevice->allocate(mreqs, buffer.get());
+			auto gpubufMem = logicalDevice->allocate(mreqs, { buffer.get() });
 			return buffer;
 		}
 
@@ -149,7 +149,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			auto buffer = logicalDevice->createBuffer(std::move(params));
 			auto mreqs = buffer->getMemoryReqs();
 			mreqs.memoryTypeBits &= logicalDevice->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-			auto gpubufMem = logicalDevice->allocate(mreqs, buffer.get());
+			auto gpubufMem = logicalDevice->allocate(mreqs, { buffer.get() });
 			return buffer;
 		}
 
