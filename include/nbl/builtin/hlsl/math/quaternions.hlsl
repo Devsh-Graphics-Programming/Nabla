@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
+#include "nbl/builtin/hlsl/approx/abs_rel.hlsl"
 #include "nbl/builtin/hlsl/matrix_utils/matrix_runtime_traits.hlsl"
 
 namespace nbl
@@ -209,8 +210,8 @@ struct quaternion
 
     static this_t unnormLerp(const this_t start, const this_t end, const scalar_type fraction, const scalar_type totalPseudoAngle)
     {
-        assert(testing::relativeApproxCompare(hlsl::length(start.data), scalar_type(1.0), scalar_type(1e-4)));
-        assert(testing::relativeApproxCompare(hlsl::length(end.data), scalar_type(1.0), scalar_type(1e-4)));
+        assert(approx::absRelEqual<scalar_type>(hlsl::length(start.data), scalar_type(1.0), scalar_type(1e-4), scalar_type(1e-4)));
+        assert(approx::absRelEqual<scalar_type>(hlsl::length(end.data), scalar_type(1.0), scalar_type(1e-4), scalar_type(1e-4)));
         const data_type adjEnd = ieee754::flipSignIfRHSNegative<data_type,scalar_type>(end.data, totalPseudoAngle);
 
         this_t retval;
@@ -240,8 +241,8 @@ struct quaternion
 
     static this_t unnormFlerp(const this_t start, const this_t end, const scalar_type fraction)
     {
-        assert(testing::relativeApproxCompare(hlsl::length(start.data), scalar_type(1.0), scalar_type(1e-4)));
-        assert(testing::relativeApproxCompare(hlsl::length(end.data), scalar_type(1.0), scalar_type(1e-4)));
+        assert(approx::absRelEqual<scalar_type>(hlsl::length(start.data), scalar_type(1.0), scalar_type(1e-4), scalar_type(1e-4)));
+        assert(approx::absRelEqual<scalar_type>(hlsl::length(end.data), scalar_type(1.0), scalar_type(1e-4), scalar_type(1e-4)));
 
         const scalar_type pseudoAngle = hlsl::dot(start.data,end.data);
         const scalar_type interpolantPrecalcTerm = fraction - scalar_type(0.5);
@@ -312,8 +313,8 @@ struct quaternion
         const scalar_type cosA = ieee754::flipSignIfRHSNegative<scalar_type>(totalPseudoAngle, totalPseudoAngle);
         if (cosA <= (scalar_type(1.0) - threshold)) // spherical interpolation
         {
-            assert(testing::relativeApproxCompare(hlsl::length(start.data), scalar_type(1.0), scalar_type(1e-4)));
-            assert(testing::relativeApproxCompare(hlsl::length(end.data), scalar_type(1.0), scalar_type(1e-4)));
+            assert(approx::absRelEqual<scalar_type>(hlsl::length(start.data), scalar_type(1.0), scalar_type(1e-4), scalar_type(1e-4)));
+            assert(approx::absRelEqual<scalar_type>(hlsl::length(end.data), scalar_type(1.0), scalar_type(1e-4), scalar_type(1e-4)));
 
             this_t retval;
             const scalar_type sinARcp = scalar_type(1.0) / hlsl::sqrt(scalar_type(1.0) - cosA * cosA);
@@ -368,7 +369,7 @@ struct static_cast_helper<math::truncated_quaternion<T>, math::quaternion<T> >
 {
     static inline math::truncated_quaternion<T> cast(const math::quaternion<T> q)
     {
-        assert(testing::relativeApproxCompare(hlsl::length(q.data), T(1.0), T(1e-4)));
+        assert(approx::absRelEqual<T>(hlsl::length(q.data), T(1.0), T(1e-4), T(1e-4)));
         math::truncated_quaternion<T> t;
         t.data.x = q.data.x;
         t.data.y = q.data.y;
