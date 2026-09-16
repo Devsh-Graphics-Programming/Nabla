@@ -141,7 +141,7 @@ namespace nbl::ext::frustum
 		pipelineParams[0].fragmentShader = { .shader = unifiedShader.get(), .entryPoint = "frustum_fragment" };
 		asset::SRasterizationParams rasterParams;
 		rasterParams.depthWriteEnable = true;
-		rasterParams.depthCompareOp = asset::ECO_GREATER;
+		rasterParams.depthCompareOp = params.depthCompareOp;
 		rasterParams.faceCullingMode = asset::EFCM_NONE;
 
 		pipelineParams[0].cached = {

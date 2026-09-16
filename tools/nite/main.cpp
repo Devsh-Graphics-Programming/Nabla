@@ -303,8 +303,6 @@ public:
 
 		asset::SViewport viewport;
 		{
-			viewport.minDepth = 1.f;
-			viewport.maxDepth = 0.f;
 			viewport.x = 0u;
 			viewport.y = 0u;
 			viewport.width = WIN_W;
