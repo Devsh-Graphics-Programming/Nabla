@@ -7,7 +7,7 @@
 #include "CCameraPathMetadata.hpp"
 #include "ICamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Interaction family used to group camera kinds with matching control semantics.
@@ -135,6 +135,6 @@ private:
     }};
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_KIND_UTILITIES_HPP_

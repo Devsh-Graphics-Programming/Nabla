@@ -1,19 +1,19 @@
 #ifndef _NBL_C_PLANAR_PROJECTION_HPP_
 #define _NBL_C_PLANAR_PROJECTION_HPP_
 
-#include "IPlanarProjection.hpp"
-#include "IRange.hpp"
+#include <vector>
 
-namespace nbl::core
+#include "IPlanarProjection.hpp"
+
+namespace nbl::ext::cameras
 {
-	/// @brief Range-backed concrete implementation of `IPlanarProjection`.
-	///
-	/// The template owns a caller-selected contiguous container of planar
-	/// projection entries together with their viewport-local binding layouts.
-	template<ContiguousGeneralPurposeRangeOf<IPlanarProjection::CProjection> ProjectionsRange>
+	/// @brief Concrete implementation of `IPlanarProjection` owning a vector of planar projection entries
+	/// together with their viewport-local binding layouts.
 	class CPlanarProjection : public IPlanarProjection
 	{
 	public:
+		using projections_t = std::vector<IPlanarProjection::CProjection>;
+
 		virtual ~CPlanarProjection() = default;
 
 		/// @brief Create a planar projection wrapper only when a valid camera instance is available.
@@ -38,8 +38,8 @@ namespace nbl::core
 			return m_projections[index];
 		}
 
-		/// @brief Expose mutable access to the owned planar projection range.
-		inline ProjectionsRange& getPlanarProjections()
+		/// @brief Expose mutable access to the owned planar projection entries.
+		inline projections_t& getPlanarProjections()
 		{
 			return m_projections;
 		}
@@ -48,9 +48,9 @@ namespace nbl::core
 		CPlanarProjection(core::smart_refctd_ptr<ICamera>&& camera)
 			: IPlanarProjection(core::smart_refctd_ptr(camera)) {}
 
-		ProjectionsRange m_projections;
+		projections_t m_projections;
 	};
 
-} // nbl::hlsl namespace
+} // namespace nbl::ext::cameras
 
 #endif // _NBL_C_PLANAR_PROJECTION_HPP_

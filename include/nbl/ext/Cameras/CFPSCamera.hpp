@@ -9,7 +9,7 @@
 
 #include "ICamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Free-position camera with world-space translation and yaw/pitch rotation.
@@ -28,7 +28,7 @@ public:
         static inline constexpr float InvertedRollDeg = 180.0f;
     };
 
-    CFPSCamera(const hlsl::float64_t3& position, const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>())
+    CFPSCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>())
         : base_t(), m_gimbal(typename base_t::CGimbal::base_t::SCreationParameters{ .position = position, .orientation = orientation }) 
     {
         m_gimbal.begin();

@@ -15,7 +15,7 @@
 #include "CVirtualGimbalEvent.hpp"
 #include "nbl/ui/KeyCodes.h"
 
-namespace nbl::system
+namespace nbl::ext::cameras
 {
 
 /// @brief Shared scripted runtime payload used by camera-sequence consumers.
@@ -74,7 +74,7 @@ struct CCameraScriptedInputEvent
 
     struct GoalData
     {
-        core::CCameraGoal goal = {};
+        CCameraGoal goal = {};
         bool requireExact = true;
     };
 
@@ -101,8 +101,8 @@ struct CCameraScriptedInputEvent
 struct CCameraScriptedCheckDefaults final
 {
     static constexpr float VirtualEventTolerance = 1e-3f;
-    static constexpr float PositionTolerance = static_cast<float>(core::SCameraToolingThresholds::DefaultPositionTolerance);
-    static constexpr float EulerToleranceDeg = static_cast<float>(core::SCameraToolingThresholds::DefaultAngularToleranceDeg);
+    static constexpr float PositionTolerance = static_cast<float>(SCameraToolingThresholds::DefaultPositionTolerance);
+    static constexpr float EulerToleranceDeg = static_cast<float>(SCameraToolingThresholds::DefaultAngularToleranceDeg);
     static constexpr float FollowScreenToleranceNdc = SCameraFollowRegressionThresholds::DefaultProjectedNdcTolerance;
 };
 
@@ -120,7 +120,7 @@ struct CCameraScriptedInputCheck
 
     struct ExpectedVirtualEvent
     {
-        core::CVirtualGimbalEvent::VirtualEventType type = core::CVirtualGimbalEvent::None;
+        CVirtualGimbalEvent::VirtualEventType type = CVirtualGimbalEvent::None;
         hlsl::float64_t magnitude = 0.0;
     };
 
@@ -190,7 +190,7 @@ struct CCameraScriptedRuntimeUtilities final
     static inline void appendScriptedGoalEvent(
         CCameraScriptedTimeline& timeline,
         const uint64_t frame,
-        const core::CCameraGoal& goal,
+        const CCameraGoal& goal,
         const bool requireExact = true)
     {
         CCameraScriptedInputEvent entry;
@@ -346,6 +346,6 @@ struct CCameraScriptedFrameEventUtilities final
     }
 };
 
-} // namespace nbl::system
+} // namespace nbl::ext::cameras
 
 #endif

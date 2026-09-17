@@ -6,7 +6,7 @@
 
 #include <limits>
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 bool CCameraGoalSolver::buildEvents(ICamera* camera, const CCameraGoal& target, std::vector<CVirtualGimbalEvent>& out) const
@@ -545,4 +545,4 @@ bool CCameraGoalSolver::buildFreeEvents(ICamera* camera, const CCameraGoal& targ
     return !out.empty();
 }
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras

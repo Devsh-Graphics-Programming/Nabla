@@ -8,7 +8,7 @@
 #include "CCameraPreset.hpp"
 #include "CCameraGoalSolver.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Reusable typed answer for `goal/preset -> camera` compatibility checks.
@@ -84,6 +84,6 @@ public:
     }
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_GOAL_ANALYSIS_HPP_

@@ -8,7 +8,7 @@
 #include "nbl/builtin/hlsl/cpp_compat/vector.hlsl"
 #include "nbl/core/math/intutil.h"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief One semantic camera command passed to `ICamera::manipulate(...)`.
@@ -154,6 +154,6 @@ struct CVirtualGimbalEvent
     }();
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _NBL_C_VIRTUAL_GIMBAL_EVENT_HPP_

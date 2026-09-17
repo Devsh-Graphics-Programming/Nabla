@@ -6,7 +6,7 @@
 
 #include "CSphericalTargetCamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Target-relative camera locked to the shared isometric yaw and pitch.

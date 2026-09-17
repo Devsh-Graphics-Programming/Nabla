@@ -12,21 +12,21 @@
 #include "CCameraPresetFlow.hpp"
 #include "ICamera.hpp"
 
-namespace nbl::system
+namespace nbl::ext::cameras
 {
 
 using SCameraManipulationDelta = hlsl::SCameraPoseDelta<hlsl::float64_t>;
 
 struct SCameraSmokeComparisonThresholds final
 {
-    static constexpr double TinyScalarEpsilon = core::SCameraToolingThresholds::TinyScalarEpsilon;
-    static constexpr double DefaultPositionTolerance = core::SCameraToolingThresholds::DefaultPositionTolerance;
-    static constexpr double DefaultAngularToleranceDeg = core::SCameraToolingThresholds::DefaultAngularToleranceDeg;
-    static constexpr double DefaultScalarTolerance = core::SCameraToolingThresholds::ScalarTolerance;
-    static constexpr double StrictPositionTolerance = core::SCameraToolingThresholds::ScalarTolerance;
-    static constexpr double StrictAngularToleranceDeg = core::SCameraToolingThresholds::DefaultAngularToleranceDeg;
-    static constexpr double StrictScalarTolerance = core::SCameraToolingThresholds::ScalarTolerance;
-    static constexpr double TrackTimeTolerance = core::SCameraToolingThresholds::ScalarTolerance;
+    static constexpr double TinyScalarEpsilon = SCameraToolingThresholds::TinyScalarEpsilon;
+    static constexpr double DefaultPositionTolerance = SCameraToolingThresholds::DefaultPositionTolerance;
+    static constexpr double DefaultAngularToleranceDeg = SCameraToolingThresholds::DefaultAngularToleranceDeg;
+    static constexpr double DefaultScalarTolerance = SCameraToolingThresholds::ScalarTolerance;
+    static constexpr double StrictPositionTolerance = SCameraToolingThresholds::ScalarTolerance;
+    static constexpr double StrictAngularToleranceDeg = SCameraToolingThresholds::DefaultAngularToleranceDeg;
+    static constexpr double StrictScalarTolerance = SCameraToolingThresholds::ScalarTolerance;
+    static constexpr double TrackTimeTolerance = SCameraToolingThresholds::ScalarTolerance;
 };
 
 struct CCameraSmokeRegressionUtilities final
@@ -34,9 +34,9 @@ struct CCameraSmokeRegressionUtilities final
 public:
     /// @brief Measure one camera pose delta against an authored reference pose.
     static inline bool tryComputeCameraManipulationDelta(
-        core::ICamera* camera,
+        ICamera* camera,
         const hlsl::float64_t3& beforePosition,
-        const hlsl::camera_quaternion_t<hlsl::float64_t>& beforeOrientation,
+        const hlsl::math::quaternion<hlsl::float64_t>& beforeOrientation,
         SCameraManipulationDelta& outDelta)
     {
         outDelta = {};
@@ -51,8 +51,8 @@ public:
 
     /// @brief Manipulate a camera and report how far its pose moved in position and Euler-angle terms.
     static inline bool tryManipulateCameraAndMeasureDelta(
-        core::ICamera* camera,
-        std::span<const core::CVirtualGimbalEvent> events,
+        ICamera* camera,
+        std::span<const CVirtualGimbalEvent> events,
         SCameraManipulationDelta& outDelta,
         const double tinyEpsilon = SCameraSmokeComparisonThresholds::TinyScalarEpsilon)
     {
@@ -76,11 +76,11 @@ public:
     }
 
     static inline bool comparePresetToCameraStateWithDefaultThresholds(
-        const core::CCameraGoalSolver& solver,
-        core::ICamera* camera,
-        const core::CCameraPreset& preset)
+        const CCameraGoalSolver& solver,
+        ICamera* camera,
+        const CCameraPreset& preset)
     {
-        return core::CCameraPresetFlowUtilities::comparePresetToCameraState(
+        return CCameraPresetFlowUtilities::comparePresetToCameraState(
             solver,
             camera,
             preset,
@@ -90,11 +90,11 @@ public:
     }
 
     static inline bool comparePresetToCameraStateWithStrictThresholds(
-        const core::CCameraGoalSolver& solver,
-        core::ICamera* camera,
-        const core::CCameraPreset& preset)
+        const CCameraGoalSolver& solver,
+        ICamera* camera,
+        const CCameraPreset& preset)
     {
-        return core::CCameraPresetFlowUtilities::comparePresetToCameraState(
+        return CCameraPresetFlowUtilities::comparePresetToCameraState(
             solver,
             camera,
             preset,
@@ -104,10 +104,10 @@ public:
     }
 
     static inline bool compareKeyframeTrackContentWithStrictThresholds(
-        const core::CCameraKeyframeTrack& lhs,
-        const core::CCameraKeyframeTrack& rhs)
+        const CCameraKeyframeTrack& lhs,
+        const CCameraKeyframeTrack& rhs)
     {
-        return core::CCameraKeyframeTrackUtilities::compareKeyframeTrackContent(
+        return CCameraKeyframeTrackUtilities::compareKeyframeTrackContent(
             lhs,
             rhs,
             SCameraSmokeComparisonThresholds::TrackTimeTolerance,
@@ -117,6 +117,6 @@ public:
     }
 };
 
-} // namespace nbl::system
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_SMOKE_REGRESSION_UTILITIES_HPP_

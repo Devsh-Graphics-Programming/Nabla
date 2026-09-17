@@ -7,7 +7,7 @@
 
 #include "ICamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Free-position camera that allows full yaw/pitch/roll rotation.
@@ -16,7 +16,7 @@ class CFreeCamera final : public ICamera
 public:
     using base_t = ICamera;
 
-    CFreeCamera(const hlsl::float64_t3& position, const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>())
+    CFreeCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>())
         : base_t(), m_gimbal(typename base_t::CGimbal::base_t::SCreationParameters{ .position = position, .orientation = orientation }) {}
     ~CFreeCamera() = default;
 

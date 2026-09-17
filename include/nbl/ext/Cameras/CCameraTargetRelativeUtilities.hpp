@@ -6,7 +6,7 @@
 #include "SCameraRigPose.hpp"
 #include "CCameraVirtualEventUtilities.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Canonical target-relative orbit state used by spherical cameras, follow, and goal solving.
@@ -14,13 +14,13 @@ struct SCameraTargetRelativeState final
 {
     hlsl::float64_t3 target = hlsl::float64_t3(0.0);
     hlsl::float64_t2 orbitUv = hlsl::float64_t2(0.0);
-    float distance = SCameraTargetRelativeTraits::MinDistance;
+    float distance = ICamera::DefaultMinTargetDistance;
 };
 
 /// @brief Pose reconstructed from a target-relative orbit state.
 struct SCameraTargetRelativePose final : SCameraRigPose
 {
-    hlsl::float64_t appliedDistance = static_cast<hlsl::float64_t>(SCameraTargetRelativeTraits::MinDistance);
+    hlsl::float64_t appliedDistance = static_cast<hlsl::float64_t>(ICamera::DefaultMinTargetDistance);
 };
 
 /// @brief Derived basis for target-relative orbit rigs.
@@ -264,7 +264,7 @@ struct CCameraTargetRelativeUtilities final
     }
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_TARGET_RELATIVE_UTILITIES_HPP_
 

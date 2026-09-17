@@ -4,12 +4,12 @@
 
 #include "nbl/ext/Cameras/CCameraFollowUtilities.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 CTrackedTarget::CTrackedTarget(
     const hlsl::float64_t3& position,
-    const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation,
+    const hlsl::math::quaternion<hlsl::float64_t>& orientation,
     std::string identifier)
     : m_identifier(std::move(identifier)),
     m_gimbal(gimbal_t::base_t::SCreationParameters{ .position = position, .orientation = orientation })
@@ -17,7 +17,7 @@ CTrackedTarget::CTrackedTarget(
     m_gimbal.updateView();
 }
 
-void CTrackedTarget::setPose(const hlsl::float64_t3& position, const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation)
+void CTrackedTarget::setPose(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation)
 {
     m_gimbal.begin();
     m_gimbal.setPosition(position);
@@ -31,7 +31,7 @@ void CTrackedTarget::setPosition(const hlsl::float64_t3& position)
     setPose(position, m_gimbal.getOrientation());
 }
 
-void CTrackedTarget::setOrientation(const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation)
+void CTrackedTarget::setOrientation(const hlsl::math::quaternion<hlsl::float64_t>& orientation)
 {
     setPose(m_gimbal.getPosition(), orientation);
 }
@@ -39,7 +39,7 @@ void CTrackedTarget::setOrientation(const hlsl::camera_quaternion_t<hlsl::float6
 bool CTrackedTarget::trySetFromTransform(const hlsl::float64_t4x4& transform)
 {
     hlsl::float64_t3 position = hlsl::float64_t3(0.0);
-    hlsl::camera_quaternion_t<hlsl::float64_t> orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>();
+    hlsl::math::quaternion<hlsl::float64_t> orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>();
     if (!hlsl::CCameraMathUtilities::tryExtractRigidPoseFromTransform(transform, position, orientation))
         return false;
 
@@ -61,7 +61,7 @@ bool CCameraFollowUtilities::buildFollowLookAtOrientation(
     const hlsl::float64_t3& position,
     const hlsl::float64_t3& targetPosition,
     const hlsl::float64_t3& preferredUp,
-    hlsl::camera_quaternion_t<hlsl::float64_t>& outOrientation)
+    hlsl::math::quaternion<hlsl::float64_t>& outOrientation)
 {
     return hlsl::CCameraMathUtilities::tryBuildLookAtOrientation(position, targetPosition, preferredUp, outOrientation);
 }
@@ -208,4 +208,4 @@ CCameraGoalSolver::SApplyResult CCameraFollowUtilities::applyFollowToCamera(
     return solver.applyDetailed(camera, goal);
 }
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras

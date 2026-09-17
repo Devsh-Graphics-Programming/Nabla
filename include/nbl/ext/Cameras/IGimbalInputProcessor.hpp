@@ -10,7 +10,7 @@
 
 #include "IGimbalBindingLayout.hpp"
 
-namespace nbl::ui
+namespace nbl::ext::cameras
 {
 
 /// @brief Runtime processor that turns keyboard, mouse, and ImGuizmo input into virtual events.
@@ -118,25 +118,25 @@ private:
 
     struct SInputProcessorBindingGroups final
     {
-        static inline constexpr SEncodedAxisBindingGroup<ui::E_MOUSE_CODE, 2u> MouseScroll = {
+        static inline constexpr SEncodedAxisBindingGroup<E_MOUSE_CODE, 2u> MouseScroll = {
             .positive = {
-                ui::EMC_VERTICAL_POSITIVE_SCROLL,
-                ui::EMC_HORIZONTAL_POSITIVE_SCROLL
+                EMC_VERTICAL_POSITIVE_SCROLL,
+                EMC_HORIZONTAL_POSITIVE_SCROLL
             },
             .negative = {
-                ui::EMC_VERTICAL_NEGATIVE_SCROLL,
-                ui::EMC_HORIZONTAL_NEGATIVE_SCROLL
+                EMC_VERTICAL_NEGATIVE_SCROLL,
+                EMC_HORIZONTAL_NEGATIVE_SCROLL
             }
         };
 
-        static inline constexpr SEncodedAxisBindingGroup<ui::E_MOUSE_CODE, 2u> MouseRelativeMovement = {
+        static inline constexpr SEncodedAxisBindingGroup<E_MOUSE_CODE, 2u> MouseRelativeMovement = {
             .positive = {
-                ui::EMC_RELATIVE_POSITIVE_MOVEMENT_X,
-                ui::EMC_RELATIVE_POSITIVE_MOVEMENT_Y
+                EMC_RELATIVE_POSITIVE_MOVEMENT_X,
+                EMC_RELATIVE_POSITIVE_MOVEMENT_Y
             },
             .negative = {
-                ui::EMC_RELATIVE_NEGATIVE_MOVEMENT_X,
-                ui::EMC_RELATIVE_NEGATIVE_MOVEMENT_Y
+                EMC_RELATIVE_NEGATIVE_MOVEMENT_X,
+                EMC_RELATIVE_NEGATIVE_MOVEMENT_Y
             }
         };
 
@@ -204,12 +204,12 @@ private:
 
     static bool tryGetMouseButtonCode(
         const ui::E_MOUSE_BUTTON button,
-        ui::E_MOUSE_CODE& outCode);
+        E_MOUSE_CODE& outCode);
 
     template<typename Map>
     void updateMouseButtonState(Map& map, const input_mouse_event_t::SClickEvent& clickEvent)
     {
-        ui::E_MOUSE_CODE mouseCode = ui::EMC_NONE;
+        E_MOUSE_CODE mouseCode = EMC_NONE;
         if (!tryGetMouseButtonCode(clickEvent.mouseButton, mouseCode))
             return;
 
@@ -296,6 +296,6 @@ private:
     std::chrono::microseconds m_nextPresentationTimeStamp = {}, m_lastVirtualUpTimeStamp = {};
 };
 
-} // namespace nbl::ui
+} // namespace nbl::ext::cameras
 
 #endif // _NBL_I_GIMBAL_INPUT_PROCESSOR_HPP_

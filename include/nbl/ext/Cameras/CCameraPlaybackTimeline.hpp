@@ -7,7 +7,7 @@
 
 #include "CCameraKeyframeTrack.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Shared playback cursor state for camera keyframe tracks.
@@ -98,6 +98,6 @@ public:
     }
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_PLAYBACK_TIMELINE_HPP_

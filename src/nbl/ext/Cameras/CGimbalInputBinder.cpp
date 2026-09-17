@@ -9,7 +9,7 @@
 
 #include "nbl/ext/Cameras/CGimbalInputBinder.hpp"
 
-namespace nbl::ui
+namespace nbl::ext::cameras
 {
 
 uint32_t CGimbalInputBinder::SCollectedVirtualEvents::totalCount() const
@@ -96,4 +96,4 @@ CGimbalInputBinder::SCollectedVirtualEvents CGimbalInputBinder::collectVirtualEv
     return output;
 }
 
-} // namespace nbl::ui
+} // namespace nbl::ext::cameras

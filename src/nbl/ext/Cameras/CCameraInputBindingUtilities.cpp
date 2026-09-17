@@ -6,13 +6,13 @@
 
 #include <tuple>
 
-namespace nbl::ui
+namespace nbl::ext::cameras
 {
 
 namespace
 {
 
-using virtual_event_t = core::CVirtualGimbalEvent::VirtualEventType;
+using virtual_event_t = CVirtualGimbalEvent::VirtualEventType;
 using keyboard_axis_group_t = std::array<virtual_event_t, 4u>;
 using mouse_axis_group_t = std::array<virtual_event_t, 4u>;
 using scalar_axis_pair_t = std::array<virtual_event_t, 2u>;
@@ -20,22 +20,22 @@ using scalar_axis_pair_t = std::array<virtual_event_t, 2u>;
 struct SKeyboardPresetSpec final
 {
     keyboard_axis_group_t wasd = {
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None
     };
     double wasdScale = IGimbalBindingLayout::CHashInfo::DefaultMagnitudeScale;
     scalar_axis_pair_t qe = {
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None
     };
     double qeScale = IGimbalBindingLayout::CHashInfo::DefaultMagnitudeScale;
     keyboard_axis_group_t ijkl = {
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None
     };
     double ijklScale = IGimbalBindingLayout::CHashInfo::DefaultMagnitudeScale;
 };
@@ -43,15 +43,15 @@ struct SKeyboardPresetSpec final
 struct SMousePresetSpec final
 {
     mouse_axis_group_t relative = {
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None
     };
     double relativeScale = IGimbalBindingLayout::CHashInfo::DefaultMagnitudeScale;
     scalar_axis_pair_t scroll = {
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None
     };
     double scrollScale = IGimbalBindingLayout::CHashInfo::DefaultMagnitudeScale;
 };
@@ -59,71 +59,71 @@ struct SMousePresetSpec final
 struct SCameraInputBindingEventGroups final
 {
     static inline constexpr std::array FpsMove = {
-        core::CVirtualGimbalEvent::MoveForward,
-        core::CVirtualGimbalEvent::MoveBackward,
-        core::CVirtualGimbalEvent::MoveLeft,
-        core::CVirtualGimbalEvent::MoveRight
+        CVirtualGimbalEvent::MoveForward,
+        CVirtualGimbalEvent::MoveBackward,
+        CVirtualGimbalEvent::MoveLeft,
+        CVirtualGimbalEvent::MoveRight
     };
     static inline constexpr std::array OrbitTranslate = {
-        core::CVirtualGimbalEvent::MoveUp,
-        core::CVirtualGimbalEvent::MoveDown,
-        core::CVirtualGimbalEvent::MoveLeft,
-        core::CVirtualGimbalEvent::MoveRight
+        CVirtualGimbalEvent::MoveUp,
+        CVirtualGimbalEvent::MoveDown,
+        CVirtualGimbalEvent::MoveLeft,
+        CVirtualGimbalEvent::MoveRight
     };
     static inline constexpr std::array OrbitZoom = {
-        core::CVirtualGimbalEvent::MoveForward,
-        core::CVirtualGimbalEvent::MoveBackward
+        CVirtualGimbalEvent::MoveForward,
+        CVirtualGimbalEvent::MoveBackward
     };
     static inline constexpr std::array VerticalMove = {
-        core::CVirtualGimbalEvent::MoveDown,
-        core::CVirtualGimbalEvent::MoveUp
+        CVirtualGimbalEvent::MoveDown,
+        CVirtualGimbalEvent::MoveUp
     };
     static inline constexpr std::array PathRigProgressAndU = {
-        core::CVirtualGimbalEvent::MoveForward,
-        core::CVirtualGimbalEvent::MoveBackward,
-        core::CVirtualGimbalEvent::MoveLeft,
-        core::CVirtualGimbalEvent::MoveRight
+        CVirtualGimbalEvent::MoveForward,
+        CVirtualGimbalEvent::MoveBackward,
+        CVirtualGimbalEvent::MoveLeft,
+        CVirtualGimbalEvent::MoveRight
     };
     static inline constexpr std::array PathRigV = VerticalMove;
     static inline constexpr std::array TurntableMove = {
-        core::CVirtualGimbalEvent::MoveForward,
-        core::CVirtualGimbalEvent::MoveBackward,
-        core::CVirtualGimbalEvent::PanLeft,
-        core::CVirtualGimbalEvent::PanRight
+        CVirtualGimbalEvent::MoveForward,
+        CVirtualGimbalEvent::MoveBackward,
+        CVirtualGimbalEvent::PanLeft,
+        CVirtualGimbalEvent::PanRight
     };
     static inline constexpr std::array LookYawPitch = {
-        core::CVirtualGimbalEvent::TiltDown,
-        core::CVirtualGimbalEvent::TiltUp,
-        core::CVirtualGimbalEvent::PanLeft,
-        core::CVirtualGimbalEvent::PanRight
+        CVirtualGimbalEvent::TiltDown,
+        CVirtualGimbalEvent::TiltUp,
+        CVirtualGimbalEvent::PanLeft,
+        CVirtualGimbalEvent::PanRight
     };
     static inline constexpr std::array Roll = {
-        core::CVirtualGimbalEvent::RollLeft,
-        core::CVirtualGimbalEvent::RollRight
+        CVirtualGimbalEvent::RollLeft,
+        CVirtualGimbalEvent::RollRight
     };
     static inline constexpr std::array PanOnly = {
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::None,
-        core::CVirtualGimbalEvent::PanLeft,
-        core::CVirtualGimbalEvent::PanRight
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::None,
+        CVirtualGimbalEvent::PanLeft,
+        CVirtualGimbalEvent::PanRight
     };
     static inline constexpr std::array RelativeLook = {
-        core::CVirtualGimbalEvent::PanRight,
-        core::CVirtualGimbalEvent::PanLeft,
-        core::CVirtualGimbalEvent::TiltUp,
-        core::CVirtualGimbalEvent::TiltDown
+        CVirtualGimbalEvent::PanRight,
+        CVirtualGimbalEvent::PanLeft,
+        CVirtualGimbalEvent::TiltUp,
+        CVirtualGimbalEvent::TiltDown
     };
     static inline constexpr std::array RelativeOrbitTranslate = {
-        core::CVirtualGimbalEvent::MoveRight,
-        core::CVirtualGimbalEvent::MoveLeft,
-        core::CVirtualGimbalEvent::MoveUp,
-        core::CVirtualGimbalEvent::MoveDown
+        CVirtualGimbalEvent::MoveRight,
+        CVirtualGimbalEvent::MoveLeft,
+        CVirtualGimbalEvent::MoveUp,
+        CVirtualGimbalEvent::MoveDown
     };
     static inline constexpr std::array RelativeTopDown = {
-        core::CVirtualGimbalEvent::PanRight,
-        core::CVirtualGimbalEvent::PanLeft,
-        core::CVirtualGimbalEvent::MoveUp,
-        core::CVirtualGimbalEvent::MoveDown
+        CVirtualGimbalEvent::PanRight,
+        CVirtualGimbalEvent::PanLeft,
+        CVirtualGimbalEvent::MoveUp,
+        CVirtualGimbalEvent::MoveDown
     };
 };
 
@@ -156,7 +156,7 @@ bool containsBindingForAnyCodeGroups(const Map& preset, const Codes&... codes)
     return (containsBindingForAnyCode(preset, codes) || ...);
 }
 
-constexpr size_t interactionFamilyIndex(const core::ECameraInteractionFamily family)
+constexpr size_t interactionFamilyIndex(const ECameraInteractionFamily family)
 {
     return static_cast<size_t>(family);
 }
@@ -167,7 +167,7 @@ void appendBindingSpec(Map& preset, const Codes& codes, const Events& events, co
     for (size_t i = 0u; i < codes.size() && i < events.size(); ++i)
     {
         const auto event = events[i];
-        if (event == core::CVirtualGimbalEvent::None)
+        if (event == CVirtualGimbalEvent::None)
             continue;
         preset.emplace(codes[i], IGimbalBindingLayout::CHashInfo(event, magnitudeScale));
     }
@@ -176,7 +176,7 @@ void appendBindingSpec(Map& preset, const Codes& codes, const Events& events, co
 template<typename Map, typename Codes>
 void appendMirroredBindingSpec(Map& preset, const Codes& codes, const virtual_event_t event, const double magnitudeScale)
 {
-    if (event == core::CVirtualGimbalEvent::None)
+    if (event == CVirtualGimbalEvent::None)
         return;
 
     std::array<virtual_event_t, std::tuple_size_v<Codes>> duplicatedEvents = {};
@@ -204,11 +204,11 @@ IGimbalBindingLayout::mouse_to_virtual_events_t buildMousePreset(const SMousePre
 
 double getDefaultImguizmoMagnitudeScale(const virtual_event_t event)
 {
-    if (core::CVirtualGimbalEvent::isTranslationEvent(event))
+    if (CVirtualGimbalEvent::isTranslationEvent(event))
         return CCameraInputBindingUtilities::SInputMagnitudeDefaults::ImguizmoTranslationUnitsPerWorldUnit;
-    if (core::CVirtualGimbalEvent::isRotationEvent(event))
+    if (CVirtualGimbalEvent::isRotationEvent(event))
         return CCameraInputBindingUtilities::SInputMagnitudeDefaults::ImguizmoRotationUnitsPerRadian;
-    if (core::CVirtualGimbalEvent::isScaleEvent(event))
+    if (CVirtualGimbalEvent::isScaleEvent(event))
         return CCameraInputBindingUtilities::SInputMagnitudeDefaults::ImguizmoScaleUnitsPerFactor;
     return IGimbalBindingLayout::CHashInfo::DefaultMagnitudeScale;
 }
@@ -216,9 +216,9 @@ double getDefaultImguizmoMagnitudeScale(const virtual_event_t event)
 IGimbalBindingLayout::imguizmo_to_virtual_events_t makeImguizmoPreset(const uint32_t allowedVirtualEvents)
 {
     IGimbalBindingLayout::imguizmo_to_virtual_events_t preset;
-    for (const auto event : core::CVirtualGimbalEvent::VirtualEventsTypeTable)
+    for (const auto event : CVirtualGimbalEvent::VirtualEventsTypeTable)
     {
-        if (event == core::CVirtualGimbalEvent::None)
+        if (event == CVirtualGimbalEvent::None)
             continue;
         if ((allowedVirtualEvents & event) != event)
             continue;
@@ -390,9 +390,9 @@ constexpr std::array<SCameraInteractionBindingSpec, 8u> InteractionFamilyPresetS
     PathInteractionBindingSpec
 }};
 
-const SCameraMappedInteractionBindingSpec& interactionBindingPresetForKind(const core::ICamera::CameraKind kind)
+const SCameraMappedInteractionBindingSpec& interactionBindingPresetForKind(const ICamera::CameraKind kind)
 {
-    const auto familyIx = interactionFamilyIndex(core::CCameraKindUtilities::getCameraInteractionFamily(kind));
+    const auto familyIx = interactionFamilyIndex(CCameraKindUtilities::getCameraInteractionFamily(kind));
     static const auto cache = makePresetCache<SCameraMappedInteractionBindingSpec>(
         InteractionFamilyPresetSpecs,
         [](const SCameraInteractionBindingSpec& spec) { return mapInteractionBindingSpec(spec); });
@@ -414,22 +414,22 @@ bool CCameraInputBindingUtilities::hasMouseScrollBinding(const IGimbalBindingLay
         SCameraInputBindingPhysicalGroups::NegativeScrollCodes);
 }
 
-const IGimbalBindingLayout::keyboard_to_virtual_events_t& CCameraInputBindingUtilities::getDefaultCameraKeyboardMappingPreset(const core::ICamera::CameraKind kind)
+const IGimbalBindingLayout::keyboard_to_virtual_events_t& CCameraInputBindingUtilities::getDefaultCameraKeyboardMappingPreset(const ICamera::CameraKind kind)
 {
     return interactionBindingPresetForKind(kind).keyboard;
 }
 
-const IGimbalBindingLayout::keyboard_to_virtual_events_t& CCameraInputBindingUtilities::getDefaultCameraKeyboardMappingPreset(const core::ICamera& camera)
+const IGimbalBindingLayout::keyboard_to_virtual_events_t& CCameraInputBindingUtilities::getDefaultCameraKeyboardMappingPreset(const ICamera& camera)
 {
     return getDefaultCameraKeyboardMappingPreset(camera.getKind());
 }
 
-const IGimbalBindingLayout::mouse_to_virtual_events_t& CCameraInputBindingUtilities::getDefaultCameraMouseMappingPreset(const core::ICamera::CameraKind kind)
+const IGimbalBindingLayout::mouse_to_virtual_events_t& CCameraInputBindingUtilities::getDefaultCameraMouseMappingPreset(const ICamera::CameraKind kind)
 {
     return interactionBindingPresetForKind(kind).mouse;
 }
 
-const IGimbalBindingLayout::mouse_to_virtual_events_t& CCameraInputBindingUtilities::getDefaultCameraMouseMappingPreset(const core::ICamera& camera)
+const IGimbalBindingLayout::mouse_to_virtual_events_t& CCameraInputBindingUtilities::getDefaultCameraMouseMappingPreset(const ICamera& camera)
 {
     return getDefaultCameraMouseMappingPreset(camera.getKind());
 }
@@ -439,13 +439,13 @@ IGimbalBindingLayout::imguizmo_to_virtual_events_t CCameraInputBindingUtilities:
     return makeImguizmoPreset(allowedVirtualEvents);
 }
 
-IGimbalBindingLayout::imguizmo_to_virtual_events_t CCameraInputBindingUtilities::buildDefaultCameraImguizmoMappingPreset(const core::ICamera& camera)
+IGimbalBindingLayout::imguizmo_to_virtual_events_t CCameraInputBindingUtilities::buildDefaultCameraImguizmoMappingPreset(const ICamera& camera)
 {
     return buildDefaultCameraImguizmoMappingPreset(camera.getAllowedVirtualEvents());
 }
 
 SCameraInputBindingPreset CCameraInputBindingUtilities::buildDefaultCameraInputBindingPreset(
-    const core::ICamera::CameraKind kind,
+    const ICamera::CameraKind kind,
     const uint32_t allowedVirtualEvents)
 {
     SCameraInputBindingPreset preset;
@@ -455,14 +455,14 @@ SCameraInputBindingPreset CCameraInputBindingUtilities::buildDefaultCameraInputB
     return preset;
 }
 
-SCameraInputBindingPreset CCameraInputBindingUtilities::buildDefaultCameraInputBindingPreset(const core::ICamera& camera)
+SCameraInputBindingPreset CCameraInputBindingUtilities::buildDefaultCameraInputBindingPreset(const ICamera& camera)
 {
     return buildDefaultCameraInputBindingPreset(camera.getKind(), camera.getAllowedVirtualEvents());
 }
 
 void CCameraInputBindingUtilities::applyDefaultCameraInputBindingPreset(
     IGimbalBindingLayout& layout,
-    const core::ICamera::CameraKind kind,
+    const ICamera::CameraKind kind,
     const uint32_t allowedVirtualEvents)
 {
     const auto preset = buildDefaultCameraInputBindingPreset(kind, allowedVirtualEvents);
@@ -471,9 +471,9 @@ void CCameraInputBindingUtilities::applyDefaultCameraInputBindingPreset(
     layout.updateImguizmoMapping([&](auto& map) { map = preset.imguizmo; });
 }
 
-void CCameraInputBindingUtilities::applyDefaultCameraInputBindingPreset(IGimbalBindingLayout& layout, const core::ICamera& camera)
+void CCameraInputBindingUtilities::applyDefaultCameraInputBindingPreset(IGimbalBindingLayout& layout, const ICamera& camera)
 {
     applyDefaultCameraInputBindingPreset(layout, camera.getKind(), camera.getAllowedVirtualEvents());
 }
 
-} // namespace nbl::ui
+} // namespace nbl::ext::cameras

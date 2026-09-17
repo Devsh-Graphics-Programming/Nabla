@@ -7,7 +7,7 @@
 
 #include "IPlanarProjection.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 struct CCameraProjectionUtilities final
@@ -31,6 +31,6 @@ struct CCameraProjectionUtilities final
     }
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_PROJECTION_UTILITIES_HPP_

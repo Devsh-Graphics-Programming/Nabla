@@ -11,27 +11,27 @@
 #include <vector>
 
 #include "CCameraKeyframeTrackPersistence.hpp"
+#include "nbl/system/ISystem.h"
 #include "CCameraPresetPersistence.hpp"
 #include "nbl/system/path.h"
 
-namespace nbl::system
+namespace nbl::ext::cameras
 {
 
-class ISystem;
 
 struct CCameraPersistenceUtilities final
 {
     /// @brief Serialize a preset collection to JSON text.
-    static std::string serializePresetCollection(std::span<const core::CCameraPreset> presets, int indent = 2);
+    static std::string serializePresetCollection(std::span<const CCameraPreset> presets, int indent = 2);
     /// @brief Parse a preset collection from JSON text.
-    static bool deserializePresetCollection(std::string_view text, std::vector<core::CCameraPreset>& presets, std::string* error = nullptr);
+    static bool deserializePresetCollection(std::string_view text, std::vector<CCameraPreset>& presets, std::string* error = nullptr);
 
     /// @brief Save a preset collection to disk as JSON.
-    static bool savePresetCollectionToFile(ISystem& system, const path& path, std::span<const core::CCameraPreset> presets, int indent = 2);
+    static bool savePresetCollectionToFile(system::ISystem& system, const system::path& path, std::span<const CCameraPreset> presets, int indent = 2);
     /// @brief Load a preset collection from disk.
-    static bool loadPresetCollectionFromFile(ISystem& system, const path& path, std::vector<core::CCameraPreset>& presets, std::string* error = nullptr);
+    static bool loadPresetCollectionFromFile(system::ISystem& system, const system::path& path, std::vector<CCameraPreset>& presets, std::string* error = nullptr);
 };
 
-} // namespace nbl::system
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_PERSISTENCE_HPP_

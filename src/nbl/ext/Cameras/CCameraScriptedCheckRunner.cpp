@@ -4,13 +4,13 @@
 
 #include "nbl/ext/Cameras/CCameraScriptedCheckRunner.hpp"
 
-namespace nbl::system
+namespace nbl::ext::cameras
 {
 
 void CCameraScriptedCheckRunnerUtilities::scriptedCheckSetStepReference(
     CCameraScriptedCheckRuntimeState& state,
     const hlsl::float64_t3& position,
-    const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation)
+    const hlsl::math::quaternion<hlsl::float64_t>& orientation)
 {
     state.step.valid = true;
     state.step.position = position;
@@ -20,7 +20,7 @@ void CCameraScriptedCheckRunnerUtilities::scriptedCheckSetStepReference(
 void CCameraScriptedCheckRunnerUtilities::scriptedCheckSetBaselineReference(
     CCameraScriptedCheckRuntimeState& state,
     const hlsl::float64_t3& position,
-    const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation)
+    const hlsl::math::quaternion<hlsl::float64_t>& orientation)
 {
     state.baseline.valid = true;
     state.baseline.position = position;
@@ -30,9 +30,9 @@ void CCameraScriptedCheckRunnerUtilities::scriptedCheckSetBaselineReference(
 
 bool CCameraScriptedCheckRunnerUtilities::scriptedCheckComputePoseDelta(
     const hlsl::float64_t3& currentPosition,
-    const hlsl::camera_quaternion_t<hlsl::float64_t>& currentOrientation,
+    const hlsl::math::quaternion<hlsl::float64_t>& currentOrientation,
     const hlsl::float64_t3& referencePosition,
-    const hlsl::camera_quaternion_t<hlsl::float64_t>& referenceOrientation,
+    const hlsl::math::quaternion<hlsl::float64_t>& referenceOrientation,
     hlsl::SCameraPoseDelta<hlsl::float64_t>& outDelta)
 {
     return hlsl::CCameraMathUtilities::tryComputePoseDelta(
@@ -147,7 +147,7 @@ CCameraScriptedCheckFrameResult CCameraScriptedCheckRunnerUtilities::evaluateScr
                                 {
                                     oss << std::fixed << std::setprecision(6);
                                     oss << "[script][fail] imguizmo_virtual frame=" << context.frame
-                                        << " type=" << core::CVirtualGimbalEvent::virtualEventToString(expected.type).data()
+                                        << " type=" << CVirtualGimbalEvent::virtualEventToString(expected.type).data()
                                         << " expected=" << expected.magnitude
                                         << " actual=" << actual
                                         << " tol=" << check.tolerance;
@@ -436,9 +436,9 @@ CCameraScriptedCheckFrameResult CCameraScriptedCheckRunnerUtilities::evaluateScr
 
                 SCameraFollowRegressionResult regression = {};
                 std::string regressionError;
-                core::CCameraGoal expectedFollowGoal = {};
+                CCameraGoal expectedFollowGoal = {};
                 const auto thresholds = CCameraFollowRegressionUtilities::makeFollowRegressionThresholds(check.posTolerance, check.eulerToleranceDeg);
-                const bool ok = core::CCameraFollowUtilities::tryBuildFollowGoal(
+                const bool ok = CCameraFollowUtilities::tryBuildFollowGoal(
                         *context.goalSolver,
                         context.camera,
                         *context.trackedTarget,
@@ -489,4 +489,4 @@ CCameraScriptedCheckFrameResult CCameraScriptedCheckRunnerUtilities::evaluateScr
     return result;
 }
 
-} // namespace nbl::system
+} // namespace nbl::ext::cameras

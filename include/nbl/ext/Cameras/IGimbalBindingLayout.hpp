@@ -5,9 +5,9 @@
 #include <unordered_map>
 
 #include "CVirtualGimbalEvent.hpp"
-#include "nbl/ui/KeyCodes.h"
+#include "CInputCodeNames.hpp"
 
-namespace nbl::ui
+namespace nbl::ext::cameras
 {
 
 /// @brief Static mapping from external input domains to virtual gimbal events.
@@ -20,9 +20,9 @@ struct IGimbalBindingLayout
     IGimbalBindingLayout() {}
     virtual ~IGimbalBindingLayout() {}
 
-    using gimbal_event_t = core::CVirtualGimbalEvent;
+    using gimbal_event_t = CVirtualGimbalEvent;
     using encode_keyboard_code_t = ui::E_KEY_CODE;
-    using encode_mouse_code_t = ui::E_MOUSE_CODE;
+    using encode_mouse_code_t = E_MOUSE_CODE;
     using encode_imguizmo_code_t = gimbal_event_t::VirtualEventType;
 
     enum BindingDomain : uint8_t
@@ -126,6 +126,6 @@ public:
     imguizmo_to_virtual_events_t m_imguizmoVirtualEventMap;
 };
 
-} // namespace nbl::ui
+} // namespace nbl::ext::cameras
 
 #endif

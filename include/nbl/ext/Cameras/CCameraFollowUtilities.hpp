@@ -12,7 +12,7 @@
 #include "CCameraTargetRelativeUtilities.hpp"
 #include "CCameraKindUtilities.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Reusable tracked-target and follow helpers.
@@ -27,7 +27,7 @@ public:
     /// @brief Construct a tracked target from an initial pose and optional identifier.
     CTrackedTarget(
         const hlsl::float64_t3& position = hlsl::float64_t3(0.0),
-        const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>(),
+        const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>(),
         std::string identifier = "Follow Target");
 
     /// @brief Return the stable human-readable identifier of the tracked target.
@@ -38,13 +38,13 @@ public:
     inline gimbal_t& getGimbal() { return m_gimbal; }
 
     /// @brief Replace the tracked target pose in world space.
-    void setPose(const hlsl::float64_t3& position, const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation);
+    void setPose(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation);
 
     /// @brief Replace only the tracked target position.
     void setPosition(const hlsl::float64_t3& position);
 
     /// @brief Replace only the tracked target orientation.
-    void setOrientation(const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation);
+    void setOrientation(const hlsl::math::quaternion<hlsl::float64_t>& orientation);
 
     /// @brief Replace the tracked target pose from a rigid transform matrix when possible.
     bool trySetFromTransform(const hlsl::float64_t4x4& transform);
@@ -202,7 +202,7 @@ struct CCameraFollowUtilities final
         const hlsl::float64_t3& position,
         const hlsl::float64_t3& targetPosition,
         const hlsl::float64_t3& preferredUp,
-        hlsl::camera_quaternion_t<hlsl::float64_t>& outOrientation);
+        hlsl::math::quaternion<hlsl::float64_t>& outOrientation);
 
     /// @brief Capture world-space and target-local follow offsets from the current camera pose.
     static bool captureFollowOffsetsFromCamera(
@@ -240,7 +240,7 @@ struct CCameraFollowUtilities final
         CCameraGoal* outGoal = nullptr);
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_FOLLOW_UTILITIES_HPP_
 

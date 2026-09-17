@@ -4,7 +4,7 @@
 
 #include "nbl/ext/Cameras/IPlanarProjection.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 void IPlanarProjection::CProjection::update(const bool leftHanded, const float aspectRatio)
@@ -50,4 +50,4 @@ void IPlanarProjection::CProjection::setOrthographic(const float zNear, const fl
     m_parameters.m_zFar = zFar;
 }
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras

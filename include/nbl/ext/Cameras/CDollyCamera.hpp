@@ -6,7 +6,7 @@
 
 #include "CSphericalTargetCamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Target-relative camera that translates the target in the full local camera basis.

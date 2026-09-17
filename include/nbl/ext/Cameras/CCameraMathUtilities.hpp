@@ -14,22 +14,12 @@
 namespace nbl::hlsl
 {
 
-/// @brief Camera-oriented math aliases and helpers built on top of Nabla `nbl::hlsl` types.
-template<typename T, uint32_t N>
-using camera_vector_t = vector<T, N>;
-
-template<typename T, uint32_t N, uint32_t M>
-using camera_matrix_t = matrix<T, N, M>;
-
-template<typename T>
-using camera_quaternion_t = math::quaternion<T>;
-
 template<typename T>
 struct SRigidTransformComponents
 {
-    camera_vector_t<T, 3> translation = camera_vector_t<T, 3>(T(0));
-    camera_quaternion_t<T> orientation = camera_quaternion_t<T>::create();
-    camera_vector_t<T, 3> scale = camera_vector_t<T, 3>(T(1));
+    vector<T, 3> translation = vector<T, 3>(T(0));
+    math::quaternion<T> orientation = math::quaternion<T>::create();
+    vector<T, 3> scale = vector<T, 3>(T(1));
 };
 
 template<typename T>
@@ -181,21 +171,21 @@ struct CCameraMathUtilities final
     }
 
     template<typename T, uint32_t N>
-    static inline bool isNearlyZeroVector(const camera_vector_t<T, N>& value, const T epsilon = getCameraMathEpsilon<T>())
+    static inline bool isNearlyZeroVector(const vector<T, N>& value, const T epsilon = getCameraMathEpsilon<T>())
     {
         return length(value) <= epsilon;
     }
 
     template<typename T>
-    static inline bool hasPlanarDeltaXY(const camera_vector_t<T, 3>& value, const T epsilon = std::numeric_limits<T>::epsilon())
+    static inline bool hasPlanarDeltaXY(const vector<T, 3>& value, const T epsilon = std::numeric_limits<T>::epsilon())
     {
-        return !isNearlyZeroVector(camera_vector_t<T, 2>(value.x, value.y), epsilon);
+        return !isNearlyZeroVector(vector<T, 2>(value.x, value.y), epsilon);
     }
 
     template<typename VecA, typename VecB, typename T>
     static inline bool nearlyEqualVec3(const VecA& a, const VecB& b, const T epsilon)
     {
-        const camera_vector_t<T, 3> delta(
+        const vector<T, 3> delta(
             static_cast<T>(a.x - b.x),
             static_cast<T>(a.y - b.y),
             static_cast<T>(a.z - b.z));
@@ -203,21 +193,21 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline constexpr camera_vector_t<T, 3> getCameraWorldRight()
+    static inline constexpr vector<T, 3> getCameraWorldRight()
     {
-        return camera_vector_t<T, 3>(T(1), T(0), T(0));
+        return vector<T, 3>(T(1), T(0), T(0));
     }
 
     template<typename T>
-    static inline constexpr camera_vector_t<T, 3> getCameraWorldUp()
+    static inline constexpr vector<T, 3> getCameraWorldUp()
     {
-        return camera_vector_t<T, 3>(T(0), T(1), T(0));
+        return vector<T, 3>(T(0), T(1), T(0));
     }
 
     template<typename T>
-    static inline constexpr camera_vector_t<T, 3> getCameraWorldForward()
+    static inline constexpr vector<T, 3> getCameraWorldForward()
     {
-        return camera_vector_t<T, 3>(T(0), T(0), T(1));
+        return vector<T, 3>(T(0), T(0), T(1));
     }
 
     template<typename T>
@@ -227,27 +217,27 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> makeIdentityQuaternion()
+    static inline math::quaternion<T> makeIdentityQuaternion()
     {
-        return camera_quaternion_t<T>::create();
+        return math::quaternion<T>::create();
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> makeQuaternionFromComponents(const T x, const T y, const T z, const T w)
+    static inline math::quaternion<T> makeQuaternionFromComponents(const T x, const T y, const T z, const T w)
     {
-        camera_quaternion_t<T> output;
-        output.data = camera_vector_t<T, 4>(x, y, z, w);
+        math::quaternion<T> output;
+        output.data = vector<T, 4>(x, y, z, w);
         return output;
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> normalizeQuaternion(const camera_quaternion_t<T>& q)
+    static inline math::quaternion<T> normalizeQuaternion(const math::quaternion<T>& q)
     {
         return normalize(q);
     }
 
     template<typename T>
-    static inline bool isFiniteQuaternion(const camera_quaternion_t<T>& q)
+    static inline bool isFiniteQuaternion(const math::quaternion<T>& q)
     {
         return isFiniteScalar(q.data.x) &&
             isFiniteScalar(q.data.y) &&
@@ -256,7 +246,7 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline bool isFiniteVec3(const camera_vector_t<T, 3>& value)
+    static inline bool isFiniteVec3(const vector<T, 3>& value)
     {
         return isFiniteScalar(value.x) &&
             isFiniteScalar(value.y) &&
@@ -264,7 +254,7 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> safeNormalizeVec3(const camera_vector_t<T, 3>& value, const camera_vector_t<T, 3>& fallback)
+    static inline vector<T, 3> safeNormalizeVec3(const vector<T, 3>& value, const vector<T, 3>& fallback)
     {
         const auto len = length(value);
         if (!isFiniteScalar(len) || len <= getCameraMathEpsilon<T>())
@@ -273,28 +263,28 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> makeQuaternionFromAxisAngle(const camera_vector_t<T, 3>& axis, const T radians)
+    static inline math::quaternion<T> makeQuaternionFromAxisAngle(const vector<T, 3>& axis, const T radians)
     {
-        return camera_quaternion_t<T>::create(axis, radians);
+        return math::quaternion<T>::create(axis, radians);
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> makeQuaternionFromEulerRadians(const camera_vector_t<T, 3>& eulerRadians)
+    static inline math::quaternion<T> makeQuaternionFromEulerRadians(const vector<T, 3>& eulerRadians)
     {
-        return camera_quaternion_t<T>::create(eulerRadians.x, eulerRadians.y, eulerRadians.z);
+        return math::quaternion<T>::create(eulerRadians.x, eulerRadians.y, eulerRadians.z);
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> makeQuaternionFromEulerDegrees(const camera_vector_t<T, 3>& eulerDegrees)
+    static inline math::quaternion<T> makeQuaternionFromEulerDegrees(const vector<T, 3>& eulerDegrees)
     {
-        return makeQuaternionFromEulerRadians(camera_vector_t<T, 3>(
+        return makeQuaternionFromEulerRadians(vector<T, 3>(
             radians(eulerDegrees.x),
             radians(eulerDegrees.y),
             radians(eulerDegrees.z)));
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> makeQuaternionFromEulerRadiansYXZ(const camera_vector_t<T, 3>& eulerRadians)
+    static inline math::quaternion<T> makeQuaternionFromEulerRadiansYXZ(const vector<T, 3>& eulerRadians)
     {
         const auto pitch = makeQuaternionFromAxisAngle(getCameraWorldRight<T>(), eulerRadians.x);
         const auto yaw = makeQuaternionFromAxisAngle(getCameraWorldUp<T>(), eulerRadians.y);
@@ -303,19 +293,19 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> makeQuaternionFromEulerDegreesYXZ(const camera_vector_t<T, 3>& eulerDegrees)
+    static inline math::quaternion<T> makeQuaternionFromEulerDegreesYXZ(const vector<T, 3>& eulerDegrees)
     {
-        return makeQuaternionFromEulerRadiansYXZ(camera_vector_t<T, 3>(
+        return makeQuaternionFromEulerRadiansYXZ(vector<T, 3>(
             radians(eulerDegrees.x),
             radians(eulerDegrees.y),
             radians(eulerDegrees.z)));
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> makeQuaternionFromBasis(
-        const camera_vector_t<T, 3>& right,
-        const camera_vector_t<T, 3>& up,
-        const camera_vector_t<T, 3>& forward)
+    static inline math::quaternion<T> makeQuaternionFromBasis(
+        const vector<T, 3>& right,
+        const vector<T, 3>& up,
+        const vector<T, 3>& forward)
     {
         const auto canonicalForward = safeNormalizeVec3(forward, getCameraWorldForward<T>());
 
@@ -341,11 +331,11 @@ struct CCameraMathUtilities final
 
     template<typename T>
     static inline bool tryBuildCameraBasisFromForwardUpHint(
-        const camera_vector_t<T, 3>& forwardHint,
-        const camera_vector_t<T, 3>& upHint,
-        camera_vector_t<T, 3>& outRight,
-        camera_vector_t<T, 3>& outUp,
-        camera_vector_t<T, 3>& outForward)
+        const vector<T, 3>& forwardHint,
+        const vector<T, 3>& upHint,
+        vector<T, 3>& outRight,
+        vector<T, 3>& outUp,
+        vector<T, 3>& outForward)
     {
         const auto forward = safeNormalizeVec3(forwardHint, getCameraWorldForward<T>());
         if (!isFiniteVec3(forward) || isNearlyZeroVector(forward))
@@ -376,30 +366,30 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> makeSphericalOffsetFromOrbit(const camera_vector_t<T, 2>& orbitUv, const T distance)
+    static inline vector<T, 3> makeSphericalOffsetFromOrbit(const vector<T, 2>& orbitUv, const T distance)
     {
-        return camera_vector_t<T, 3>(
+        return vector<T, 3>(
             hlsl::cos(orbitUv.y) * hlsl::cos(orbitUv.x) * distance,
             hlsl::cos(orbitUv.y) * hlsl::sin(orbitUv.x) * distance,
             hlsl::sin(orbitUv.y) * distance);
     }
 
     template<typename T>
-    static inline T getPlanarRadiusXZ(const camera_vector_t<T, 3>& offset)
+    static inline T getPlanarRadiusXZ(const vector<T, 3>& offset)
     {
-        return length(camera_vector_t<T, 2>(offset.x, offset.z));
+        return length(vector<T, 2>(offset.x, offset.z));
     }
 
     template<typename T>
     static inline T getPathDistance(const T pathU, const T pathV)
     {
-        return length(camera_vector_t<T, 2>(pathU, pathV));
+        return length(vector<T, 2>(pathU, pathV));
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> makePathOffsetFromState(const T pathS, const T pathU, const T pathV)
+    static inline vector<T, 3> makePathOffsetFromState(const T pathS, const T pathU, const T pathV)
     {
-        return camera_vector_t<T, 3>(hlsl::cos(pathS) * pathU, pathV, hlsl::sin(pathS) * pathU);
+        return vector<T, 3>(hlsl::cos(pathS) * pathU, pathV, hlsl::sin(pathS) * pathU);
     }
 
     template<typename T>
@@ -451,8 +441,8 @@ struct CCameraMathUtilities final
 
     template<typename T>
     static inline bool tryBuildPathStateFromPosition(
-        const camera_vector_t<T, 3>& targetPosition,
-        const camera_vector_t<T, 3>& position,
+        const vector<T, 3>& targetPosition,
+        const vector<T, 3>& position,
         const T minRadius,
         T& outS,
         T& outU,
@@ -473,15 +463,15 @@ struct CCameraMathUtilities final
 
     template<typename T>
     static inline bool tryBuildLookAtOrientation(
-        const camera_vector_t<T, 3>& position,
-        const camera_vector_t<T, 3>& targetPosition,
-        const camera_vector_t<T, 3>& preferredUp,
-        camera_quaternion_t<T>& outOrientation)
+        const vector<T, 3>& position,
+        const vector<T, 3>& targetPosition,
+        const vector<T, 3>& preferredUp,
+        math::quaternion<T>& outOrientation)
     {
         const auto toTarget = targetPosition - position;
-        camera_vector_t<T, 3> right = camera_vector_t<T, 3>(T(0));
-        camera_vector_t<T, 3> up = camera_vector_t<T, 3>(T(0));
-        camera_vector_t<T, 3> forward = camera_vector_t<T, 3>(T(0));
+        vector<T, 3> right = vector<T, 3>(T(0));
+        vector<T, 3> up = vector<T, 3>(T(0));
+        vector<T, 3> forward = vector<T, 3>(T(0));
         if (!tryBuildCameraBasisFromForwardUpHint(toTarget, preferredUp, right, up, forward))
             return false;
 
@@ -491,9 +481,9 @@ struct CCameraMathUtilities final
 
     template<typename T>
     static inline bool tryExtractRigidPoseFromTransform(
-        const camera_matrix_t<T, 4, 4>& transform,
-        camera_vector_t<T, 3>& outTranslation,
-        camera_quaternion_t<T>& outOrientation)
+        const matrix<T, 4, 4>& transform,
+        vector<T, 3>& outTranslation,
+        math::quaternion<T>& outOrientation)
     {
         SRigidTransformComponents<T> components;
         if (!tryExtractRigidTransformComponents(transform, components))
@@ -506,13 +496,13 @@ struct CCameraMathUtilities final
 
     template<typename T>
     static inline bool tryBuildSphericalPoseFromOrbit(
-        const camera_vector_t<T, 3>& targetPosition,
-        const camera_vector_t<T, 2>& orbitUv,
+        const vector<T, 3>& targetPosition,
+        const vector<T, 2>& orbitUv,
         const T distance,
         const T minDistance,
         const T maxDistance,
-        camera_vector_t<T, 3>& outPosition,
-        camera_quaternion_t<T>& outOrientation,
+        vector<T, 3>& outPosition,
+        math::quaternion<T>& outOrientation,
         T* outAppliedDistance = nullptr)
     {
         if (!isFiniteScalar(orbitUv.x) ||
@@ -523,14 +513,14 @@ struct CCameraMathUtilities final
         const T appliedDistance = std::clamp(distance, minDistance, maxDistance);
         const auto spherePosition = makeSphericalOffsetFromOrbit(orbitUv, appliedDistance);
         const auto upHint = safeNormalizeVec3(
-            camera_vector_t<T, 3>(
+            vector<T, 3>(
                 -hlsl::sin(orbitUv.y) * hlsl::cos(orbitUv.x),
                 -hlsl::sin(orbitUv.y) * hlsl::sin(orbitUv.x),
                 hlsl::cos(orbitUv.y)),
             getCameraWorldForward<T>());
-        camera_vector_t<T, 3> right = camera_vector_t<T, 3>(T(0));
-        camera_vector_t<T, 3> up = camera_vector_t<T, 3>(T(0));
-        camera_vector_t<T, 3> forward = camera_vector_t<T, 3>(T(0));
+        vector<T, 3> right = vector<T, 3>(T(0));
+        vector<T, 3> up = vector<T, 3>(T(0));
+        vector<T, 3> forward = vector<T, 3>(T(0));
         if (!tryBuildCameraBasisFromForwardUpHint(-spherePosition, upHint, right, up, forward))
             return false;
 
@@ -543,11 +533,11 @@ struct CCameraMathUtilities final
 
     template<typename T>
     static inline bool tryBuildOrbitFromPosition(
-        const camera_vector_t<T, 3>& targetPosition,
-        const camera_vector_t<T, 3>& position,
+        const vector<T, 3>& targetPosition,
+        const vector<T, 3>& position,
         const T minDistance,
         const T maxDistance,
-        camera_vector_t<T, 2>& outOrbitUv,
+        vector<T, 2>& outOrbitUv,
         T& outDistance)
     {
         const auto offset = position - targetPosition;
@@ -557,7 +547,7 @@ struct CCameraMathUtilities final
 
         outDistance = std::clamp(distance, minDistance, maxDistance);
         const auto local = offset / outDistance;
-        outOrbitUv = camera_vector_t<T, 2>(
+        outOrbitUv = vector<T, 2>(
             hlsl::atan2(local.y, local.x),
             hlsl::asin(std::clamp(local.z, T(-1), T(1))));
         return isFiniteScalar(outOrbitUv.x) &&
@@ -566,24 +556,24 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 2> getPitchYawFromForwardVector(const camera_vector_t<T, 3>& forward)
+    static inline vector<T, 2> getPitchYawFromForwardVector(const vector<T, 3>& forward)
     {
-        const T planarLength = length(camera_vector_t<T, 2>(forward.x, forward.z));
-        return camera_vector_t<T, 2>(
+        const T planarLength = length(vector<T, 2>(forward.x, forward.z));
+        return vector<T, 2>(
             hlsl::atan2(planarLength, forward.y) - numbers::pi<T> * T(0.5),
             hlsl::atan2(forward.x, forward.z));
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 2> getPitchYawFromOrientation(const camera_quaternion_t<T>& orientation)
+    static inline vector<T, 2> getPitchYawFromOrientation(const math::quaternion<T>& orientation)
     {
-        const auto forward = normalizeQuaternion(orientation).transformVector(camera_vector_t<T, 3>(T(0), T(0), T(1)), true);
+        const auto forward = normalizeQuaternion(orientation).transformVector(vector<T, 3>(T(0), T(0), T(1)), true);
         return getPitchYawFromForwardVector(forward);
     }
 
     template<typename T>
     static inline bool tryBuildPathPoseFromState(
-        const camera_vector_t<T, 3>& targetPosition,
+        const vector<T, 3>& targetPosition,
         const T pathS,
         const T pathU,
         const T pathV,
@@ -591,10 +581,10 @@ struct CCameraMathUtilities final
         const T minRadius,
         const T minDistance,
         const T maxDistance,
-        camera_vector_t<T, 3>& outPosition,
-        camera_quaternion_t<T>& outOrientation,
+        vector<T, 3>& outPosition,
+        math::quaternion<T>& outOrientation,
         T* outAppliedDistance = nullptr,
-        camera_vector_t<T, 2>* outOrbitUv = nullptr)
+        vector<T, 2>* outOrbitUv = nullptr)
     {
         if (!isFiniteScalar(pathS) ||
             !isFiniteScalar(pathU) ||
@@ -605,7 +595,7 @@ struct CCameraMathUtilities final
         const T appliedU = std::max(minRadius, pathU);
         const auto offset = makePathOffsetFromState(pathS, appliedU, pathV);
 
-        camera_vector_t<T, 2> orbitUv = camera_vector_t<T, 2>(T(0));
+        vector<T, 2> orbitUv = vector<T, 2>(T(0));
         T distance = T(0);
         if (!tryBuildOrbitFromPosition(targetPosition, targetPosition + offset, minDistance, maxDistance, orbitUv, distance))
             return false;
@@ -630,35 +620,35 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> rotateVectorByQuaternion(const camera_quaternion_t<T>& orientation, const camera_vector_t<T, 3>& vectorToRotate)
+    static inline vector<T, 3> rotateVectorByQuaternion(const math::quaternion<T>& orientation, const vector<T, 3>& vectorToRotate)
     {
         return normalizeQuaternion(orientation).transformVector(vectorToRotate, true);
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> projectWorldVectorToLocalBasis(
-        const camera_vector_t<T, 3>& worldVector,
-        const camera_vector_t<T, 3>& right,
-        const camera_vector_t<T, 3>& up,
-        const camera_vector_t<T, 3>& forward)
+    static inline vector<T, 3> projectWorldVectorToLocalBasis(
+        const vector<T, 3>& worldVector,
+        const vector<T, 3>& right,
+        const vector<T, 3>& up,
+        const vector<T, 3>& forward)
     {
-        const camera_matrix_t<T, 3, 3> basis { right, up, forward };
+        const matrix<T, 3, 3> basis { right, up, forward };
         return hlsl::mul(hlsl::transpose(basis), worldVector);
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> transformLocalVectorToWorldBasis(
-        const camera_vector_t<T, 3>& localVector,
-        const camera_vector_t<T, 3>& right,
-        const camera_vector_t<T, 3>& up,
-        const camera_vector_t<T, 3>& forward)
+    static inline vector<T, 3> transformLocalVectorToWorldBasis(
+        const vector<T, 3>& localVector,
+        const vector<T, 3>& right,
+        const vector<T, 3>& up,
+        const vector<T, 3>& forward)
     {
-        const camera_matrix_t<T, 3, 3> basis { right, up, forward };
+        const matrix<T, 3, 3> basis { right, up, forward };
         return hlsl::mul(basis, localVector);
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> getQuaternionEulerRadians(const camera_quaternion_t<T>& orientation)
+    static inline vector<T, 3> getQuaternionEulerRadians(const math::quaternion<T>& orientation)
     {
         const auto q = normalizeQuaternion(orientation);
         const T x = q.data.x;
@@ -677,21 +667,21 @@ struct CCameraMathUtilities final
             T(2) * (x * y + w * z),
             w * w + x * x - y * y - z * z);
 
-        return camera_vector_t<T, 3>(pitch, yaw, roll);
+        return vector<T, 3>(pitch, yaw, roll);
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> getQuaternionEulerDegrees(const camera_quaternion_t<T>& orientation)
+    static inline vector<T, 3> getQuaternionEulerDegrees(const math::quaternion<T>& orientation)
     {
         const auto eulerRadians = getQuaternionEulerRadians(orientation);
-        return camera_vector_t<T, 3>(
+        return vector<T, 3>(
             degrees(eulerRadians.x),
             degrees(eulerRadians.y),
             degrees(eulerRadians.z));
     }
 
     template<typename T>
-    static inline T getQuaternionAngularDistanceRadians(const camera_quaternion_t<T>& lhs, const camera_quaternion_t<T>& rhs)
+    static inline T getQuaternionAngularDistanceRadians(const math::quaternion<T>& lhs, const math::quaternion<T>& rhs)
     {
         const auto lhsNormalized = normalizeQuaternion(lhs);
         const auto rhsNormalized = normalizeQuaternion(rhs);
@@ -703,17 +693,17 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline T getQuaternionAngularDistanceDegrees(const camera_quaternion_t<T>& lhs, const camera_quaternion_t<T>& rhs)
+    static inline T getQuaternionAngularDistanceDegrees(const math::quaternion<T>& lhs, const math::quaternion<T>& rhs)
     {
         return degrees(getQuaternionAngularDistanceRadians(lhs, rhs));
     }
 
     template<typename T>
     static inline bool tryComputePoseDelta(
-        const camera_vector_t<T, 3>& lhsPosition,
-        const camera_quaternion_t<T>& lhsOrientation,
-        const camera_vector_t<T, 3>& rhsPosition,
-        const camera_quaternion_t<T>& rhsOrientation,
+        const vector<T, 3>& lhsPosition,
+        const math::quaternion<T>& lhsOrientation,
+        const vector<T, 3>& rhsPosition,
+        const math::quaternion<T>& rhsOrientation,
         SCameraPoseDelta<T>& outDelta)
     {
         outDelta = {};
@@ -732,125 +722,125 @@ struct CCameraMathUtilities final
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> slerpQuaternion(const camera_quaternion_t<T>& lhs, const camera_quaternion_t<T>& rhs, const T alpha)
+    static inline math::quaternion<T> slerpQuaternion(const math::quaternion<T>& lhs, const math::quaternion<T>& rhs, const T alpha)
     {
-        return camera_quaternion_t<T>::slerp(normalizeQuaternion(lhs), normalizeQuaternion(rhs), alpha);
+        return math::quaternion<T>::slerp(normalizeQuaternion(lhs), normalizeQuaternion(rhs), alpha);
     }
 
     template<typename T>
-    static inline camera_quaternion_t<T> inverseQuaternion(const camera_quaternion_t<T>& q)
+    static inline math::quaternion<T> inverseQuaternion(const math::quaternion<T>& q)
     {
         return inverse(q);
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> projectWorldVectorToLocalQuaternionFrame(
-        const camera_quaternion_t<T>& orientation,
-        const camera_vector_t<T, 3>& worldVector)
+    static inline vector<T, 3> projectWorldVectorToLocalQuaternionFrame(
+        const math::quaternion<T>& orientation,
+        const vector<T, 3>& worldVector)
     {
         return rotateVectorByQuaternion(inverseQuaternion(orientation), worldVector);
     }
 
     template<typename T>
-    static inline camera_matrix_t<T, 3, 3> getQuaternionBasisMatrix(const camera_quaternion_t<T>& orientation)
+    static inline matrix<T, 3, 3> getQuaternionBasisMatrix(const math::quaternion<T>& orientation)
     {
         const auto normalizedOrientation = normalizeQuaternion(orientation);
-        return camera_matrix_t<T, 3, 3>(
+        return matrix<T, 3, 3>(
             normalizedOrientation.transformVector(getCameraWorldRight<T>(), true),
             normalizedOrientation.transformVector(getCameraWorldUp<T>(), true),
             normalizedOrientation.transformVector(getCameraWorldForward<T>(), true));
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> getQuaternionEulerRadiansYXZ(const camera_quaternion_t<T>& orientation)
+    static inline vector<T, 3> getQuaternionEulerRadiansYXZ(const math::quaternion<T>& orientation)
     {
         const auto basis = getQuaternionBasisMatrix(orientation);
         const T yaw = hlsl::atan2(basis[2][0], basis[2][2]);
-        const T c2 = hlsl::length(camera_vector_t<T, 2>(basis[0][1], basis[1][1]));
+        const T c2 = hlsl::length(vector<T, 2>(basis[0][1], basis[1][1]));
         const T pitch = hlsl::atan2(-basis[2][1], c2);
         const T s1 = hlsl::sin(yaw);
         const T c1 = hlsl::cos(yaw);
         const T roll = hlsl::atan2(
             s1 * basis[1][2] - c1 * basis[1][0],
             c1 * basis[0][0] - s1 * basis[0][2]);
-        return camera_vector_t<T, 3>(pitch, yaw, roll);
+        return vector<T, 3>(pitch, yaw, roll);
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> getQuaternionEulerDegreesYXZ(const camera_quaternion_t<T>& orientation)
+    static inline vector<T, 3> getQuaternionEulerDegreesYXZ(const math::quaternion<T>& orientation)
     {
         const auto eulerRadians = getQuaternionEulerRadiansYXZ(orientation);
-        return camera_vector_t<T, 3>(
+        return vector<T, 3>(
             degrees(eulerRadians.x),
             degrees(eulerRadians.y),
             degrees(eulerRadians.z));
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> getCameraOrientationEulerRadians(const camera_quaternion_t<T>& orientation)
+    static inline vector<T, 3> getCameraOrientationEulerRadians(const math::quaternion<T>& orientation)
     {
         return getQuaternionEulerRadiansYXZ(orientation);
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> getCameraOrientationEulerDegrees(const camera_quaternion_t<T>& orientation)
+    static inline vector<T, 3> getCameraOrientationEulerDegrees(const math::quaternion<T>& orientation)
     {
         return getQuaternionEulerDegreesYXZ(orientation);
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> getOrientationDeltaEulerRadiansYXZ(
-        const camera_quaternion_t<T>& from,
-        const camera_quaternion_t<T>& to)
+    static inline vector<T, 3> getOrientationDeltaEulerRadiansYXZ(
+        const math::quaternion<T>& from,
+        const math::quaternion<T>& to)
     {
         const auto deltaQuat = inverseQuaternion(from) * normalizeQuaternion(to);
         return getQuaternionEulerRadiansYXZ(deltaQuat);
     }
 
     template<typename T>
-    static inline camera_vector_t<T, 3> getWrappedEulerDistanceDegrees(
-        const camera_vector_t<T, 3>& a,
-        const camera_vector_t<T, 3>& b)
+    static inline vector<T, 3> getWrappedEulerDistanceDegrees(
+        const vector<T, 3>& a,
+        const vector<T, 3>& b)
     {
-        return camera_vector_t<T, 3>(
+        return vector<T, 3>(
             getWrappedAngleDistanceDegrees(a.x, b.x),
             getWrappedAngleDistanceDegrees(a.y, b.y),
             getWrappedAngleDistanceDegrees(a.z, b.z));
     }
 
     template<typename T>
-    static inline T getMaxVectorComponent(const camera_vector_t<T, 3>& value)
+    static inline T getMaxVectorComponent(const vector<T, 3>& value)
     {
         return std::max(value.x, std::max(value.y, value.z));
     }
 
     template<typename T>
-    static inline camera_matrix_t<T, 4, 4> composeTransformMatrix(
-        const camera_vector_t<T, 3>& translation,
-        const camera_quaternion_t<T>& orientation,
-        const camera_vector_t<T, 3>& scale = camera_vector_t<T, 3>(T(1)))
+    static inline matrix<T, 4, 4> composeTransformMatrix(
+        const vector<T, 3>& translation,
+        const math::quaternion<T>& orientation,
+        const vector<T, 3>& scale = vector<T, 3>(T(1)))
     {
-        camera_matrix_t<T, 4, 4> output = camera_matrix_t<T, 4, 4>(1);
+        matrix<T, 4, 4> output = matrix<T, 4, 4>(1);
         const auto basis = getQuaternionBasisMatrix(orientation);
-        output[0] = camera_vector_t<T, 4>(basis[0] * scale.x, T(0));
-        output[1] = camera_vector_t<T, 4>(basis[1] * scale.y, T(0));
-        output[2] = camera_vector_t<T, 4>(basis[2] * scale.z, T(0));
-        output[3] = camera_vector_t<T, 4>(translation, T(1));
+        output[0] = vector<T, 4>(basis[0] * scale.x, T(0));
+        output[1] = vector<T, 4>(basis[1] * scale.y, T(0));
+        output[2] = vector<T, 4>(basis[2] * scale.z, T(0));
+        output[3] = vector<T, 4>(translation, T(1));
         return output;
     }
 
     template<typename T>
     static inline bool tryExtractRigidTransformComponents(
-        const camera_matrix_t<T, 4, 4>& transform,
+        const matrix<T, 4, 4>& transform,
         SRigidTransformComponents<T>& outComponents)
     {
-        outComponents.translation = camera_vector_t<T, 3>(transform[3].x, transform[3].y, transform[3].z);
+        outComponents.translation = vector<T, 3>(transform[3].x, transform[3].y, transform[3].z);
 
-        auto right = camera_vector_t<T, 3>(transform[0].x, transform[0].y, transform[0].z);
-        auto up = camera_vector_t<T, 3>(transform[1].x, transform[1].y, transform[1].z);
-        auto forward = camera_vector_t<T, 3>(transform[2].x, transform[2].y, transform[2].z);
+        auto right = vector<T, 3>(transform[0].x, transform[0].y, transform[0].z);
+        auto up = vector<T, 3>(transform[1].x, transform[1].y, transform[1].z);
+        auto forward = vector<T, 3>(transform[2].x, transform[2].y, transform[2].z);
 
-        outComponents.scale = camera_vector_t<T, 3>(length(right), length(up), length(forward));
+        outComponents.scale = vector<T, 3>(length(right), length(up), length(forward));
 
         if (!isFiniteVec3(outComponents.translation) || !isFiniteVec3(outComponents.scale))
             return false;
@@ -871,9 +861,9 @@ struct CCameraMathUtilities final
 
     template<typename T>
     static inline bool tryBuildRigidFrameFromTransform(
-        const camera_matrix_t<T, 4, 4>& transform,
-        camera_matrix_t<T, 4, 4>& outFrame,
-        camera_quaternion_t<T>& outOrientation)
+        const matrix<T, 4, 4>& transform,
+        matrix<T, 4, 4>& outFrame,
+        math::quaternion<T>& outOrientation)
     {
         SRigidTransformComponents<T> components;
         if (!tryExtractRigidTransformComponents(transform, components))
@@ -886,10 +876,10 @@ struct CCameraMathUtilities final
 
     template<typename T>
     static inline bool decomposeTransformMatrix(
-        const camera_matrix_t<T, 4, 4>& transform,
-        camera_vector_t<T, 3>& outTranslation,
-        camera_vector_t<T, 3>& outRotationEulerDegrees,
-        camera_vector_t<T, 3>& outScale)
+        const matrix<T, 4, 4>& transform,
+        vector<T, 3>& outTranslation,
+        vector<T, 3>& outRotationEulerDegrees,
+        vector<T, 3>& outScale)
     {
         SRigidTransformComponents<T> components;
         if (!tryExtractRigidTransformComponents(transform, components))
@@ -901,15 +891,15 @@ struct CCameraMathUtilities final
         return isFiniteVec3(outRotationEulerDegrees);
     }
 
-    static camera_quaternion_t<float> makeQuaternionFromBasisImpl(
-        const camera_vector_t<float, 3>& right,
-        const camera_vector_t<float, 3>& up,
-        const camera_vector_t<float, 3>& forward);
+    static math::quaternion<float> makeQuaternionFromBasisImpl(
+        const vector<float, 3>& right,
+        const vector<float, 3>& up,
+        const vector<float, 3>& forward);
 
-    static camera_quaternion_t<double> makeQuaternionFromBasisImpl(
-        const camera_vector_t<double, 3>& right,
-        const camera_vector_t<double, 3>& up,
-        const camera_vector_t<double, 3>& forward);
+    static math::quaternion<double> makeQuaternionFromBasisImpl(
+        const vector<double, 3>& right,
+        const vector<double, 3>& up,
+        const vector<double, 3>& forward);
 };
 
 } // namespace nbl::hlsl

@@ -7,7 +7,7 @@
 #include "IGimbalBindingLayout.hpp"
 #include "ILinearProjection.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Linear projection wrapper for one camera-facing planar viewport.
@@ -83,13 +83,13 @@ public:
         /// @brief Return the authored planar projection parameters.
         inline const ProjectionParameters& getParameters() const { return m_parameters; }
         /// @brief Return the viewport-local input binding layout stored next to this projection entry.
-        inline const ui::IGimbalBindingLayout& getInputBinding() const { return m_inputBinding; }
+        inline const IGimbalBindingLayout& getInputBinding() const { return m_inputBinding; }
         /// @brief Return mutable access to the viewport-local input binding layout.
-        inline ui::IGimbalBindingLayout& getInputBinding() { return m_inputBinding; }
+        inline IGimbalBindingLayout& getInputBinding() { return m_inputBinding; }
     private:
         CProjection() = default;
         ProjectionParameters m_parameters;
-        ui::CGimbalBindingLayoutStorage m_inputBinding;
+        CGimbalBindingLayoutStorage m_inputBinding;
     };
 
 protected:
@@ -98,6 +98,6 @@ protected:
     virtual ~IPlanarProjection() = default;
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _NBL_I_PLANAR_PROJECTION_HPP_

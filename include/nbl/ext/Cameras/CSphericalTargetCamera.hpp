@@ -4,7 +4,7 @@
 #include <algorithm>
 #include "CCameraTargetRelativeUtilities.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Common base for target-relative cameras represented by target position, distance, and `orbitUv`.
@@ -50,8 +50,8 @@ public:
     inline float getDistance() const { return m_distance; }
     inline const hlsl::float64_t2& getOrbitUv() const { return m_orbitUv; }
 
-    static inline constexpr float MinDistance = SCameraTargetRelativeTraits::MinDistance;
-    static inline constexpr float MaxDistance = SCameraTargetRelativeTraits::DefaultMaxDistance;
+    static inline constexpr float MinDistance = ICamera::DefaultMinTargetDistance;
+    static inline constexpr float MaxDistance = ICamera::DefaultMaxTargetDistance;
 
     virtual uint32_t getCapabilities() const override
     {

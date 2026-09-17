@@ -10,7 +10,7 @@
 
 #include "CSphericalTargetCamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Target-relative camera with planar target translation and bounded arcball orbiting.

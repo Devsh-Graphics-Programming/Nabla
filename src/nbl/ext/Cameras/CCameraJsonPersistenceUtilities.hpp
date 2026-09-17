@@ -3,27 +3,27 @@
 
 #include <array>
 
-#include "nbl/ext/Cameras/CCameraFileUtilities.hpp"
+#include "nbl/ext/Cameras/CFileUtilities.hpp"
 #include "nbl/ext/Cameras/CCameraGoal.hpp"
 #include "nbl/ext/Cameras/CCameraPresetFlow.hpp"
 #include "nlohmann/json.hpp"
 
-namespace nbl::system::impl
+namespace nbl::ext::cameras::impl
 {
 
 struct CCameraJsonPersistenceUtilities final
 {
     template<typename Json>
-    static inline void deserializeGoalJson(const Json& entry, core::CCameraGoal& goal)
+    static inline void deserializeGoalJson(const Json& entry, CCameraGoal& goal)
     {
         goal = {};
 
         if (entry.contains("camera_kind"))
-            goal.sourceKind = static_cast<core::ICamera::CameraKind>(entry["camera_kind"].get<uint32_t>());
+            goal.sourceKind = static_cast<ICamera::CameraKind>(entry["camera_kind"].get<uint32_t>());
         if (entry.contains("camera_capabilities"))
-            goal.sourceCapabilities = core::ICamera::capability_flags_t(entry["camera_capabilities"].get<uint32_t>());
+            goal.sourceCapabilities = ICamera::capability_flags_t(entry["camera_capabilities"].get<uint32_t>());
         if (entry.contains("camera_goal_state_mask"))
-            goal.sourceGoalStateMask = core::ICamera::goal_state_flags_t(entry["camera_goal_state_mask"].get<uint32_t>());
+            goal.sourceGoalStateMask = ICamera::goal_state_flags_t(entry["camera_goal_state_mask"].get<uint32_t>());
 
         if (entry.contains("position") && entry["position"].is_array())
         {
@@ -82,7 +82,7 @@ struct CCameraJsonPersistenceUtilities final
     }
 
     template<typename Json>
-    static inline void deserializePresetJson(const Json& entry, core::CCameraPreset& preset)
+    static inline void deserializePresetJson(const Json& entry, CCameraPreset& preset)
     {
         preset = {};
         if (entry.contains("name"))
@@ -90,12 +90,12 @@ struct CCameraJsonPersistenceUtilities final
         if (entry.contains("identifier"))
             preset.identifier = entry["identifier"].get<std::string>();
 
-        core::CCameraGoal goal = {};
+        CCameraGoal goal = {};
         deserializeGoalJson(entry, goal);
-        core::CCameraPresetUtilities::assignGoalToPreset(preset, goal);
+        CCameraPresetUtilities::assignGoalToPreset(preset, goal);
     }
 };
 
-} // namespace nbl::system::impl
+} // namespace nbl::ext::cameras::impl
 
 #endif // _NBL_EXT_CAMERAS_JSON_PERSISTENCE_UTILITIES_HPP_INCLUDED_

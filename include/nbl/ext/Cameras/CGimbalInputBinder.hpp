@@ -5,7 +5,7 @@
 
 #include "IGimbalInputProcessor.hpp"
 
-namespace nbl::ui
+namespace nbl::ext::cameras
 {
 
 /// @brief High-level runtime binder for consumers and viewport glue.
@@ -60,6 +60,6 @@ private:
     }
 };
 
-} // namespace nbl::ui
+} // namespace nbl::ext::cameras
 
 #endif // _NBL_C_GIMBAL_INPUT_BINDER_HPP_

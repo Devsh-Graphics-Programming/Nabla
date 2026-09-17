@@ -8,7 +8,7 @@
 #include "CCameraMathUtilities.hpp"
 #include "ICamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Positive and negative semantic virtual-event pair for one scalar axis.
@@ -129,7 +129,7 @@ public:
     /// @brief Reinterpret a world-space translation delta in the local frame of a camera orientation.
     static inline void appendWorldTranslationAsLocalEvents(
         std::vector<CVirtualGimbalEvent>& events,
-        const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation,
+        const hlsl::math::quaternion<hlsl::float64_t>& orientation,
         const hlsl::float64_t3& worldDelta,
         const hlsl::float64_t3& denominators = hlsl::float64_t3(1.0),
         const hlsl::float64_t3& tolerances = hlsl::float64_t3(SCameraToolingThresholds::TinyScalarEpsilon))
@@ -182,7 +182,7 @@ public:
     }
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_VIRTUAL_EVENT_UTILITIES_HPP_
 

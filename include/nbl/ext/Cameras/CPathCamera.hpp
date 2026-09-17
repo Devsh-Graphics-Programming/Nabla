@@ -7,7 +7,7 @@
 #include "CCameraPathUtilities.hpp"
 #include "CSphericalTargetCamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Path-rig camera driven by typed `PathState` plus an injected path model.

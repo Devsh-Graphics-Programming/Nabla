@@ -3,15 +3,15 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Base interface for any reusable projection model in the camera stack.
 ///
 /// A projection transforms vectors between some input space and the projection
 /// space understood by a concrete viewport or projection consumer. Specialized
-/// interfaces such as `ILinearProjection`, `IPlanarProjection`, and
-/// `IPerspectiveProjection` refine this abstraction with additional structure.
+/// interfaces such as `ILinearProjection` and `IPlanarProjection` refine this
+/// abstraction with additional structure.
 class IProjection
 {
 public:
@@ -66,6 +66,6 @@ public:
     virtual ProjectionType getProjectionType() const = 0;
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _NBL_IPROJECTION_HPP_

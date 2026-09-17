@@ -4,7 +4,7 @@
 
 #include "nbl/ext/Cameras/ILinearProjection.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 ILinearProjection::CProjection::CProjection() : CProjection(projection_matrix_t(1))
@@ -83,4 +83,4 @@ ILinearProjection::inv_concatenated_matrix_t ILinearProjection::getMVPInverse(co
     return std::nullopt;
 }
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras

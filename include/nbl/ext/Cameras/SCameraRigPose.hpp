@@ -6,7 +6,7 @@
 
 #include "CCameraMathUtilities.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Canonical camera pose consisting of world-space position and orientation.
@@ -18,9 +18,9 @@ struct SCameraRigPose
     /// @brief Camera origin in world space.
     hlsl::float64_t3 position = hlsl::float64_t3(0.0);
     /// @brief Camera orientation in world space expressed as a unit quaternion.
-    hlsl::camera_quaternion_t<hlsl::float64_t> orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>();
+    hlsl::math::quaternion<hlsl::float64_t> orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>();
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _S_CAMERA_RIG_POSE_HPP_

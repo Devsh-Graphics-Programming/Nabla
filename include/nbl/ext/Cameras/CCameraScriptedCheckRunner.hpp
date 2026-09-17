@@ -17,7 +17,7 @@
 #include "CCameraScriptedRuntime.hpp"
 #include "SCameraRigPose.hpp"
 
-namespace nbl::system
+namespace nbl::ext::cameras
 {
 
 /// @brief Runtime state for authored scripted checks.
@@ -28,7 +28,7 @@ namespace nbl::system
 /// - one step pose reference
 struct CCameraScriptedCheckRuntimeState
 {
-    struct SPoseReference final : core::SCameraRigPose
+    struct SPoseReference final : SCameraRigPose
     {
         bool valid = false;
     };
@@ -42,13 +42,13 @@ struct CCameraScriptedCheckRuntimeState
 struct CCameraScriptedCheckContext
 {
     uint64_t frame = 0ull;
-    core::ICamera* camera = nullptr;
-    const core::CVirtualGimbalEvent* imguizmoVirtual = nullptr;
+    ICamera* camera = nullptr;
+    const CVirtualGimbalEvent* imguizmoVirtual = nullptr;
     uint32_t imguizmoVirtualCount = 0u;
-    const core::CTrackedTarget* trackedTarget = nullptr;
-    const core::SCameraFollowConfig* followConfig = nullptr;
+    const CTrackedTarget* trackedTarget = nullptr;
+    const SCameraFollowConfig* followConfig = nullptr;
     const SCameraProjectionContext* followProjectionContext = nullptr;
-    const core::CCameraGoalSolver* goalSolver = nullptr;
+    const CCameraGoalSolver* goalSolver = nullptr;
 };
 
 /// @brief Reusable log entry produced by scripted check evaluation.
@@ -70,16 +70,16 @@ struct CCameraScriptedCheckRunnerUtilities final
     static void scriptedCheckSetStepReference(
         CCameraScriptedCheckRuntimeState& state,
         const hlsl::float64_t3& position,
-        const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation);
+        const hlsl::math::quaternion<hlsl::float64_t>& orientation);
     static void scriptedCheckSetBaselineReference(
         CCameraScriptedCheckRuntimeState& state,
         const hlsl::float64_t3& position,
-        const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation);
+        const hlsl::math::quaternion<hlsl::float64_t>& orientation);
     static bool scriptedCheckComputePoseDelta(
         const hlsl::float64_t3& currentPosition,
-        const hlsl::camera_quaternion_t<hlsl::float64_t>& currentOrientation,
+        const hlsl::math::quaternion<hlsl::float64_t>& currentOrientation,
         const hlsl::float64_t3& referencePosition,
-        const hlsl::camera_quaternion_t<hlsl::float64_t>& referenceOrientation,
+        const hlsl::math::quaternion<hlsl::float64_t>& referenceOrientation,
         hlsl::SCameraPoseDelta<hlsl::float64_t>& outDelta);
 
     template<typename Fn>
@@ -102,6 +102,6 @@ struct CCameraScriptedCheckRunnerUtilities final
         const CCameraScriptedCheckContext& context);
 };
 
-} // namespace nbl::system
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_SCRIPTED_CHECK_RUNNER_HPP_

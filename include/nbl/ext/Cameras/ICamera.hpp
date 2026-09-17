@@ -5,15 +5,16 @@
 #ifndef _I_CAMERA_HPP_
 #define _I_CAMERA_HPP_
 
+#include <limits>
 #include <optional>
 #include <utility>
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/util/bitflag.h"
-#include "CCameraTraits.hpp"
+#include "SCameraToolingThresholds.hpp"
 #include "IGimbal.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Shared runtime camera interface.
@@ -32,11 +33,17 @@ namespace nbl::core
 class ICamera : virtual public core::IReferenceCounted
 { 
 private:
-    static inline constexpr double DefaultMoveSpeedScaleValue = 0.01;
-    static inline constexpr double DefaultRotationSpeedScaleValue = 0.003;
-    static inline constexpr double VirtualTranslationUnit = 0.01;
+    static inline constexpr hlsl::float64_t DefaultMoveSpeedScaleValue = 0.01;
+    static inline constexpr hlsl::float64_t DefaultRotationSpeedScaleValue = 0.003;
+    static inline constexpr hlsl::float64_t VirtualTranslationUnit = 0.01;
 
 public:
+    /// @brief Smallest target distance accepted by target-relative cameras; guards the divisions by the distance.
+    /// Becomes a creation parameter of `CSphericalTargetCamera` in Phase 4, this is only the interim default.
+    static inline constexpr hlsl::float64_t DefaultMinTargetDistance = 0.1;
+    /// @brief Interim unbounded default for the largest target distance.
+    static inline constexpr hlsl::float64_t DefaultMaxTargetDistance = std::numeric_limits<hlsl::float64_t>::infinity();
+
     /// @brief Camera-local multipliers applied when semantic virtual events are converted into motion.
     ///
     /// Input binders emit virtual magnitudes. Concrete cameras multiply those
@@ -105,7 +112,7 @@ public:
         /// @brief Lowest distance that remains valid for the current camera.
         float minDistance = 0.f;
         /// @brief Highest distance that remains valid for the current camera, or infinity when unbounded.
-        float maxDistance = SCameraTargetRelativeTraits::DefaultMaxDistance;
+        float maxDistance = ICamera::DefaultMaxTargetDistance;
     };
 
     /// @brief Typed perspective state reported by cameras with derived FOV behavior.
@@ -125,11 +132,11 @@ public:
     struct PathStateLimits
     {
         /// @brief Minimal valid `u` coordinate after path-state sanitization.
-        double minU = static_cast<double>(SCameraTargetRelativeTraits::MinDistance);
+        hlsl::float64_t minU = ICamera::DefaultMinTargetDistance;
         /// @brief Minimal valid radial distance derived from the `(u, v)` pair.
-        hlsl::float64_t minDistance = static_cast<hlsl::float64_t>(SCameraTargetRelativeTraits::MinDistance);
+        hlsl::float64_t minDistance = ICamera::DefaultMinTargetDistance;
         /// @brief Maximal valid radial distance derived from the `(u, v)` pair, or infinity when unbounded.
-        hlsl::float64_t maxDistance = static_cast<hlsl::float64_t>(SCameraTargetRelativeTraits::DefaultMaxDistance);
+        hlsl::float64_t maxDistance = ICamera::DefaultMaxTargetDistance;
     };
 
     /// @brief Parametric path-rig state used by the `Path Rig` camera kind.
@@ -140,13 +147,13 @@ public:
     struct PathState
     {
         /// @brief Primary path-progress coordinate interpreted by the active path model.
-        double s = 0.0;
+        hlsl::float64_t s = 0.0;
         /// @brief First lateral/shape coordinate interpreted by the active path model.
-        double u = 0.0;
+        hlsl::float64_t u = 0.0;
         /// @brief Second lateral/shape coordinate interpreted by the active path model.
-        double v = 0.0;
+        hlsl::float64_t v = 0.0;
         /// @brief Roll around the path-model forward axis, expressed in radians.
-        double roll = 0.0;
+        hlsl::float64_t roll = 0.0;
 
         /// @brief Pack the state into one four-component vector.
         inline hlsl::float64_t4 asVector() const
@@ -172,7 +179,7 @@ public:
         }
 
         /// @brief Rebuild one path state from the translation-style helper representation.
-        static inline PathState fromTranslationVector(const hlsl::float64_t3& value, const double pathRoll = 0.0)
+        static inline PathState fromTranslationVector(const hlsl::float64_t3& value, const hlsl::float64_t pathRoll = 0.0)
         {
             return {
                 .s = value.z,
@@ -200,7 +207,7 @@ public:
         inline void begin() { base_t::begin(); }
         inline void setPosition(const hlsl::float64_t3& position) { base_t::setPosition(position); }
         inline void setScale(const hlsl::float64_t3& scale) { base_t::setScale(scale); }
-        inline void setOrientation(const hlsl::camera_quaternion_t<hlsl::float64_t>& orientation) { base_t::setOrientation(orientation); }
+        inline void setOrientation(const hlsl::math::quaternion<hlsl::float64_t>& orientation) { base_t::setOrientation(orientation); }
         inline void transform(const CReferenceTransform& reference, const typename base_t::VirtualImpulse& impulse) { base_t::transform(reference, impulse); }
         inline void rotate(const hlsl::float64_t3& axis, float dRadians) { base_t::rotate(axis, dRadians); }
         inline void move(hlsl::float64_t3 delta) { base_t::move(delta); }
@@ -210,7 +217,7 @@ public:
         inline void end() { base_t::end(); }
 
         inline const hlsl::float64_t3& getPosition() const { return base_t::getPosition(); }
-        inline const hlsl::camera_quaternion_t<hlsl::float64_t>& getOrientation() const { return base_t::getOrientation(); }
+        inline const hlsl::math::quaternion<hlsl::float64_t>& getOrientation() const { return base_t::getOrientation(); }
         inline const hlsl::float64_t3& getScale() const { return base_t::getScale(); }
         inline const hlsl::matrix<hlsl::float64_t, 3, 3>& getOrthonornalMatrix() const { return base_t::getOrthonornalMatrix(); }
         inline const hlsl::float64_t3& getXAxis() const { return base_t::getXAxis(); }
@@ -468,7 +475,7 @@ public:
     }
     /// @brief Scale one translation vector through the active move scale.
     template<typename T, uint32_t N>
-    inline hlsl::camera_vector_t<T, N> scaleVirtualTranslation(const hlsl::camera_vector_t<T, N>& magnitude) const
+    inline hlsl::vector<T, N> scaleVirtualTranslation(const hlsl::vector<T, N>& magnitude) const
     {
         return magnitude * static_cast<T>(getScaledVirtualTranslationMagnitude());
     }
@@ -479,7 +486,7 @@ public:
     }
     /// @brief Scale one translation vector without applying the camera-local move scale.
     template<typename T, uint32_t N>
-    inline hlsl::camera_vector_t<T, N> scaleUnscaledVirtualTranslation(const hlsl::camera_vector_t<T, N>& magnitude) const
+    inline hlsl::vector<T, N> scaleUnscaledVirtualTranslation(const hlsl::vector<T, N>& magnitude) const
     {
         return magnitude * static_cast<T>(getUnscaledVirtualTranslationMagnitude());
     }
@@ -490,7 +497,7 @@ public:
     }
     /// @brief Scale one rotation vector through the active rotation scale.
     template<typename T, uint32_t N>
-    inline hlsl::camera_vector_t<T, N> scaleVirtualRotation(const hlsl::camera_vector_t<T, N>& magnitude) const
+    inline hlsl::vector<T, N> scaleVirtualRotation(const hlsl::vector<T, N>& magnitude) const
     {
         return magnitude * static_cast<T>(getRotationSpeedScale());
     }

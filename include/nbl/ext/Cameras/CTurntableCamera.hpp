@@ -10,7 +10,7 @@
 
 #include "CSphericalTargetCamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Target-relative camera that behaves like a classic turntable around a fixed target.

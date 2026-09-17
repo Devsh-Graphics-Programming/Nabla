@@ -11,7 +11,7 @@
 
 #include "CCameraPreset.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Reusable keyframe container plus selection state for playback tooling.
@@ -53,6 +53,6 @@ public:
     static bool replaceSelectedKeyframePreset(CCameraKeyframeTrack& track, CCameraPreset preset);
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_KEYFRAME_TRACK_HPP_

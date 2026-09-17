@@ -4,7 +4,7 @@
 
 #include "nbl/ext/Cameras/CCameraKeyframeTrack.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 bool CCameraKeyframeTrackUtilities::compareKeyframes(const CCameraKeyframe& lhs, const CCameraKeyframe& rhs,
@@ -149,4 +149,4 @@ bool CCameraKeyframeTrackUtilities::replaceSelectedKeyframePreset(CCameraKeyfram
     return true;
 }
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras

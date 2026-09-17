@@ -11,13 +11,13 @@ namespace
 {
 
 template<typename T>
-camera_quaternion_t<T> makeQuaternionFromBasisWithCast(
-    const camera_vector_t<T, 3>& right,
-    const camera_vector_t<T, 3>& up,
-    const camera_vector_t<T, 3>& forward)
+math::quaternion<T> makeQuaternionFromBasisWithCast(
+    const vector<T, 3>& right,
+    const vector<T, 3>& up,
+    const vector<T, 3>& forward)
 {
-    const camera_matrix_t<T, 3, 3> basis(right, up, forward);
-    const auto candidate = _static_cast<camera_quaternion_t<T>>(basis);
+    const matrix<T, 3, 3> basis(right, up, forward);
+    const auto candidate = _static_cast<math::quaternion<T>>(basis);
     if (!CCameraMathUtilities::isFiniteQuaternion(candidate))
         return CCameraMathUtilities::makeIdentityQuaternion<T>();
 
@@ -26,18 +26,18 @@ camera_quaternion_t<T> makeQuaternionFromBasisWithCast(
 
 } // namespace
 
-camera_quaternion_t<float> CCameraMathUtilities::makeQuaternionFromBasisImpl(
-    const camera_vector_t<float, 3>& right,
-    const camera_vector_t<float, 3>& up,
-    const camera_vector_t<float, 3>& forward)
+math::quaternion<float> CCameraMathUtilities::makeQuaternionFromBasisImpl(
+    const vector<float, 3>& right,
+    const vector<float, 3>& up,
+    const vector<float, 3>& forward)
 {
     return makeQuaternionFromBasisWithCast(right, up, forward);
 }
 
-camera_quaternion_t<double> CCameraMathUtilities::makeQuaternionFromBasisImpl(
-    const camera_vector_t<double, 3>& right,
-    const camera_vector_t<double, 3>& up,
-    const camera_vector_t<double, 3>& forward)
+math::quaternion<double> CCameraMathUtilities::makeQuaternionFromBasisImpl(
+    const vector<double, 3>& right,
+    const vector<double, 3>& up,
+    const vector<double, 3>& forward)
 {
     return makeQuaternionFromBasisWithCast(right, up, forward);
 }

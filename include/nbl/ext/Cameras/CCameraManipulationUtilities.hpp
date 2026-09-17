@@ -10,7 +10,7 @@
 
 #include "CCameraVirtualEventUtilities.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 struct CCameraManipulationUtilities final
@@ -78,7 +78,7 @@ public:
     }
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_MANIPULATION_UTILITIES_HPP_
 

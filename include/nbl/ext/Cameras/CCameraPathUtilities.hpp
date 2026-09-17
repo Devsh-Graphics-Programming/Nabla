@@ -13,7 +13,7 @@
 #include "CCameraVirtualEventUtilities.hpp"
 #include "ICamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Shared helpers for the reusable `PathRig` camera kind.
@@ -96,7 +96,7 @@ struct SCameraPathDistanceUpdateResult final
 /// @brief Default constants used by the built-in `Path Rig` model.
 struct SCameraPathDefaults final
 {
-    static constexpr double MinU = static_cast<double>(SCameraTargetRelativeTraits::MinDistance);
+    static constexpr double MinU = static_cast<double>(ICamera::DefaultMinTargetDistance);
     static constexpr double ScalarTolerance = SCameraToolingThresholds::ScalarTolerance;
     static constexpr double ExactStateTolerance = SCameraToolingThresholds::TinyScalarEpsilon;
     static constexpr double ExactAngleToleranceDeg = ExactStateTolerance * 180.0 / hlsl::numbers::pi<double>;
@@ -239,7 +239,7 @@ struct CCameraPathUtilities final
         const ICamera::PathState& state,
         const SCameraPathLimits& limits,
         hlsl::float64_t3& outPosition,
-        hlsl::camera_quaternion_t<hlsl::float64_t>& outOrientation,
+        hlsl::math::quaternion<hlsl::float64_t>& outOrientation,
         hlsl::float64_t* outAppliedDistance = nullptr,
         hlsl::float64_t2* outOrbitUv = nullptr);
 
@@ -303,6 +303,6 @@ struct CCameraPathUtilities final
     static SCameraPathModel makeDefaultPathModel();
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_PATH_UTILITIES_HPP_

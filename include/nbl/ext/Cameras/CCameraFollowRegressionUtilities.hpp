@@ -9,7 +9,7 @@
 
 #include "CCameraFollowUtilities.hpp"
 
-namespace nbl::system
+namespace nbl::ext::cameras
 {
 
 struct SCameraProjectedTargetMetrics final
@@ -43,7 +43,7 @@ struct SCameraFollowRegressionResult
 struct SCameraFollowVisualMetrics
 {
     bool active = false;
-    core::ECameraFollowMode mode = core::ECameraFollowMode::Disabled;
+    ECameraFollowMode mode = ECameraFollowMode::Disabled;
     bool lockValid = false;
     float lockAngleDeg = 0.0f;
     float targetDistance = 0.0f;
@@ -63,12 +63,12 @@ struct SCameraFollowRegressionThresholds
 {
     static inline constexpr float DefaultClipWEpsilon = 1e-5f;
     static inline constexpr float DefaultProjectedNdcTolerance = 0.03f;
-    static inline constexpr float DefaultLockAngleToleranceDeg = static_cast<float>(core::SCameraToolingThresholds::DefaultAngularToleranceDeg);
-    static inline constexpr double DefaultDistanceTolerance = core::SCameraToolingThresholds::ScalarTolerance;
-    static inline constexpr double DefaultTargetTolerance = core::SCameraToolingThresholds::TinyScalarEpsilon;
-    static inline constexpr double DefaultPositionTolerance = core::SCameraToolingThresholds::DefaultPositionTolerance;
-    static inline constexpr double DefaultRotationToleranceDeg = core::SCameraToolingThresholds::DefaultAngularToleranceDeg;
-    static inline constexpr double DefaultScalarTolerance = core::SCameraToolingThresholds::ScalarTolerance;
+    static inline constexpr float DefaultLockAngleToleranceDeg = static_cast<float>(SCameraToolingThresholds::DefaultAngularToleranceDeg);
+    static inline constexpr double DefaultDistanceTolerance = SCameraToolingThresholds::ScalarTolerance;
+    static inline constexpr double DefaultTargetTolerance = SCameraToolingThresholds::TinyScalarEpsilon;
+    static inline constexpr double DefaultPositionTolerance = SCameraToolingThresholds::DefaultPositionTolerance;
+    static inline constexpr double DefaultRotationToleranceDeg = SCameraToolingThresholds::DefaultAngularToleranceDeg;
+    static inline constexpr double DefaultScalarTolerance = SCameraToolingThresholds::ScalarTolerance;
 
     float clipWEpsilon = DefaultClipWEpsilon;
     float projectedNdcTolerance = DefaultProjectedNdcTolerance;
@@ -86,10 +86,10 @@ struct SCameraFollowRegressionThresholds
 struct SCameraFollowApplyValidationResult
 {
     bool hasGoal = false;
-    core::CCameraGoal goal = {};
-    core::CCameraGoalSolver::SApplyResult applyResult = {};
+    CCameraGoal goal = {};
+    CCameraGoalSolver::SApplyResult applyResult = {};
     bool hasCapturedGoal = false;
-    core::CCameraGoal capturedGoal = {};
+    CCameraGoal capturedGoal = {};
     SCameraFollowRegressionResult regression = {};
 };
 
@@ -102,45 +102,45 @@ public:
 
     static bool tryComputeProjectedFollowTargetMetrics(
         const SCameraProjectionContext& projectionContext,
-        const core::CTrackedTarget& trackedTarget,
+        const CTrackedTarget& trackedTarget,
         SCameraProjectedTargetMetrics& outMetrics,
         float clipWEpsilon = SCameraFollowRegressionThresholds::DefaultClipWEpsilon);
 
     static bool validateProjectedFollowTargetContract(
         const SCameraProjectionContext& projectionContext,
-        const core::CTrackedTarget& trackedTarget,
+        const CTrackedTarget& trackedTarget,
         SCameraProjectedTargetMetrics& outMetrics,
         std::string* error = nullptr,
         const SCameraFollowRegressionThresholds& thresholds = {});
 
     static SCameraFollowVisualMetrics buildFollowVisualMetrics(
-        core::ICamera* camera,
-        const core::CTrackedTarget& trackedTarget,
-        const core::SCameraFollowConfig* followConfig,
+        ICamera* camera,
+        const CTrackedTarget& trackedTarget,
+        const SCameraFollowConfig* followConfig,
         const SCameraProjectionContext* projectionContext = nullptr);
 
     static bool validateFollowTargetContract(
-        core::ICamera* camera,
-        const core::CTrackedTarget& trackedTarget,
-        const core::SCameraFollowConfig& followConfig,
-        const core::CCameraGoal& followGoal,
+        ICamera* camera,
+        const CTrackedTarget& trackedTarget,
+        const SCameraFollowConfig& followConfig,
+        const CCameraGoal& followGoal,
         SCameraFollowRegressionResult& out,
         std::string* error = nullptr,
         const SCameraProjectionContext* projectionContext = nullptr,
         const SCameraFollowRegressionThresholds& thresholds = {});
 
     static bool buildApplyAndValidateFollowTargetContract(
-        const core::CCameraGoalSolver& solver,
-        core::ICamera* camera,
-        const core::CTrackedTarget& trackedTarget,
-        const core::SCameraFollowConfig& followConfig,
+        const CCameraGoalSolver& solver,
+        ICamera* camera,
+        const CTrackedTarget& trackedTarget,
+        const SCameraFollowConfig& followConfig,
         SCameraFollowApplyValidationResult& out,
         std::string* error = nullptr,
         const SCameraProjectionContext* projectionContext = nullptr,
         const SCameraFollowRegressionThresholds& thresholds = {});
 };
 
-} // namespace nbl::system
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_FOLLOW_REGRESSION_UTILITIES_HPP_
 

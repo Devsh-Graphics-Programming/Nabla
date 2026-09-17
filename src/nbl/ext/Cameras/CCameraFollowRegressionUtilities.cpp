@@ -4,7 +4,7 @@
 
 #include "nbl/ext/Cameras/CCameraFollowRegressionUtilities.hpp"
 
-namespace nbl::system
+namespace nbl::ext::cameras
 {
 
 SCameraFollowRegressionThresholds CCameraFollowRegressionUtilities::makeFollowRegressionThresholds(
@@ -19,7 +19,7 @@ SCameraFollowRegressionThresholds CCameraFollowRegressionUtilities::makeFollowRe
 
 bool CCameraFollowRegressionUtilities::tryComputeProjectedFollowTargetMetrics(
     const SCameraProjectionContext& projectionContext,
-    const core::CTrackedTarget& trackedTarget,
+    const CTrackedTarget& trackedTarget,
     SCameraProjectedTargetMetrics& outMetrics,
     const float clipWEpsilon)
 {
@@ -46,7 +46,7 @@ bool CCameraFollowRegressionUtilities::tryComputeProjectedFollowTargetMetrics(
 
 bool CCameraFollowRegressionUtilities::validateProjectedFollowTargetContract(
     const SCameraProjectionContext& projectionContext,
-    const core::CTrackedTarget& trackedTarget,
+    const CTrackedTarget& trackedTarget,
     SCameraProjectedTargetMetrics& outMetrics,
     std::string* error,
     const SCameraFollowRegressionThresholds& thresholds)
@@ -72,21 +72,21 @@ bool CCameraFollowRegressionUtilities::validateProjectedFollowTargetContract(
 }
 
 SCameraFollowVisualMetrics CCameraFollowRegressionUtilities::buildFollowVisualMetrics(
-    core::ICamera* camera,
-    const core::CTrackedTarget& trackedTarget,
-    const core::SCameraFollowConfig* followConfig,
+    ICamera* camera,
+    const CTrackedTarget& trackedTarget,
+    const SCameraFollowConfig* followConfig,
     const SCameraProjectionContext* projectionContext)
 {
     SCameraFollowVisualMetrics out = {};
-    if (!camera || !followConfig || !followConfig->enabled || followConfig->mode == core::ECameraFollowMode::Disabled)
+    if (!camera || !followConfig || !followConfig->enabled || followConfig->mode == ECameraFollowMode::Disabled)
         return out;
 
     out.active = true;
     out.mode = followConfig->mode;
 
     double targetDistance = 0.0;
-    out.lockValid = core::CCameraFollowUtilities::cameraFollowModeLocksViewToTarget(followConfig->mode) &&
-        core::CCameraFollowUtilities::tryComputeFollowTargetLockMetrics(camera->getGimbal(), trackedTarget, out.lockAngleDeg, &targetDistance);
+    out.lockValid = CCameraFollowUtilities::cameraFollowModeLocksViewToTarget(followConfig->mode) &&
+        CCameraFollowUtilities::tryComputeFollowTargetLockMetrics(camera->getGimbal(), trackedTarget, out.lockAngleDeg, &targetDistance);
     if (out.lockValid)
         out.targetDistance = static_cast<float>(targetDistance);
 
@@ -97,10 +97,10 @@ SCameraFollowVisualMetrics CCameraFollowRegressionUtilities::buildFollowVisualMe
 }
 
 bool CCameraFollowRegressionUtilities::validateFollowTargetContract(
-    core::ICamera* camera,
-    const core::CTrackedTarget& trackedTarget,
-    const core::SCameraFollowConfig& followConfig,
-    const core::CCameraGoal& followGoal,
+    ICamera* camera,
+    const CTrackedTarget& trackedTarget,
+    const SCameraFollowConfig& followConfig,
+    const CCameraGoal& followGoal,
     SCameraFollowRegressionResult& out,
     std::string* error,
     const SCameraProjectionContext* projectionContext,
@@ -114,9 +114,9 @@ bool CCameraFollowRegressionUtilities::validateFollowTargetContract(
         return false;
     }
 
-    if (core::CCameraFollowUtilities::cameraFollowModeLocksViewToTarget(followConfig.mode))
+    if (CCameraFollowUtilities::cameraFollowModeLocksViewToTarget(followConfig.mode))
     {
-        out.hasLockMetrics = core::CCameraFollowUtilities::tryComputeFollowTargetLockMetrics(camera->getGimbal(), trackedTarget, out.lockAngleDeg, &out.targetDistance);
+        out.hasLockMetrics = CCameraFollowUtilities::tryComputeFollowTargetLockMetrics(camera->getGimbal(), trackedTarget, out.lockAngleDeg, &out.targetDistance);
         if (!out.hasLockMetrics)
         {
             if (error)
@@ -172,9 +172,9 @@ bool CCameraFollowRegressionUtilities::validateFollowTargetContract(
         }
     }
 
-    if (camera->supportsGoalState(core::ICamera::GoalStateSphericalTarget))
+    if (camera->supportsGoalState(ICamera::GoalStateSphericalTarget))
     {
-        core::ICamera::SphericalTargetState state;
+        ICamera::SphericalTargetState state;
         if (!camera->tryGetSphericalTargetState(state))
         {
             if (error)
@@ -220,10 +220,10 @@ bool CCameraFollowRegressionUtilities::validateFollowTargetContract(
 }
 
 bool CCameraFollowRegressionUtilities::buildApplyAndValidateFollowTargetContract(
-    const core::CCameraGoalSolver& solver,
-    core::ICamera* camera,
-    const core::CTrackedTarget& trackedTarget,
-    const core::SCameraFollowConfig& followConfig,
+    const CCameraGoalSolver& solver,
+    ICamera* camera,
+    const CTrackedTarget& trackedTarget,
+    const SCameraFollowConfig& followConfig,
     SCameraFollowApplyValidationResult& out,
     std::string* error,
     const SCameraProjectionContext* projectionContext,
@@ -231,7 +231,7 @@ bool CCameraFollowRegressionUtilities::buildApplyAndValidateFollowTargetContract
 {
     out = {};
 
-    if (!core::CCameraFollowUtilities::tryBuildFollowGoal(solver, camera, trackedTarget, followConfig, out.goal))
+    if (!CCameraFollowUtilities::tryBuildFollowGoal(solver, camera, trackedTarget, followConfig, out.goal))
     {
         if (error)
             *error = "failed to build follow goal";
@@ -239,7 +239,7 @@ bool CCameraFollowRegressionUtilities::buildApplyAndValidateFollowTargetContract
     }
     out.hasGoal = true;
 
-    out.applyResult = core::CCameraFollowUtilities::applyFollowToCamera(solver, camera, trackedTarget, followConfig);
+    out.applyResult = CCameraFollowUtilities::applyFollowToCamera(solver, camera, trackedTarget, followConfig);
     if (!out.applyResult.succeeded())
     {
         if (error)
@@ -257,10 +257,10 @@ bool CCameraFollowRegressionUtilities::buildApplyAndValidateFollowTargetContract
 
     out.hasCapturedGoal = true;
     out.capturedGoal = capture.goal;
-    if (!core::CCameraGoalUtilities::compareGoals(out.capturedGoal, out.goal, thresholds.positionTolerance, thresholds.rotationToleranceDeg, thresholds.scalarTolerance))
+    if (!CCameraGoalUtilities::compareGoals(out.capturedGoal, out.goal, thresholds.positionTolerance, thresholds.rotationToleranceDeg, thresholds.scalarTolerance))
     {
         if (error)
-            *error = std::string("follow goal mismatch. ") + core::CCameraGoalUtilities::describeGoalMismatch(out.capturedGoal, out.goal);
+            *error = std::string("follow goal mismatch. ") + CCameraGoalUtilities::describeGoalMismatch(out.capturedGoal, out.goal);
         return false;
     }
 
@@ -275,4 +275,4 @@ bool CCameraFollowRegressionUtilities::buildApplyAndValidateFollowTargetContract
         thresholds);
 }
 
-} // namespace nbl::system
+} // namespace nbl::ext::cameras

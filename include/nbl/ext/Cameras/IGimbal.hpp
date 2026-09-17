@@ -10,7 +10,7 @@
 #include "CCameraMathUtilities.hpp"
 #include "CVirtualGimbalEvent.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
     /// @brief Optional rigid reference frame used to reinterpret a frame of semantic camera input.
     ///
@@ -20,7 +20,7 @@ namespace nbl::core
     struct CReferenceTransform
     {
         hlsl::float64_t4x4 frame;
-        hlsl::camera_quaternion_t<hlsl::float64_t> orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>();
+        hlsl::math::quaternion<hlsl::float64_t> orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>();
     };
 
     /// @brief Generic world-space gimbal used by runtime cameras and tracked targets.
@@ -35,9 +35,9 @@ namespace nbl::core
     {
     public:
         using precision_t = T;
-        using quaternion_t = hlsl::camera_quaternion_t<precision_t>;
+        using quaternion_t = hlsl::math::quaternion<precision_t>;
         template<uint32_t N>
-        using vector_t = hlsl::camera_vector_t<precision_t, N>;
+        using vector_t = hlsl::vector<precision_t, N>;
         /// @brief underlying type for world matrix (TRS)
         using model_matrix_t = hlsl::matrix<precision_t, 3, 4>;
 
@@ -279,19 +279,19 @@ namespace nbl::core
             {
                 return
                 {
-                    hlsl::camera_vector_t<precision_t, 4>(rotation[0] * scale.x, position.x),
-                    hlsl::camera_vector_t<precision_t, 4>(rotation[1] * scale.y, position.y),
-                    hlsl::camera_vector_t<precision_t, 4>(rotation[2] * scale.z, position.z)
+                    hlsl::vector<precision_t, 4>(rotation[0] * scale.x, position.x),
+                    hlsl::vector<precision_t, 4>(rotation[1] * scale.y, position.y),
+                    hlsl::vector<precision_t, 4>(rotation[2] * scale.z, position.z)
                 };
             }
             else
             {
                 return
                 {
-                    hlsl::camera_vector_t<precision_t, 4>(rotation[0] * scale.x, T(0)),
-                    hlsl::camera_vector_t<precision_t, 4>(rotation[1] * scale.y, T(0)),
-                    hlsl::camera_vector_t<precision_t, 4>(rotation[2] * scale.z, T(0)),
-                    hlsl::camera_vector_t<precision_t, 4>(position, T(1))
+                    hlsl::vector<precision_t, 4>(rotation[0] * scale.x, T(0)),
+                    hlsl::vector<precision_t, 4>(rotation[1] * scale.y, T(0)),
+                    hlsl::vector<precision_t, 4>(rotation[2] * scale.z, T(0)),
+                    hlsl::vector<precision_t, 4>(position, T(1))
                 };
             }
         }
@@ -365,6 +365,6 @@ namespace nbl::core
         bool m_isManipulating = false;
 
     };
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _NBL_IGIMBAL_HPP_

@@ -12,7 +12,7 @@
 
 #include "CCameraGoalAnalysis.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Reusable aggregate summary for applying one preset to multiple cameras.
@@ -145,6 +145,6 @@ struct CCameraPresetFlowUtilities final
     }
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_PRESET_FLOW_HPP_

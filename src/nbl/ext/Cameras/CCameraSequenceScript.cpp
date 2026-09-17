@@ -4,7 +4,7 @@
 
 #include "nbl/ext/Cameras/CCameraSequenceScript.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 bool CCameraSequenceScriptUtilities::tryParseCameraKind(std::string_view value, ICamera::CameraKind& outKind)
@@ -506,4 +506,4 @@ bool CCameraSequenceScriptUtilities::buildCompiledSegmentFramePolicies(
     return true;
 }
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras

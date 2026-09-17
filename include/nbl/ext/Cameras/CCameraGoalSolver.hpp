@@ -12,7 +12,7 @@
 #include "CCameraVirtualEventUtilities.hpp"
 #include "nbl/core/util/bitflag.h"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Goal capture, compatibility analysis, and goal application helper.
@@ -144,7 +144,7 @@ private:
     bool buildFreeEvents(ICamera* camera, const CCameraGoal& target, std::vector<CVirtualGimbalEvent>& out) const;
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_GOAL_SOLVER_HPP_
 

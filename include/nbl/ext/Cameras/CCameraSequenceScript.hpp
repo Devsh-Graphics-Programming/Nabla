@@ -18,7 +18,7 @@
 #include "CCameraTargetRelativeUtilities.hpp"
 #include "IPlanarProjection.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Compact authored camera-sequence format shared by playback, scripting, and validation helpers.
@@ -360,7 +360,7 @@ struct CCameraSequenceScriptUtilities final
         bool includeFollowTargetLock = false);
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_SEQUENCE_SCRIPT_HPP_
 

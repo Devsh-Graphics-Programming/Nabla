@@ -7,7 +7,7 @@
 #include "IProjection.hpp"
 #include "ICamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Interface for any custom linear projection transformation.
@@ -123,6 +123,6 @@ public:
     inv_concatenated_matrix_t getMVPInverse(const CProjection& projection, const model_matrix_t& model) const;
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _NBL_I_LINEAR_PROJECTION_HPP_

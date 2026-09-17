@@ -4,7 +4,7 @@
 
 #include "nbl/ext/Cameras/CCameraPathUtilities.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 ICamera::PathState CCameraPathUtilities::makeDefaultPathState(const double minU)
@@ -51,7 +51,7 @@ bool CCameraPathUtilities::sanitizePathLimits(SCameraPathLimits& limits)
     limits.minU = std::max(limits.minU, 0.0);
     limits.minDistance = std::max<hlsl::float64_t>(
         std::max<hlsl::float64_t>(limits.minDistance, static_cast<hlsl::float64_t>(limits.minU)),
-        static_cast<hlsl::float64_t>(SCameraTargetRelativeTraits::MinDistance));
+        static_cast<hlsl::float64_t>(ICamera::DefaultMinTargetDistance));
 
     if (!std::isfinite(static_cast<double>(limits.maxDistance)))
         limits.maxDistance = std::numeric_limits<hlsl::float64_t>::infinity();
@@ -195,7 +195,7 @@ bool CCameraPathUtilities::tryBuildPathPoseFromState(
     const ICamera::PathState& state,
     const SCameraPathLimits& limits,
     hlsl::float64_t3& outPosition,
-    hlsl::camera_quaternion_t<hlsl::float64_t>& outOrientation,
+    hlsl::math::quaternion<hlsl::float64_t>& outOrientation,
     hlsl::float64_t* outAppliedDistance,
     hlsl::float64_t2* outOrbitUv)
 {
@@ -389,4 +389,4 @@ SCameraPathModel CCameraPathUtilities::makeDefaultPathModel()
     };
 }
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras

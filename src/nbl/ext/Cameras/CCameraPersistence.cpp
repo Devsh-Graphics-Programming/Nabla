@@ -12,7 +12,7 @@
 
 using json_t = nlohmann::json;
 
-namespace nbl::system
+namespace nbl::ext::cameras
 {
 
 namespace impl
@@ -20,7 +20,7 @@ namespace impl
 
 struct CCameraPersistenceJsonUtilities final
 {
-    static json_t serializeGoalJson(const nbl::core::CCameraGoal& goal)
+    static json_t serializeGoalJson(const CCameraGoal& goal)
     {
         json_t json;
         json["position"] = { goal.position.x, goal.position.y, goal.position.z };
@@ -60,15 +60,15 @@ struct CCameraPersistenceJsonUtilities final
         return json;
     }
 
-    static json_t serializePresetJson(const nbl::core::CCameraPreset& preset)
+    static json_t serializePresetJson(const CCameraPreset& preset)
     {
-        auto json = serializeGoalJson(nbl::core::CCameraPresetUtilities::makeGoalFromPreset(preset));
+        auto json = serializeGoalJson(CCameraPresetUtilities::makeGoalFromPreset(preset));
         json["name"] = preset.name;
         json["identifier"] = preset.identifier;
         return json;
     }
 
-    static json_t serializeKeyframeTrackJson(const nbl::core::CCameraKeyframeTrack& track)
+    static json_t serializeKeyframeTrackJson(const CCameraKeyframeTrack& track)
     {
         json_t root;
         root["keyframes"] = json_t::array();
@@ -83,7 +83,7 @@ struct CCameraPersistenceJsonUtilities final
         return root;
     }
 
-    static bool deserializeKeyframeTrackJson(const json_t& root, nbl::core::CCameraKeyframeTrack& track)
+    static bool deserializeKeyframeTrackJson(const json_t& root, CCameraKeyframeTrack& track)
     {
         if (!root.contains("keyframes") || !root["keyframes"].is_array())
             return false;
@@ -91,19 +91,19 @@ struct CCameraPersistenceJsonUtilities final
         track = {};
         for (const auto& entry : root["keyframes"])
         {
-            nbl::core::CCameraKeyframe keyframe;
+            CCameraKeyframe keyframe;
             if (entry.contains("time"))
                 keyframe.time = std::max(0.f, entry["time"].get<float>());
             CCameraJsonPersistenceUtilities::deserializePresetJson(entry, keyframe.preset);
             track.keyframes.emplace_back(std::move(keyframe));
         }
 
-        nbl::core::CCameraKeyframeTrackUtilities::sortKeyframeTrackByTime(track);
-        nbl::core::CCameraKeyframeTrackUtilities::normalizeSelectedKeyframeTrack(track);
+        CCameraKeyframeTrackUtilities::sortKeyframeTrackByTime(track);
+        CCameraKeyframeTrackUtilities::normalizeSelectedKeyframeTrack(track);
         return true;
     }
 
-    static json_t serializePresetCollectionJson(std::span<const nbl::core::CCameraPreset> presets)
+    static json_t serializePresetCollectionJson(std::span<const CCameraPreset> presets)
     {
         json_t root;
         root["presets"] = json_t::array();
@@ -112,16 +112,16 @@ struct CCameraPersistenceJsonUtilities final
         return root;
     }
 
-    static bool deserializePresetCollectionJson(const json_t& root, std::vector<nbl::core::CCameraPreset>& presets)
+    static bool deserializePresetCollectionJson(const json_t& root, std::vector<CCameraPreset>& presets)
     {
         if (!root.contains("presets") || !root["presets"].is_array())
             return false;
 
-        std::vector<nbl::core::CCameraPreset> loadedPresets;
+        std::vector<CCameraPreset> loadedPresets;
         loadedPresets.reserve(root["presets"].size());
         for (const auto& entry : root["presets"])
         {
-            nbl::core::CCameraPreset preset;
+            CCameraPreset preset;
             CCameraJsonPersistenceUtilities::deserializePresetJson(entry, preset);
             loadedPresets.emplace_back(std::move(preset));
         }
@@ -159,24 +159,24 @@ struct CCameraPersistenceJsonUtilities final
 
     static bool readTextFileOrSetError(nbl::system::ISystem& system, const nbl::system::path& filePath, std::string& text, std::string* error, const char* openMessage)
     {
-        return nbl::system::CCameraFileUtilities::readTextFile(system, filePath, text, error, openMessage);
+        return CFileUtilities::readTextFile(system, filePath, text, error, openMessage);
     }
 };
 
 } // namespace impl
 
-std::string CCameraPresetPersistenceUtilities::serializeGoal(const core::CCameraGoal& goal, const int indent)
+std::string CCameraPresetPersistenceUtilities::serializeGoal(const CCameraGoal& goal, const int indent)
 {
     return impl::CCameraPersistenceJsonUtilities::serializeGoalJson(goal).dump(indent);
 }
 
-bool CCameraPresetPersistenceUtilities::deserializeGoal(std::string_view text, core::CCameraGoal& goal, std::string* error)
+bool CCameraPresetPersistenceUtilities::deserializeGoal(std::string_view text, CCameraGoal& goal, std::string* error)
 {
     return impl::CCameraPersistenceJsonUtilities::deserializeJsonText(
         text,
         goal,
         "Camera goal JSON payload is invalid.",
-        [](const json_t& root, core::CCameraGoal& outGoal)
+        [](const json_t& root, CCameraGoal& outGoal)
         {
             impl::CCameraJsonPersistenceUtilities::deserializeGoalJson(root, outGoal);
             return true;
@@ -184,12 +184,12 @@ bool CCameraPresetPersistenceUtilities::deserializeGoal(std::string_view text, c
         error);
 }
 
-bool CCameraPresetPersistenceUtilities::saveGoalToFile(ISystem& system, const path& filePath, const core::CCameraGoal& goal, const int indent)
+bool CCameraPresetPersistenceUtilities::saveGoalToFile(system::ISystem& system, const system::path& filePath, const CCameraGoal& goal, const int indent)
 {
-    return CCameraFileUtilities::writeTextFile(system, filePath, serializeGoal(goal, indent));
+    return CFileUtilities::writeTextFile(system, filePath, serializeGoal(goal, indent));
 }
 
-bool CCameraPresetPersistenceUtilities::loadGoalFromFile(ISystem& system, const path& filePath, core::CCameraGoal& goal, std::string* error)
+bool CCameraPresetPersistenceUtilities::loadGoalFromFile(system::ISystem& system, const system::path& filePath, CCameraGoal& goal, std::string* error)
 {
     std::string text;
     if (!impl::CCameraPersistenceJsonUtilities::readTextFileOrSetError(system, filePath, text, error, "Cannot open camera goal file."))
@@ -198,18 +198,18 @@ bool CCameraPresetPersistenceUtilities::loadGoalFromFile(ISystem& system, const 
     return deserializeGoal(text, goal, error);
 }
 
-std::string CCameraPresetPersistenceUtilities::serializePreset(const core::CCameraPreset& preset, const int indent)
+std::string CCameraPresetPersistenceUtilities::serializePreset(const CCameraPreset& preset, const int indent)
 {
     return impl::CCameraPersistenceJsonUtilities::serializePresetJson(preset).dump(indent);
 }
 
-bool CCameraPresetPersistenceUtilities::deserializePreset(std::string_view text, core::CCameraPreset& preset, std::string* error)
+bool CCameraPresetPersistenceUtilities::deserializePreset(std::string_view text, CCameraPreset& preset, std::string* error)
 {
     return impl::CCameraPersistenceJsonUtilities::deserializeJsonText(
         text,
         preset,
         "Camera preset JSON payload is invalid.",
-        [](const json_t& root, core::CCameraPreset& outPreset)
+        [](const json_t& root, CCameraPreset& outPreset)
         {
             impl::CCameraJsonPersistenceUtilities::deserializePresetJson(root, outPreset);
             return true;
@@ -217,12 +217,12 @@ bool CCameraPresetPersistenceUtilities::deserializePreset(std::string_view text,
         error);
 }
 
-bool CCameraPresetPersistenceUtilities::savePresetToFile(ISystem& system, const path& filePath, const core::CCameraPreset& preset, const int indent)
+bool CCameraPresetPersistenceUtilities::savePresetToFile(system::ISystem& system, const system::path& filePath, const CCameraPreset& preset, const int indent)
 {
-    return CCameraFileUtilities::writeTextFile(system, filePath, serializePreset(preset, indent));
+    return CFileUtilities::writeTextFile(system, filePath, serializePreset(preset, indent));
 }
 
-bool CCameraPresetPersistenceUtilities::loadPresetFromFile(ISystem& system, const path& filePath, core::CCameraPreset& preset, std::string* error)
+bool CCameraPresetPersistenceUtilities::loadPresetFromFile(system::ISystem& system, const system::path& filePath, CCameraPreset& preset, std::string* error)
 {
     std::string text;
     if (!impl::CCameraPersistenceJsonUtilities::readTextFileOrSetError(system, filePath, text, error, "Cannot open camera preset file."))
@@ -231,30 +231,30 @@ bool CCameraPresetPersistenceUtilities::loadPresetFromFile(ISystem& system, cons
     return deserializePreset(text, preset, error);
 }
 
-std::string CCameraKeyframeTrackPersistenceUtilities::serializeKeyframeTrack(const core::CCameraKeyframeTrack& track, const int indent)
+std::string CCameraKeyframeTrackPersistenceUtilities::serializeKeyframeTrack(const CCameraKeyframeTrack& track, const int indent)
 {
     return impl::CCameraPersistenceJsonUtilities::serializeKeyframeTrackJson(track).dump(indent);
 }
 
-bool CCameraKeyframeTrackPersistenceUtilities::deserializeKeyframeTrack(std::string_view text, core::CCameraKeyframeTrack& track, std::string* error)
+bool CCameraKeyframeTrackPersistenceUtilities::deserializeKeyframeTrack(std::string_view text, CCameraKeyframeTrack& track, std::string* error)
 {
     return impl::CCameraPersistenceJsonUtilities::deserializeJsonText(
         text,
         track,
         "Camera keyframe track JSON payload is invalid.",
-        [](const json_t& root, core::CCameraKeyframeTrack& outTrack)
+        [](const json_t& root, CCameraKeyframeTrack& outTrack)
         {
             return impl::CCameraPersistenceJsonUtilities::deserializeKeyframeTrackJson(root, outTrack);
         },
         error);
 }
 
-bool CCameraKeyframeTrackPersistenceUtilities::saveKeyframeTrackToFile(ISystem& system, const path& filePath, const core::CCameraKeyframeTrack& track, const int indent)
+bool CCameraKeyframeTrackPersistenceUtilities::saveKeyframeTrackToFile(system::ISystem& system, const system::path& filePath, const CCameraKeyframeTrack& track, const int indent)
 {
-    return CCameraFileUtilities::writeTextFile(system, filePath, serializeKeyframeTrack(track, indent));
+    return CFileUtilities::writeTextFile(system, filePath, serializeKeyframeTrack(track, indent));
 }
 
-bool CCameraKeyframeTrackPersistenceUtilities::loadKeyframeTrackFromFile(ISystem& system, const path& filePath, core::CCameraKeyframeTrack& track, std::string* error)
+bool CCameraKeyframeTrackPersistenceUtilities::loadKeyframeTrackFromFile(system::ISystem& system, const system::path& filePath, CCameraKeyframeTrack& track, std::string* error)
 {
     std::string text;
     if (!impl::CCameraPersistenceJsonUtilities::readTextFileOrSetError(system, filePath, text, error, "Cannot open camera keyframe track file."))
@@ -263,30 +263,30 @@ bool CCameraKeyframeTrackPersistenceUtilities::loadKeyframeTrackFromFile(ISystem
     return deserializeKeyframeTrack(text, track, error);
 }
 
-std::string CCameraPersistenceUtilities::serializePresetCollection(std::span<const core::CCameraPreset> presets, const int indent)
+std::string CCameraPersistenceUtilities::serializePresetCollection(std::span<const CCameraPreset> presets, const int indent)
 {
     return impl::CCameraPersistenceJsonUtilities::serializePresetCollectionJson(presets).dump(indent);
 }
 
-bool CCameraPersistenceUtilities::deserializePresetCollection(std::string_view text, std::vector<core::CCameraPreset>& presets, std::string* error)
+bool CCameraPersistenceUtilities::deserializePresetCollection(std::string_view text, std::vector<CCameraPreset>& presets, std::string* error)
 {
     return impl::CCameraPersistenceJsonUtilities::deserializeJsonText(
         text,
         presets,
         "Camera preset collection JSON payload is invalid.",
-        [](const json_t& root, std::vector<core::CCameraPreset>& outPresets)
+        [](const json_t& root, std::vector<CCameraPreset>& outPresets)
         {
             return impl::CCameraPersistenceJsonUtilities::deserializePresetCollectionJson(root, outPresets);
         },
         error);
 }
 
-bool CCameraPersistenceUtilities::savePresetCollectionToFile(ISystem& system, const path& filePath, std::span<const core::CCameraPreset> presets, const int indent)
+bool CCameraPersistenceUtilities::savePresetCollectionToFile(system::ISystem& system, const system::path& filePath, std::span<const CCameraPreset> presets, const int indent)
 {
-    return CCameraFileUtilities::writeTextFile(system, filePath, serializePresetCollection(presets, indent));
+    return CFileUtilities::writeTextFile(system, filePath, serializePresetCollection(presets, indent));
 }
 
-bool CCameraPersistenceUtilities::loadPresetCollectionFromFile(ISystem& system, const path& filePath, std::vector<core::CCameraPreset>& presets, std::string* error)
+bool CCameraPersistenceUtilities::loadPresetCollectionFromFile(system::ISystem& system, const system::path& filePath, std::vector<CCameraPreset>& presets, std::string* error)
 {
     std::string text;
     if (!impl::CCameraPersistenceJsonUtilities::readTextFileOrSetError(system, filePath, text, error, "Cannot open camera preset collection file."))
@@ -295,4 +295,4 @@ bool CCameraPersistenceUtilities::loadPresetCollectionFromFile(ISystem& system, 
     return deserializePresetCollection(text, presets, error);
 }
 
-} // namespace nbl::system
+} // namespace nbl::ext::cameras

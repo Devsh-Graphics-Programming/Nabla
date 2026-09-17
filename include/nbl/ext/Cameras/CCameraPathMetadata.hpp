@@ -6,7 +6,7 @@
 
 #include <string_view>
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Stable descriptive strings used by the reusable `Path Rig` camera kind.
@@ -25,6 +25,6 @@ struct SCameraPathRigMetadata final
     static inline constexpr std::string_view DefaultModelDescription = "Adjust a target-relative path rig with s/u/v/roll state";
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_PATH_METADATA_HPP_

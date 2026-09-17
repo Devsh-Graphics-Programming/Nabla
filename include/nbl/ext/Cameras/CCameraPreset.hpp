@@ -10,7 +10,7 @@
 
 #include "CCameraGoal.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Named persisted camera state built on top of `CCameraGoal`.
@@ -66,6 +66,6 @@ struct CCameraPresetUtilities final
     }
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_PRESET_HPP_

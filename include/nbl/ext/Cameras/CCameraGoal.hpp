@@ -15,7 +15,7 @@
 #include "CCameraTargetRelativeUtilities.hpp"
 #include "ICamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Typed transport object for camera state used by capture, comparison, presets, and playback.
@@ -89,7 +89,7 @@ public:
     static inline bool applyCanonicalTargetRelativeGoal(CCameraGoal& goal, const SCameraTargetRelativeState& state)
     {
         SCameraTargetRelativePose pose = {};
-        if (!CCameraTargetRelativeUtilities::tryBuildTargetRelativePoseFromState(state, SCameraTargetRelativeTraits::MinDistance, SCameraTargetRelativeTraits::DefaultMaxDistance, pose))
+        if (!CCameraTargetRelativeUtilities::tryBuildTargetRelativePoseFromState(state, ICamera::DefaultMinTargetDistance, ICamera::DefaultMaxTargetDistance, pose))
             return false;
 
         applyCanonicalTargetRelativeGoalFields(goal, state, pose);
@@ -149,8 +149,8 @@ public:
         if (!CCameraTargetRelativeUtilities::tryBuildTargetRelativeStateFromPosition(
                 targetPosition,
                 position,
-                SCameraTargetRelativeTraits::MinDistance,
-                SCameraTargetRelativeTraits::DefaultMaxDistance,
+                ICamera::DefaultMinTargetDistance,
+                ICamera::DefaultMaxTargetDistance,
                 state))
         {
             return false;
@@ -403,7 +403,7 @@ public:
     }
 };
 
-} // namespace nbl::core
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_GOAL_HPP_
 

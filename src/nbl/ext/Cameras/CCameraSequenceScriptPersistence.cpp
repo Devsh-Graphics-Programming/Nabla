@@ -10,12 +10,12 @@
 #include <type_traits>
 
 #include "CCameraJsonPersistenceUtilities.hpp"
-#include "nbl/ext/Cameras/CCameraFileUtilities.hpp"
+#include "nbl/ext/Cameras/CFileUtilities.hpp"
 #include "nlohmann/json.hpp"
 
 using json_t = nlohmann::json;
 
-namespace nbl::system
+namespace nbl::ext::cameras
 {
 
 namespace impl
@@ -55,7 +55,7 @@ static void readVector3(const json_t& entry, T& outValue)
     outValue = T(values[0], values[1], values[2]);
 }
 
-static bool deserializeSequencePresentationsJson(const json_t& root, std::vector<nbl::core::CCameraSequencePresentation>& out, std::string* error)
+static bool deserializeSequencePresentationsJson(const json_t& root, std::vector<CCameraSequencePresentation>& out, std::string* error)
 {
     out.clear();
     if (!root.is_array())
@@ -74,8 +74,8 @@ static bool deserializeSequencePresentationsJson(const json_t& root, std::vector
             return false;
         }
 
-        nbl::core::CCameraSequencePresentation presentation;
-        if (!nbl::core::CCameraSequenceScriptUtilities::tryParseProjectionType(entry["projection"].get<std::string>(), presentation.projection))
+        CCameraSequencePresentation presentation;
+        if (!CCameraSequenceScriptUtilities::tryParseProjectionType(entry["projection"].get<std::string>(), presentation.projection))
         {
             if (error)
                 *error = "Sequence presentation has invalid projection type.";
@@ -89,7 +89,7 @@ static bool deserializeSequencePresentationsJson(const json_t& root, std::vector
     return true;
 }
 
-static bool deserializeSequenceContinuityJson(const json_t& root, nbl::core::CCameraSequenceContinuitySettings& out, std::string* error)
+static bool deserializeSequenceContinuityJson(const json_t& root, CCameraSequenceContinuitySettings& out, std::string* error)
 {
     if (!root.is_object())
     {
@@ -151,7 +151,7 @@ static bool deserializeSequenceContinuityJson(const json_t& root, nbl::core::CCa
     return true;
 }
 
-static bool deserializeSequenceGoalDeltaJson(const json_t& root, nbl::core::CCameraSequenceGoalDelta& out, std::string* error)
+static bool deserializeSequenceGoalDeltaJson(const json_t& root, CCameraSequenceGoalDelta& out, std::string* error)
 {
     if (!root.is_object())
     {
@@ -204,7 +204,7 @@ static bool deserializeSequenceGoalDeltaJson(const json_t& root, nbl::core::CCam
     return true;
 }
 
-static bool deserializeSequenceKeyframeJson(const json_t& root, nbl::core::CCameraSequenceKeyframe& out, std::string* error)
+static bool deserializeSequenceKeyframeJson(const json_t& root, CCameraSequenceKeyframe& out, std::string* error)
 {
     if (!root.is_object())
     {
@@ -242,7 +242,7 @@ static bool deserializeSequenceKeyframeJson(const json_t& root, nbl::core::CCame
     return true;
 }
 
-static bool deserializeSequenceTrackedTargetDeltaJson(const json_t& root, nbl::core::CCameraSequenceTrackedTargetDelta& out, std::string* error)
+static bool deserializeSequenceTrackedTargetDeltaJson(const json_t& root, CCameraSequenceTrackedTargetDelta& out, std::string* error)
 {
     if (!root.is_object())
     {
@@ -266,7 +266,7 @@ static bool deserializeSequenceTrackedTargetDeltaJson(const json_t& root, nbl::c
     return true;
 }
 
-static bool deserializeSequenceTrackedTargetKeyframeJson(const json_t& root, nbl::core::CCameraSequenceTrackedTargetKeyframe& out, std::string* error)
+static bool deserializeSequenceTrackedTargetKeyframeJson(const json_t& root, CCameraSequenceTrackedTargetKeyframe& out, std::string* error)
 {
     if (!root.is_object())
     {
@@ -300,7 +300,7 @@ static bool deserializeSequenceTrackedTargetKeyframeJson(const json_t& root, nbl
     return true;
 }
 
-static bool deserializeSequenceSegmentJson(const json_t& root, nbl::core::CCameraSequenceSegment& out, std::string* error)
+static bool deserializeSequenceSegmentJson(const json_t& root, CCameraSequenceSegment& out, std::string* error)
 {
     if (!root.is_object())
     {
@@ -316,7 +316,7 @@ static bool deserializeSequenceSegmentJson(const json_t& root, nbl::core::CCamer
         out.cameraIdentifier = root["camera_identifier"].get<std::string>();
     if (root.contains("camera_kind"))
     {
-        if (!nbl::core::CCameraSequenceScriptUtilities::tryParseCameraKind(root["camera_kind"].get<std::string>(), out.cameraKind))
+        if (!CCameraSequenceScriptUtilities::tryParseCameraKind(root["camera_kind"].get<std::string>(), out.cameraKind))
         {
             if (error)
                 *error = "Sequence segment has invalid camera_kind.";
@@ -365,7 +365,7 @@ static bool deserializeSequenceSegmentJson(const json_t& root, nbl::core::CCamer
             }
             out.captureFractions.emplace_back(fraction);
         }
-        nbl::core::CCameraSequenceScriptUtilities::normalizeCaptureFractions(out.captureFractions);
+        CCameraSequenceScriptUtilities::normalizeCaptureFractions(out.captureFractions);
         out.hasCaptureFractions = true;
     }
     if (root.contains("keyframes"))
@@ -378,7 +378,7 @@ static bool deserializeSequenceSegmentJson(const json_t& root, nbl::core::CCamer
         }
         for (const auto& entry : root["keyframes"])
         {
-            nbl::core::CCameraSequenceKeyframe keyframe;
+            CCameraSequenceKeyframe keyframe;
             if (!deserializeSequenceKeyframeJson(entry, keyframe, error))
                 return false;
             out.keyframes.emplace_back(std::move(keyframe));
@@ -394,7 +394,7 @@ static bool deserializeSequenceSegmentJson(const json_t& root, nbl::core::CCamer
         }
         for (const auto& entry : root["target_keyframes"])
         {
-            nbl::core::CCameraSequenceTrackedTargetKeyframe keyframe;
+            CCameraSequenceTrackedTargetKeyframe keyframe;
             if (!deserializeSequenceTrackedTargetKeyframeJson(entry, keyframe, error))
                 return false;
             out.targetKeyframes.emplace_back(std::move(keyframe));
@@ -407,7 +407,7 @@ static bool deserializeSequenceSegmentJson(const json_t& root, nbl::core::CCamer
             *error = "Sequence segment requires at least one keyframe.";
         return false;
     }
-    if (out.cameraKind == nbl::core::ICamera::CameraKind::Unknown && out.cameraIdentifier.empty())
+    if (out.cameraKind == ICamera::CameraKind::Unknown && out.cameraIdentifier.empty())
     {
         if (error)
             *error = "Sequence segment requires camera_kind or camera_identifier.";
@@ -417,7 +417,7 @@ static bool deserializeSequenceSegmentJson(const json_t& root, nbl::core::CCamer
     return true;
 }
 
-static bool deserializeCameraSequenceScriptJson(const json_t& root, nbl::core::CCameraSequenceScript& out, std::string* error)
+static bool deserializeCameraSequenceScriptJson(const json_t& root, CCameraSequenceScript& out, std::string* error)
 {
     if (!root.is_object())
     {
@@ -498,7 +498,7 @@ static bool deserializeCameraSequenceScriptJson(const json_t& root, nbl::core::C
                 }
                 out.defaults.captureFractions.emplace_back(fraction);
             }
-            nbl::core::CCameraSequenceScriptUtilities::normalizeCaptureFractions(out.defaults.captureFractions);
+            CCameraSequenceScriptUtilities::normalizeCaptureFractions(out.defaults.captureFractions);
         }
     }
 
@@ -511,7 +511,7 @@ static bool deserializeCameraSequenceScriptJson(const json_t& root, nbl::core::C
 
     for (const auto& entry : root["segments"])
     {
-        nbl::core::CCameraSequenceSegment segment;
+        CCameraSequenceSegment segment;
         if (!deserializeSequenceSegmentJson(entry, segment, error))
             return false;
         out.segments.emplace_back(std::move(segment));
@@ -531,7 +531,7 @@ static bool deserializeCameraSequenceScriptJson(const json_t& root, nbl::core::C
 
 } // namespace impl
 
-bool CCameraSequenceScriptPersistenceUtilities::deserializeCameraSequenceScript(std::string_view text, core::CCameraSequenceScript& out, std::string* error)
+bool CCameraSequenceScriptPersistenceUtilities::deserializeCameraSequenceScript(std::string_view text, CCameraSequenceScript& out, std::string* error)
 {
     try
     {
@@ -546,13 +546,13 @@ bool CCameraSequenceScriptPersistenceUtilities::deserializeCameraSequenceScript(
     }
 }
 
-bool CCameraSequenceScriptPersistenceUtilities::loadCameraSequenceScriptFromFile(ISystem& system, const path& filePath, core::CCameraSequenceScript& out, std::string* error)
+bool CCameraSequenceScriptPersistenceUtilities::loadCameraSequenceScriptFromFile(system::ISystem& system, const system::path& filePath, CCameraSequenceScript& out, std::string* error)
 {
     std::string text;
-    if (!CCameraFileUtilities::readTextFile(system, filePath, text, error, "Cannot open camera sequence script file."))
+    if (!CFileUtilities::readTextFile(system, filePath, text, error, "Cannot open camera sequence script file."))
         return false;
 
     return deserializeCameraSequenceScript(text, out, error);
 }
 
-} // namespace nbl::system
+} // namespace nbl::ext::cameras

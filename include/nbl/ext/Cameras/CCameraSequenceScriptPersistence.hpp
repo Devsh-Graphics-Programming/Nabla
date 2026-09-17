@@ -9,21 +9,21 @@
 #include <string_view>
 
 #include "CCameraSequenceScript.hpp"
+#include "nbl/system/ISystem.h"
 #include "nbl/system/path.h"
 
-namespace nbl::system
+namespace nbl::ext::cameras
 {
 
-class ISystem;
 
 struct CCameraSequenceScriptPersistenceUtilities final
 {
     /// @brief Parse one compact camera-sequence script directly from JSON text.
-    static bool deserializeCameraSequenceScript(std::string_view text, core::CCameraSequenceScript& out, std::string* error = nullptr);
+    static bool deserializeCameraSequenceScript(std::string_view text, CCameraSequenceScript& out, std::string* error = nullptr);
     /// @brief Load one compact camera-sequence script from a file.
-    static bool loadCameraSequenceScriptFromFile(ISystem& system, const path& path, core::CCameraSequenceScript& out, std::string* error = nullptr);
+    static bool loadCameraSequenceScriptFromFile(system::ISystem& system, const system::path& path, CCameraSequenceScript& out, std::string* error = nullptr);
 };
 
-} // namespace nbl::system
+} // namespace nbl::ext::cameras
 
 #endif // _C_CAMERA_SEQUENCE_SCRIPT_PERSISTENCE_HPP_

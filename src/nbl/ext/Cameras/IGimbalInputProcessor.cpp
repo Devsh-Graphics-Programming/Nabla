@@ -13,7 +13,7 @@
 
 #include "nbl/ext/Cameras/CCameraMathUtilities.hpp"
 
-namespace nbl::ui
+namespace nbl::ext::cameras
 {
 
 void IGimbalInputProcessor::beginInputProcessing(const std::chrono::microseconds nextPresentationTimeStamp)
@@ -162,18 +162,18 @@ double IGimbalInputProcessor::clampFrameDeltaTimeSeconds(
 
 bool IGimbalInputProcessor::tryGetMouseButtonCode(
     const ui::E_MOUSE_BUTTON button,
-    ui::E_MOUSE_CODE& outCode)
+    E_MOUSE_CODE& outCode)
 {
     switch (button)
     {
-        case ui::EMB_LEFT_BUTTON:    outCode = ui::EMC_LEFT_BUTTON; return true;
-        case ui::EMB_RIGHT_BUTTON:   outCode = ui::EMC_RIGHT_BUTTON; return true;
-        case ui::EMB_MIDDLE_BUTTON:  outCode = ui::EMC_MIDDLE_BUTTON; return true;
-        case ui::EMB_BUTTON_4:       outCode = ui::EMC_BUTTON_4; return true;
-        case ui::EMB_BUTTON_5:       outCode = ui::EMC_BUTTON_5; return true;
+        case ui::EMB_LEFT_BUTTON:    outCode = EMC_LEFT_BUTTON; return true;
+        case ui::EMB_RIGHT_BUTTON:   outCode = EMC_RIGHT_BUTTON; return true;
+        case ui::EMB_MIDDLE_BUTTON:  outCode = EMC_MIDDLE_BUTTON; return true;
+        case ui::EMB_BUTTON_4:       outCode = EMC_BUTTON_4; return true;
+        case ui::EMB_BUTTON_5:       outCode = EMC_BUTTON_5; return true;
         default:
             return false;
     }
 }
 
-} // namespace nbl::ui
+} // namespace nbl::ext::cameras

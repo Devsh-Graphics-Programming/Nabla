@@ -5,7 +5,7 @@
 #include <cmath>
 #include "CSphericalTargetCamera.hpp"
 
-namespace nbl::core
+namespace nbl::ext::cameras
 {
 
 /// @brief Target-relative camera with state `(target, orbitUv, distance)`.
