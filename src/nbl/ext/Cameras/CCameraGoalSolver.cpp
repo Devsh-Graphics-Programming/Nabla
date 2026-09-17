@@ -393,7 +393,7 @@ bool CCameraGoalSolver::tryApplyAbsoluteReferencePose(ICamera* camera, const CCa
 
     const auto targetFrame = CCameraMathUtilities::composeTransformMatrix(target.position, target.orientation);
 
-    camera->manipulate({}, &targetFrame);
+    camera->setPose(targetFrame);
 
     double afterPosDelta = 0.0;
     double afterRotDeltaDeg = 0.0;
@@ -409,7 +409,7 @@ bool CCameraGoalSolver::tryApplyAbsoluteReferencePose(ICamera* camera, const CCa
 bool CCameraGoalSolver::buildTargetRelativeEvents(
     ICamera* camera,
     const ICamera::SphericalTargetState& sphericalState,
-    const SCameraTargetRelativeState& goal,
+    const STargetOrbit& goal,
     std::vector<CVirtualGimbalEvent>& out,
     const SCameraTargetRelativeEventPolicy& policy) const
 {
@@ -467,7 +467,7 @@ bool CCameraGoalSolver::buildSphericalEvents(ICamera* camera, const CCameraGoal&
     if (camera->getKind() == ICamera::CameraKind::Path)
         return buildPathEvents(camera, target, sphericalState, out);
 
-    SCameraTargetRelativeState goal;
+    STargetOrbit goal;
     if (!CCameraGoalUtilities::tryResolveCanonicalTargetRelativeState(target, sphericalState, goal))
         return false;
 

@@ -21,46 +21,50 @@ public:
     CTopDownCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target)
         : base_t(position, target)
     {
-        m_orbitUv.y = TopDownPitch;
-        applyPose();
+        m_orbit.angles.y = TopDownPitch;
+        updateGimbal();
     }
     ~CTopDownCamera() = default;
 
     const typename base_t::CGimbal& getGimbal() override { return m_gimbal; }
 
-    /// @brief Apply one frame of top-down yaw rotation, planar translation, and distance changes.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents, const hlsl::float64_t4x4* referenceFrame = nullptr) override
+    using base_t::setPose;
+
+    /// @brief Take the distance of `pose` and the yaw its orientation encodes, holding the pitch at the top-down angle.
+    virtual bool setPose(const SCameraRigPose& pose) override
     {
-        if (not virtualEvents.size() and not referenceFrame)
-            return false;
-
-        if (referenceFrame)
+        const auto distance = hlsl::length(pose.position - m_orbit.target);
+        if (!CCameraMathUtilities::isFiniteScalar(distance) ||
+            distance <= static_cast<hlsl::float64_t>(SCameraToolingThresholds::TinyScalarEpsilon))
         {
-            CReferenceTransform reference = {};
-            SCameraTargetRelativeState resolvedState = {};
-            if (!tryExtractReferenceTransform(reference, referenceFrame) ||
-                !tryResolveReferenceTopDownState(reference, resolvedState))
-            {
-                return false;
-            }
-
-            adoptTargetRelativeState(resolvedState);
+            return false;
         }
+
+        m_orbit.distance = std::clamp(distance, MinDistance, MaxDistance);
+        m_orbit.angles.x = resolveTopDownYaw(pose.orientation, m_orbit.angles.x);
+        m_orbit.angles.y = TopDownPitch;
+        updateGimbal();
+        return true;
+    }
+
+    /// @brief Apply one frame of top-down yaw rotation, planar translation, and distance changes.
+    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
+    {
+        if (virtualEvents.empty())
+            return false;
 
         const auto impulse = m_gimbal.accumulate<AllowedVirtualEvents>(virtualEvents);
 
         const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
         const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-        const double deltaDistance = scaleUnscaledVirtualTranslation(impulse.dVirtualTranslate.z);
+        const auto deltaDistance = scaleUnscaledVirtualTranslation(impulse.dVirtualTranslate.z);
 
-        m_orbitUv.x += deltaRotation.y;
-        m_orbitUv.y = TopDownPitch;
-        m_distance = std::clamp<float>(m_distance + static_cast<float>(deltaDistance), MinDistance, MaxDistance);
+        m_orbit.angles.x += deltaRotation.y;
+        m_orbit.angles.y = TopDownPitch;
+        m_orbit.distance = std::clamp(m_orbit.distance + deltaDistance, MinDistance, MaxDistance);
+        applyPlanarTargetTranslation(deltaTranslation);
 
-        const auto basis = computeBasis(m_orbitUv, m_distance);
-        applyPlanarTargetTranslation(deltaTranslation, basis);
-
-        return applyPose();
+        return updateGimbal();
     }
 
     virtual uint32_t getAllowedVirtualEvents() const override { return AllowedVirtualEvents; }
@@ -69,6 +73,28 @@ public:
     virtual std::string_view getIdentifier() const override { return "Top-Down Camera"; }
 
 private:
+    /// @brief Recover the yaw a top-down orientation encodes, falling back when the pose carries none.
+    ///
+    /// TODO: this derivation assumes an elevation of +90 deg, while `TopDownPitch` is -90 (see the TODO on
+    /// `SCameraViewRigDefaults::TopDownPitchDeg`); fixing that sign fixes the 180 deg error here too.
+    static inline double resolveTopDownYaw(const hlsl::math::quaternion<hlsl::float64_t>& orientation, const double fallbackYaw)
+    {
+        const auto basis = CCameraMathUtilities::getOrientationBasis(orientation);
+        // looking straight down, the camera up vector lies in the ground plane; with +Y up that is the XZ plane,
+        // where `makeSphericalUpFromOrbit` gives up = (-sin(yaw), 0, -cos(yaw))
+        const auto planarUp = hlsl::float64_t2(basis.up.x, basis.up.z);
+        constexpr auto Epsilon = static_cast<hlsl::float64_t>(SCameraToolingThresholds::TinyScalarEpsilon);
+        if (!CCameraMathUtilities::isNearlyZeroVector(planarUp, Epsilon))
+            return hlsl::atan2(-planarUp.x, -planarUp.y);
+
+        // the same pose gives right = (-cos(yaw), 0, sin(yaw))
+        const auto planarRight = hlsl::float64_t2(basis.right.x, basis.right.z);
+        if (!CCameraMathUtilities::isNearlyZeroVector(planarRight, Epsilon))
+            return hlsl::atan2(planarRight.y, -planarRight.x);
+
+        return fallbackYaw;
+    }
+
     static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::Rotate;
     static inline constexpr double TopDownPitch = SCameraTargetRelativeRigDefaults::TopDownPitchRad;
 };

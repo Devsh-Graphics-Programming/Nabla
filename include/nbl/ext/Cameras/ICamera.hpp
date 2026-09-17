@@ -38,11 +38,10 @@ private:
     static inline constexpr hlsl::float64_t VirtualTranslationUnit = 0.01;
 
 public:
-    /// @brief Smallest target distance accepted by target-relative cameras; guards the divisions by the distance.
-    /// Default only; the guard exists so target-relative reconstruction never divides by a zero distance.
-    static inline constexpr hlsl::float64_t DefaultMinTargetDistance = 0.1;
-    /// @brief Interim unbounded default for the largest target distance.
-    static inline constexpr hlsl::float64_t DefaultMaxTargetDistance = std::numeric_limits<hlsl::float64_t>::infinity();
+    /// @brief Smallest target distance accepted by target-relative cameras; see `STargetOrbit::DefaultMinDistance`.
+    static inline constexpr hlsl::float64_t DefaultMinTargetDistance = STargetOrbit::DefaultMinDistance;
+    /// @brief Interim unbounded default for the largest target distance; see `STargetOrbit::DefaultMaxDistance`.
+    static inline constexpr hlsl::float64_t DefaultMaxTargetDistance = STargetOrbit::DefaultMaxDistance;
 
     /// @brief Camera-local multipliers applied when semantic virtual events are converted into motion.
     ///
@@ -204,40 +203,6 @@ public:
         CGimbal(typename base_t::SCreationParameters parameters) : base_t(std::move(parameters)) { updateView(); }
         ~CGimbal() = default;
 
-        inline void begin() { base_t::begin(); }
-        inline void setPosition(const hlsl::float64_t3& position) { base_t::setPosition(position); }
-        inline void setScale(const hlsl::float64_t3& scale) { base_t::setScale(scale); }
-        inline void setOrientation(const hlsl::math::quaternion<hlsl::float64_t>& orientation) { base_t::setOrientation(orientation); }
-        inline void transform(const CReferenceTransform& reference, const typename base_t::VirtualImpulse& impulse) { base_t::transform(reference, impulse); }
-        inline void rotate(const hlsl::float64_t3& axis, float dRadians) { base_t::rotate(axis, dRadians); }
-        inline void move(hlsl::float64_t3 delta) { base_t::move(delta); }
-        inline void strafe(hlsl::float64_t distance) { base_t::strafe(distance); }
-        inline void climb(hlsl::float64_t distance) { base_t::climb(distance); }
-        inline void advance(hlsl::float64_t distance) { base_t::advance(distance); }
-        inline void end() { base_t::end(); }
-
-        inline const hlsl::float64_t3& getPosition() const { return base_t::getPosition(); }
-        inline const hlsl::math::quaternion<hlsl::float64_t>& getOrientation() const { return base_t::getOrientation(); }
-        inline const hlsl::float64_t3& getScale() const { return base_t::getScale(); }
-        inline const SCameraBasis<hlsl::float64_t>& getBasis() const { return base_t::getBasis(); }
-        inline const hlsl::float64_t3& getXAxis() const { return base_t::getXAxis(); }
-        inline const hlsl::float64_t3& getYAxis() const { return base_t::getYAxis(); }
-        inline const hlsl::float64_t3& getZAxis() const { return base_t::getZAxis(); }
-        inline hlsl::float64_t3 getLocalTarget() const { return base_t::getLocalTarget(); }
-        inline hlsl::float64_t3 getWorldTarget() const { return base_t::getWorldTarget(); }
-        inline const size_t& getManipulationCounter() const { return base_t::getManipulationCounter(); }
-        inline bool isManipulating() const { return base_t::isManipulating(); }
-        inline bool extractReferenceTransform(CReferenceTransform* out, const hlsl::float64_t4x4* referenceFrame = nullptr) const
-        {
-            return base_t::extractReferenceTransform(out, referenceFrame);
-        }
-
-        template <uint32_t AllowedEvents>
-        inline typename base_t::VirtualImpulse accumulate(std::span<const CVirtualGimbalEvent> virtualEvents)
-        {
-            return base_t::template accumulate<AllowedEvents>(virtualEvents);
-        }
-
         /// @brief Rebuild the cached left-handed world-to-view matrix from the current gimbal pose.
         inline void updateView()
         {            
@@ -273,74 +238,40 @@ public:
         hlsl::float64_t3x4 m_viewMatrix;
     };
 
-    class SScopedMotionScaleOverride
-    {
-    public:
-        /// @brief Temporarily override both motion scales and restore the previous values on destruction.
-        SScopedMotionScaleOverride(ICamera* camera, const double moveScale, const double rotationScale)
-            : m_camera(camera)
-        {
-            if (!m_camera)
-                return;
-
-            m_prevMoveScale = m_camera->getMoveSpeedScale();
-            m_prevRotationScale = m_camera->getRotationSpeedScale();
-            m_camera->setMotionScales(moveScale, rotationScale);
-        }
-
-        SScopedMotionScaleOverride(const SScopedMotionScaleOverride&) = delete;
-        SScopedMotionScaleOverride& operator=(const SScopedMotionScaleOverride&) = delete;
-
-        SScopedMotionScaleOverride(SScopedMotionScaleOverride&& other) noexcept
-            : m_camera(std::exchange(other.m_camera, nullptr)),
-            m_prevMoveScale(other.m_prevMoveScale),
-            m_prevRotationScale(other.m_prevRotationScale)
-        {
-        }
-
-        SScopedMotionScaleOverride& operator=(SScopedMotionScaleOverride&& other) = delete;
-
-        ~SScopedMotionScaleOverride()
-        {
-            if (m_camera)
-                m_camera->setMotionScales(m_prevMoveScale, m_prevRotationScale);
-        }
-
-    private:
-        ICamera* m_camera = nullptr;
-        double m_prevMoveScale = 0.0;
-        double m_prevRotationScale = 0.0;
-    };
-
     ICamera() {}
 	virtual ~ICamera() = default;
 
     /// @brief Return the mutable gimbal backing the runtime camera pose.
 	virtual const CGimbal& getGimbal() = 0u;
 
-    /// @brief Apply one frame of semantic virtual events and an optional rigid reference-frame anchor.
+    /// @brief Apply one frame of semantic virtual events on top of the pose currently held by the gimbal.
     ///
     /// `virtualEvents` stores one frame of semantic movement, rotation, and
     /// scale commands. Translation commands use `Move*`, rotation commands use
     /// `Tilt*`, `Pan*`, and `Roll*`, and scale commands use `Scale*`. Cameras
     /// interpret only the subset advertised by `getAllowedVirtualEvents()`.
     ///
-    /// `referenceFrame` is an optional rigid world-space transform used as the
-    /// anchor for this manipulation step. Free-like cameras may apply it
-    /// directly as pose input. Constrained cameras may first resolve it into
-    /// their own typed legal state and then apply event deltas in that state
-    /// space.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents, const hlsl::float64_t4x4* referenceFrame = nullptr) = 0;
-    /// @brief Apply one frame of virtual events while temporarily overriding the camera-local motion scales.
-    inline bool manipulateWithMotionScales(std::span<const CVirtualGimbalEvent> virtualEvents, const hlsl::float64_t4x4* referenceFrame, const double moveScale, const double rotationScale)
+    /// @return whether the resulting gimbal pose differs from the one the call started with.
+    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) = 0;
+
+    /// @brief Project one authored world-space pose onto the state this rig stores, then commit it to the gimbal.
+    ///
+    /// Each rig keeps the part of `pose` its own state model expresses: a target-relative rig takes the
+    /// position and derives the orientation from the resulting orbit angles, an FPS rig takes the position
+    /// plus pitch and yaw, a fixed-angle rig takes the position alone.
+    ///
+    /// @return whether `pose` was accepted.
+    virtual bool setPose(const SCameraRigPose& pose) = 0;
+
+    /// @brief Decompose one rigid world-space transform (basis in the columns, translation in the last
+    /// column) and apply it as a pose. Rejects non-rigid and degenerate input.
+    inline bool setPose(const hlsl::float64_t4x4& rigidFrame)
     {
-        auto scopedOverride = overrideMotionScales(moveScale, rotationScale);
-        return manipulate(virtualEvents, referenceFrame);
-    }
-    /// @brief Apply one frame of virtual events with unit translation and rotation scales.
-    inline bool manipulateWithUnitMotionScales(std::span<const CVirtualGimbalEvent> virtualEvents, const hlsl::float64_t4x4* referenceFrame = nullptr)
-    {
-        return manipulateWithMotionScales(virtualEvents, referenceFrame, 1.0, 1.0);
+        SCameraRigPose pose = {};
+        if (!CCameraMathUtilities::tryExtractRigidPoseFromTransform(rigidFrame, pose.position, pose.orientation))
+            return false;
+
+        return setPose(pose);
     }
 
     /// @brief Return the semantic virtual-event mask accepted by this camera kind.
@@ -465,6 +396,10 @@ public:
         return getUnscaledVirtualTranslationMagnitude() * getMoveSpeedScale();
     }
     /// @brief Return the raw translation magnitude before applying the camera-local move scale.
+    ///
+    /// TODO: target-relative rigs drive their distance through this, so zooming ignores `moveSpeedScale`
+    /// while panning honours it. Either route both through `scaleVirtualTranslation` or give the distance
+    /// its own documented scale.
     inline double getUnscaledVirtualTranslationMagnitude() const
     {
         return VirtualTranslationUnit;
@@ -502,12 +437,6 @@ public:
     {
         return magnitude * static_cast<T>(getRotationSpeedScale());
     }
-    /// @brief Create a scoped helper that restores the previous motion scales on destruction.
-    inline SScopedMotionScaleOverride overrideMotionScales(const double moveScale, const double rotationScale)
-    {
-        return SScopedMotionScaleOverride(this, moveScale, rotationScale);
-    }
-
 protected:
     SMotionConfig m_motionConfig;
 };

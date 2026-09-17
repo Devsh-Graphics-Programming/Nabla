@@ -71,28 +71,28 @@ public:
     /// @brief Overwrite the canonical target-relative fields of a goal from prebuilt state and pose data.
     static inline void applyCanonicalTargetRelativeGoalFields(
         CCameraGoal& goal,
-        const SCameraTargetRelativeState& state,
+        const STargetOrbit& orbit,
         const SCameraTargetRelativePose& pose)
     {
         goal.position = pose.position;
         goal.orientation = pose.orientation;
         goal.hasTargetPosition = true;
-        goal.targetPosition = state.target;
+        goal.targetPosition = orbit.target;
         goal.hasDistance = true;
         goal.distance = static_cast<float>(pose.appliedDistance);
         goal.hasOrbitState = true;
-        goal.orbitUv = state.orbitUv;
+        goal.orbitUv = orbit.angles;
         goal.orbitDistance = static_cast<float>(pose.appliedDistance);
     }
 
     /// @brief Rebuild the canonical target-relative portion of a goal from typed target-relative state.
-    static inline bool applyCanonicalTargetRelativeGoal(CCameraGoal& goal, const SCameraTargetRelativeState& state)
+    static inline bool applyCanonicalTargetRelativeGoal(CCameraGoal& goal, const STargetOrbit& orbit)
     {
         SCameraTargetRelativePose pose = {};
-        if (!CCameraTargetRelativeUtilities::tryBuildTargetRelativePoseFromState(state, ICamera::DefaultMinTargetDistance, ICamera::DefaultMaxTargetDistance, pose))
+        if (!CCameraMathUtilities::tryBuildPoseFromOrbit(orbit, ICamera::DefaultMinTargetDistance, ICamera::DefaultMaxTargetDistance, pose, &pose.appliedDistance))
             return false;
 
-        applyCanonicalTargetRelativeGoalFields(goal, state, pose);
+        applyCanonicalTargetRelativeGoalFields(goal, orbit, pose);
         return true;
     }
 
@@ -134,7 +134,7 @@ public:
             goal,
             {
                 .target = goal.targetPosition,
-                .orbitUv = goal.orbitUv,
+                .angles = goal.orbitUv,
                 .distance = goal.orbitDistance
             });
     }
@@ -145,56 +145,56 @@ public:
         const hlsl::float64_t3& targetPosition,
         const hlsl::float64_t3& position)
     {
-        SCameraTargetRelativeState state = {};
-        if (!CCameraTargetRelativeUtilities::tryBuildTargetRelativeStateFromPosition(
+        STargetOrbit orbit = {};
+        if (!CCameraMathUtilities::tryBuildOrbitFromPosition(
                 targetPosition,
                 position,
                 ICamera::DefaultMinTargetDistance,
                 ICamera::DefaultMaxTargetDistance,
-                state))
+                orbit))
         {
             return false;
         }
 
-        return applyCanonicalTargetRelativeGoal(goal, state);
+        return applyCanonicalTargetRelativeGoal(goal, orbit);
     }
 
     /// @brief Resolve the effective target-relative state of a goal against the current camera state.
     static inline bool tryResolveCanonicalTargetRelativeState(
         const CCameraGoal& goal,
         const ICamera::SphericalTargetState& currentState,
-        SCameraTargetRelativeState& outState)
+        STargetOrbit& outOrbit)
     {
-        outState.target = goal.hasTargetPosition ? goal.targetPosition : currentState.target;
-        outState.orbitUv = currentState.orbitUv;
-        outState.distance = currentState.distance;
+        outOrbit.target = goal.hasTargetPosition ? goal.targetPosition : currentState.target;
+        outOrbit.angles = currentState.orbitUv;
+        outOrbit.distance = currentState.distance;
 
         if (goal.hasOrbitState)
         {
-            outState.orbitUv = goal.orbitUv;
-            outState.distance = goal.orbitDistance;
+            outOrbit.angles = goal.orbitUv;
+            outOrbit.distance = goal.orbitDistance;
         }
         else
         {
-            SCameraTargetRelativeState resolvedState = {};
-            if (!CCameraTargetRelativeUtilities::tryBuildTargetRelativeStateFromPosition(
-                    outState.target,
+            STargetOrbit resolvedOrbit = {};
+            if (!CCameraMathUtilities::tryBuildOrbitFromPosition(
+                    outOrbit.target,
                     goal.position,
                     currentState.minDistance,
                     currentState.maxDistance,
-                    resolvedState))
+                    resolvedOrbit))
             {
                 return false;
             }
 
-            outState.orbitUv = resolvedState.orbitUv;
-            outState.distance = resolvedState.distance;
+            outOrbit.angles = resolvedOrbit.angles;
+            outOrbit.distance = resolvedOrbit.distance;
         }
 
         if (goal.hasDistance && !goal.hasOrbitState)
-            outState.distance = goal.distance;
+            outOrbit.distance = goal.distance;
 
-        outState.distance = std::clamp(outState.distance, currentState.minDistance, currentState.maxDistance);
+        outOrbit.distance = std::clamp<hlsl::float64_t>(outOrbit.distance, currentState.minDistance, currentState.maxDistance);
         return true;
     }
 

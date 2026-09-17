@@ -12,30 +12,6 @@
 
 namespace nbl::ext::cameras
 {
-    /// @brief Optional rigid reference frame used to reinterpret a frame of semantic camera input.
-    ///
-    /// Some camera consumers replay authored input relative to an external frame
-    /// instead of the current camera pose. This bundle stores the rigid transform
-    /// and its orientation in a form ready for `IGimbal::transform(...)`.
-    struct CReferenceTransform
-    {
-        /// @brief Rigid frame in the engine convention: basis vectors in the columns, translation in the last column.
-        hlsl::float64_t4x4 frame;
-        hlsl::math::quaternion<hlsl::float64_t> orientation = hlsl::math::quaternion<hlsl::float64_t>::identity();
-
-        /// @brief World-space position, which lives in the last column of `frame`.
-        inline hlsl::float64_t3 getPosition() const
-        {
-            return hlsl::float64_t3(frame[0].w, frame[1].w, frame[2].w);
-        }
-
-        /// @brief The reference basis, taken from `orientation` so it cannot be read with the wrong layout.
-        inline SCameraBasis<hlsl::float64_t> getBasis() const
-        {
-            return CCameraMathUtilities::getOrientationBasis(orientation);
-        }
-    };
-
     /// @brief Generic world-space gimbal used by runtime cameras and tracked targets.
     ///
     /// The gimbal stores position, orientation, scale, and an orthonormal local
@@ -61,8 +37,11 @@ namespace nbl::ext::cameras
         };
 
         /// @brief Accumulates one frame of virtual events into a translation/rotation/scale impulse.
+        ///
+        /// Events not in `AllowedEvents` are dropped at compile time. The result is expressed in
+        /// virtual units; the camera decides what a unit means and in which frame it applies.
         template <uint32_t AllowedEvents>
-        VirtualImpulse accumulate(std::span<const CVirtualGimbalEvent> virtualEvents, const vector_t<3u>& gRightOverride, const vector_t<3u>& gUpOverride, const vector_t<3u>& gForwardOverride)
+        VirtualImpulse accumulate(std::span<const CVirtualGimbalEvent> virtualEvents)
         {
             VirtualImpulse impulse;
 
@@ -121,6 +100,8 @@ namespace nbl::ext::cameras
                         impulse.dVirtualRotation.z -= static_cast<precision_t>(event.magnitude);
 
                 // scaling events
+                // NOTE: the `Scale*Dec` branches multiply exactly like the `Scale*Inc` ones, so "decrease" was never
+                // implemented. Deliberately not fixed: scale is to be removed from the gimbal altogether.
                 if constexpr (AllowedEvents & CVirtualGimbalEvent::ScaleXInc)
                     if (event.type == CVirtualGimbalEvent::ScaleXInc)
                         impulse.dVirtualScale.x *= static_cast<precision_t>(event.magnitude);
@@ -147,13 +128,6 @@ namespace nbl::ext::cameras
             }
 
             return impulse;
-        }
-
-        /// @brief Accumulate one frame of virtual events using the current gimbal basis as the reference frame.
-        template <uint32_t AllowedEvents>
-        VirtualImpulse accumulate(std::span<const CVirtualGimbalEvent> virtualEvents)
-        {
-            return accumulate<AllowedEvents>(virtualEvents, getXAxis(), getYAxis(), getZAxis());
         }
 
         /// @brief Construction-time pose for one gimbal instance.
@@ -210,16 +184,6 @@ namespace nbl::ext::cameras
             updateOrthonormalOrientationBase();
         }
 
-        /// @brief Apply a prebuilt rigid reference transform and an accumulated impulse in one step.
-        inline void transform(const CReferenceTransform& reference, const VirtualImpulse& impulse)
-        {
-            setOrientation(reference.orientation * CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(impulse.dVirtualRotation));
-            setPosition(
-                reference.getPosition() +
-                hlsl::normalize(reference.orientation).transformVector(hlsl::float64_t3(impulse.dVirtualTranslate), true)
-            );
-        }
-
         /// @brief Rotate the gimbal around a world-space axis by the requested angle in radians.
         inline void rotate(const vector_t<3u>& axis, float dRadians)
         {
@@ -244,24 +208,6 @@ namespace nbl::ext::cameras
                 m_counter++;
 
             m_position = newPosition;
-        }
-
-        /// @brief Translate the gimbal along its local right axis.
-        inline void strafe(precision_t distance)
-        {
-            move(getXAxis() * distance);
-        }
-
-        /// @brief Translate the gimbal along its local up axis.
-        inline void climb(precision_t distance)
-        {
-            move(getYAxis() * distance);
-        }
-
-        /// @brief Translate the gimbal along its local forward axis.
-        inline void advance(precision_t distance)
-        {
-            move(getZAxis() * distance);
         }
 
         /// @brief Leave manipulation mode after all pose updates for the current frame are finished.
@@ -332,26 +278,6 @@ namespace nbl::ext::cameras
 
         /// @brief Returns true if gimbal records a manipulation 
         inline bool isManipulating() const { return m_isManipulating; }
-
-        /// @brief Build a rigid reference transform either from an external frame or from the current gimbal pose.
-        bool extractReferenceTransform(CReferenceTransform* out, const hlsl::float64_t4x4* referenceFrame = nullptr) const
-        {
-            if (not out)
-                return false;
-
-            if (referenceFrame)
-            {
-                if (!CCameraMathUtilities::tryBuildRigidFrameFromTransform(*referenceFrame, out->frame, out->orientation))
-                    return false;
-            }
-            else
-            {
-                out->orientation = getOrientation();
-                out->frame = CCameraMathUtilities::composeTransformMatrix(getPosition(), out->orientation);
-            }
-
-            return true;
-        }
 
     private:
         inline void updateOrthonormalOrientationBase()

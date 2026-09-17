@@ -75,7 +75,7 @@ struct SCameraPathStateTransition final
 struct SCameraCanonicalPathState final
 {
     SCameraPathPose pose = {};
-    SCameraTargetRelativeState targetRelative = {};
+    STargetOrbit targetRelative = {};
 };
 
 /// @brief Comparison tolerances used when matching two path states.
@@ -125,7 +125,7 @@ struct SCameraPathControlContext final
     hlsl::float64_t3 translation = hlsl::float64_t3(0.0);
     hlsl::float64_t3 rotation = hlsl::float64_t3(0.0);
     hlsl::float64_t3 targetPosition = hlsl::float64_t3(0.0);
-    const CReferenceTransform* reference = nullptr;
+    const SCameraRigPose* reference = nullptr;
     SCameraPathLimits limits = SCameraPathDefaults::Limits;
 };
 

@@ -132,7 +132,7 @@ private:
     bool buildTargetRelativeEvents(
         ICamera* camera,
         const ICamera::SphericalTargetState& sphericalState,
-        const SCameraTargetRelativeState& goal,
+        const STargetOrbit& goal,
         std::vector<CVirtualGimbalEvent>& out,
         const SCameraTargetRelativeEventPolicy& policy) const;
     bool buildPathEvents(

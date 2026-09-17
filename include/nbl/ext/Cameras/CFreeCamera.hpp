@@ -25,34 +25,51 @@ public:
         return m_gimbal;
     }
 
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents, const hlsl::float64_t4x4* referenceFrame = nullptr) override
+    using base_t::setPose;
+
+    /// @brief Place the rig at `pose` verbatim.
+    virtual bool setPose(const SCameraRigPose& pose) override
     {
-        if (not virtualEvents.size() and not referenceFrame)
+        if (!CCameraMathUtilities::isFiniteVec3(pose.position) || !CCameraMathUtilities::isFiniteQuaternion(pose.orientation))
             return false;
-
-        CReferenceTransform reference;
-        if (not m_gimbal.extractReferenceTransform(&reference, referenceFrame))
-            return false;
-
-        auto impulse = m_gimbal.accumulate<AllowedVirtualEvents>(virtualEvents);
-
-        bool manipulated = true;
 
         m_gimbal.begin();
         {
-            const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
-            const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-            const auto referenceBasis = reference.getBasis();
-            const auto pitch = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(referenceBasis.right, deltaRotation.x);
-            const auto yaw = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(referenceBasis.up, deltaRotation.y);
-            const auto roll = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(referenceBasis.forward, deltaRotation.z);
+            m_gimbal.setOrientation(pose.orientation);
+            m_gimbal.setPosition(pose.position);
+        }
+        m_gimbal.end();
+        m_gimbal.updateView();
 
-            m_gimbal.setOrientation(hlsl::normalize(yaw * pitch * roll * reference.orientation));
-            m_gimbal.setPosition(reference.getPosition() + hlsl::normalize(reference.orientation).transformVector(hlsl::float64_t3(deltaTranslation), true));
+        return true;
+    }
+
+    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
+    {
+        if (virtualEvents.empty())
+            return false;
+
+        const auto impulse = m_gimbal.accumulate<AllowedVirtualEvents>(virtualEvents);
+        const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
+        const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
+
+        // copies, because `setOrientation` rewrites the gimbal's orientation and basis in place
+        const auto anchorPosition = m_gimbal.getPosition();
+        const auto anchorOrientation = m_gimbal.getOrientation();
+        const auto anchorBasis = m_gimbal.getBasis();
+
+        const auto pitch = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.right, deltaRotation.x);
+        const auto yaw = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.up, deltaRotation.y);
+        const auto roll = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.forward, deltaRotation.z);
+
+        m_gimbal.begin();
+        {
+            m_gimbal.setOrientation(hlsl::normalize(yaw * pitch * roll * anchorOrientation));
+            m_gimbal.setPosition(anchorPosition + hlsl::normalize(anchorOrientation).transformVector(hlsl::float64_t3(deltaTranslation), true));
         }
         m_gimbal.end();
 
-        manipulated &= bool(m_gimbal.getManipulationCounter());
+        const bool manipulated = bool(m_gimbal.getManipulationCounter());
 
         if (manipulated)
             m_gimbal.updateView();

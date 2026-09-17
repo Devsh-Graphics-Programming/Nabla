@@ -19,8 +19,8 @@ If you want to know which type to touch first, use this table.
 | move a camera from live input this frame | `ICamera::manipulate(...)` |
 | convert keyboard or mouse input into camera commands | `IGimbalInputProcessor` or `CGimbalInputBinder` |
 | pair one camera with one or more projection entries | `CPlanarProjection` and `IPlanarProjection::CProjection` |
-| apply one absolute rigid pose request at runtime | `camera->manipulate({}, &referenceFrame)` |
-| set exact position or exact orientation on `Free` and `FPS` | `referenceFrame` built from `camera->getGimbal()` |
+| apply one absolute rigid pose request at runtime | `camera->setPose(...)` |
+| set exact position or exact orientation on `Free` and `FPS` | `SCameraRigPose` built from `camera->getGimbal()` |
 | set one absolute typed state that can be reused later | `CCameraGoal` + `CCameraGoalSolver` |
 | capture current camera state | `CCameraGoalSolver::capture...` |
 | restore a camera from typed state | `CCameraGoalSolver::apply...` |
@@ -214,7 +214,7 @@ When you want to change projection state, touch the projection layer:
 When you want to change pose or camera-family state, touch the camera layer:
 
 - `ICamera::manipulate(...)`
-- `referenceFrame`
+- `ICamera::setPose(...)`
 - `CCameraGoal`
 - family-specific typed hooks such as `trySetSphericalTarget(...)` or `trySetPathState(...)`
 
@@ -223,22 +223,23 @@ When you want to change pose or camera-family state, touch the camera layer:
 Use this when you already have one rigid transform and want the camera to consume it through the normal runtime entry point.
 
 ```cpp
-const auto referenceFrame =
+const auto rigidFrame =
     hlsl::CCameraMathUtilities::composeTransformMatrix(desiredPosition, desiredOrientation);
 
-if (camera->manipulate({}, &referenceFrame))
+if (camera->setPose(rigidFrame))
 {
-    // reference frame was accepted and applied
+    // the pose was accepted and applied
 }
 ```
 
-`manipulate(...)` can return `false`.
+`setPose(...)` can return `false`.
 
 Common reasons are:
 
-- there were no virtual events and no `referenceFrame`
-- the supplied `referenceFrame` was not a valid rigid orthonormal transform
-- the concrete camera kind could not legalize the request into its own runtime state
+- the supplied transform was not a valid rigid orthonormal transform
+- the concrete camera kind could not project the pose onto its own runtime state
+
+`manipulate(...)` returns `false` when the frame carried no virtual events, or when the resulting gimbal pose is the one the call started with.
 
 **Question: Why not just expose `setPosition(...)` and `setOrientation(...)` everywhere?**
 
@@ -270,19 +271,19 @@ If the API exposed unrestricted `setOrientation(...)` and accepted that quaterni
 
 The current API does this instead:
 
-1. accept one rigid pose request through `referenceFrame`
+1. accept one rigid pose request through `setPose(...)`
 2. project that pose onto the legal state space of the concrete camera kind
 3. rebuild the final runtime pose from that legal state
 
 For `FPS` that means:
 
 - keep the requested position
-- read forward direction from the rigid reference
+- read forward direction from the requested pose
 - rebuild legal `pitch/yaw`
-- reject arbitrary roll
+- drop arbitrary roll
 - write back one upright `FPS` pose
 
-For `FPS`, that rejection applies to `referenceFrame`, not to stray roll virtual events. `CFPSCamera` advertises only translation plus pitch/yaw runtime control, so `RollLeft` and `RollRight` events are ignored by the `FPS` accumulator instead of causing failure.
+`CFPSCamera` advertises only translation plus pitch/yaw runtime control, so `RollLeft` and `RollRight` events are ignored by the `FPS` accumulator.
 
 The same pattern applies to every camera family:
 
@@ -307,10 +308,10 @@ const auto& gimbal = camera->getGimbal();
 const auto newPosition = desiredPosition;
 const auto keepOrientation = gimbal.getOrientation();
 
-const auto referenceFrame =
+const auto rigidFrame =
     hlsl::CCameraMathUtilities::composeTransformMatrix(newPosition, keepOrientation);
 
-camera->manipulate({}, &referenceFrame);
+camera->setPose(rigidFrame);
 ```
 
 ```cpp
@@ -319,10 +320,10 @@ const auto& gimbal = camera->getGimbal();
 const auto keepPosition = gimbal.getPosition();
 const auto newOrientation = desiredOrientation;
 
-const auto referenceFrame =
+const auto rigidFrame =
     hlsl::CCameraMathUtilities::composeTransformMatrix(keepPosition, newOrientation);
 
-camera->manipulate({}, &referenceFrame);
+camera->setPose(rigidFrame);
 ```
 
 `Free` applies these requests exactly.
@@ -369,9 +370,9 @@ So the control flow is:
 Use `applyDetailed(...)` when you want that report.
 Use `apply(...)` when you only need a plain success/failure boolean.
 
-**Question: How is this different from `composeTransformMatrix(...)` plus `camera->manipulate({}, &referenceFrame)`?**
+**Question: How is this different from `composeTransformMatrix(...)` plus `camera->setPose(...)`?**
 
-`referenceFrame` carries one rigid pose request:
+`setPose` carries one rigid pose request:
 
 - position
 - orientation
@@ -388,7 +389,7 @@ That is enough when the job is "try to place the runtime camera at this pose now
 
 So the two paths are different:
 
-- `referenceFrame` asks the runtime camera to legalize one rigid pose request
+- `setPose(...)` asks the runtime camera to project one rigid pose request onto its own state
 - `CCameraGoal` asks the solver to apply one typed camera state, using direct typed hooks when available and virtual-event replay when needed
 
 For `Free` and often `FPS`, both paths may end up close to the same result.
@@ -402,7 +403,7 @@ For constrained families they are not equivalent, because one rigid pose does no
 
 Rule of thumb:
 
-- use `referenceFrame` for one runtime rigid pose request now
+- use `setPose(...)` for one runtime rigid pose request now
 - use `CCameraGoal` for one typed camera state that should be stored, compared, serialized, replayed, or applied later
 
 ### 6. Set one absolute camera-family state
@@ -563,37 +564,38 @@ Important members:
 Each camera also stores one local motion-scale bundle in `SMotionConfig`.
 Those scales are applied after the binding layer emits virtual magnitudes.
 
-### `referenceFrame`
+### `setPose`
 
-Defined by [`ICamera.hpp`](ICamera.hpp) and [`IGimbal.hpp`](IGimbal.hpp).
+Defined by [`ICamera.hpp`](ICamera.hpp).
 
-`referenceFrame` is the optional rigid transform passed to `ICamera::manipulate(...)`.
-
-It is the runtime pose anchor for one manipulation step.
+`setPose(...)` takes one authored world-space pose, either as `SCameraRigPose` or as a rigid `float64_t4x4`.
 
 Typical producers:
 
 - ImGuizmo
 - restore helpers
 - replay helpers
-- code that wants world-space or local-space manipulation anchored to a specific rigid transform
+- code that wants to place a camera at a specific rigid transform
 
 See Quick start sections 1 to 4 for the concrete runtime usage patterns.
 
 Shared runtime pattern:
 
 ```text
-referenceFrame
-  -> extract rigid reference transform
-  -> resolve legal state for this camera kind
+setPose
+  -> decompose the rigid transform
+  -> project onto the legal state of this camera kind
+  -> rebuild the gimbal pose
+
+manipulate
   -> accumulate virtual events
   -> apply deltas in that state space
-  -> rebuild pose
+  -> rebuild the gimbal pose
 ```
 
 ### `SCameraRigPose`
 
-Defined in [`SCameraRigPose.hpp`](SCameraRigPose.hpp).
+Defined in [`SCameraTypes.hpp`](SCameraTypes.hpp), next to `STargetOrbit` and `SCameraBasis`.
 
 `SCameraRigPose` stores only:
 

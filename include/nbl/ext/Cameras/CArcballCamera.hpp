@@ -26,47 +26,46 @@ public:
     CArcballCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target)
         : base_t(position, target)
     {
-        m_orbitUv.y = std::clamp(m_orbitUv.y, MinPitch, MaxPitch);
-        applyPose();
+        m_orbit.angles.y = std::clamp(m_orbit.angles.y, MinPitch, MaxPitch);
+        updateGimbal();
     }
     ~CArcballCamera() = default;
 
     const typename base_t::CGimbal& getGimbal() override { return m_gimbal; }
 
-    /// @brief Apply one frame of semantic translation and rotation input to the arcball rig.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents, const hlsl::float64_t4x4* referenceFrame = nullptr) override
+    using base_t::setPose;
+
+    /// @brief Orbit around the target through the position of `pose`, under the arcball pitch limit.
+    virtual bool setPose(const SCameraRigPose& pose) override
     {
-        if (not virtualEvents.size() and not referenceFrame)
+        STargetOrbit orbit = {};
+        if (!CCameraMathUtilities::tryBuildOrbitFromPosition(m_orbit.target, pose.position, MinDistance, MaxDistance, orbit))
             return false;
 
-        if (referenceFrame)
-        {
-            CReferenceTransform reference = {};
-            SCameraTargetRelativeState resolvedState = {};
-            if (!tryExtractReferenceTransform(reference, referenceFrame) ||
-                !tryResolveReferenceTargetRelativeState(reference, resolvedState))
-            {
-                return false;
-            }
+        orbit.angles.y = std::clamp(orbit.angles.y, MinPitch, MaxPitch);
+        m_orbit = orbit;
+        updateGimbal();
+        return true;
+    }
 
-            resolvedState.orbitUv.y = std::clamp(resolvedState.orbitUv.y, MinPitch, MaxPitch);
-            adoptTargetRelativeState(resolvedState);
-        }
+    /// @brief Apply one frame of semantic translation and rotation input to the arcball rig.
+    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
+    {
+        if (virtualEvents.empty())
+            return false;
 
         const auto impulse = m_gimbal.accumulate<AllowedVirtualEvents>(virtualEvents);
 
         const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
         const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-        const double deltaDistance = scaleUnscaledVirtualTranslation(impulse.dVirtualTranslate.z);
+        const auto deltaDistance = scaleUnscaledVirtualTranslation(impulse.dVirtualTranslate.z);
 
-        m_orbitUv.x += deltaRotation.y;
-        m_orbitUv.y = std::clamp(m_orbitUv.y + deltaRotation.x, MinPitch, MaxPitch);
-        m_distance = std::clamp<float>(m_distance + static_cast<float>(deltaDistance), MinDistance, MaxDistance);
+        m_orbit.angles.x += deltaRotation.y;
+        m_orbit.angles.y = std::clamp(m_orbit.angles.y + deltaRotation.x, MinPitch, MaxPitch);
+        m_orbit.distance = std::clamp(m_orbit.distance + deltaDistance, MinDistance, MaxDistance);
+        applyPlanarTargetTranslation(deltaTranslation);
 
-        const auto basis = computeBasis(m_orbitUv, m_distance);
-        applyPlanarTargetTranslation(deltaTranslation, basis);
-
-        return applyPose();
+        return updateGimbal();
     }
 
     virtual uint32_t getAllowedVirtualEvents() const override { return AllowedVirtualEvents; }
@@ -74,8 +73,8 @@ public:
     /// @brief Return the stable user-facing identifier for this concrete camera kind.
     virtual std::string_view getIdentifier() const override { return "Arcball Camera"; }
 
-    static inline constexpr float MinDistance = base_t::MinDistance;
-    static inline constexpr float MaxDistance = base_t::MaxDistance;
+    static inline constexpr hlsl::float64_t MinDistance = base_t::MinDistance;
+    static inline constexpr hlsl::float64_t MaxDistance = base_t::MaxDistance;
 
 private:
 

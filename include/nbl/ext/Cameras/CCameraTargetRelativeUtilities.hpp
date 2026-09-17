@@ -3,33 +3,16 @@
 
 #include <limits>
 
-#include "SCameraRigPose.hpp"
+#include "SCameraTypes.hpp"
 #include "CCameraVirtualEventUtilities.hpp"
 
 namespace nbl::ext::cameras
 {
 
-/// @brief Canonical target-relative orbit state used by spherical cameras, follow, and goal solving.
-struct SCameraTargetRelativeState final
-{
-    hlsl::float64_t3 target = hlsl::float64_t3(0.0);
-    hlsl::float64_t2 orbitUv = hlsl::float64_t2(0.0);
-    float distance = ICamera::DefaultMinTargetDistance;
-};
-
-/// @brief Pose reconstructed from a target-relative orbit state.
+/// @brief Pose reconstructed from an `STargetOrbit`, carrying the distance that was actually applied.
 struct SCameraTargetRelativePose final : SCameraRigPose
 {
     hlsl::float64_t appliedDistance = static_cast<hlsl::float64_t>(ICamera::DefaultMinTargetDistance);
-};
-
-/// @brief Derived basis for target-relative orbit rigs.
-struct SCameraTargetRelativeBasis final
-{
-    hlsl::float64_t3 localOffset = hlsl::float64_t3(0.0);
-    hlsl::float64_t3 right = hlsl::float64_t3(1.0, 0.0, 0.0);
-    hlsl::float64_t3 up = hlsl::float64_t3(0.0, 1.0, 0.0);
-    hlsl::float64_t3 forward = hlsl::float64_t3(0.0, 0.0, 1.0);
 };
 
 /// @brief Delta between current spherical target state and canonical target-relative goal.
@@ -110,97 +93,15 @@ struct SCameraTargetRelativeRigDefaults final
 /// @brief Helpers for converting between target-relative state, pose, basis, and virtual-event deltas.
 struct CCameraTargetRelativeUtilities final
 {
-    static inline bool tryBuildTargetRelativeStateFromPosition(
-        const hlsl::float64_t3& targetPosition,
-        const hlsl::float64_t3& position,
-        const float minDistance,
-        const float maxDistance,
-        SCameraTargetRelativeState& outState)
-    {
-        outState = {};
-        outState.target = targetPosition;
-
-        hlsl::float64_t appliedDistance = static_cast<hlsl::float64_t>(minDistance);
-        if (!CCameraMathUtilities::tryBuildOrbitFromPosition(
-                targetPosition,
-                position,
-                static_cast<hlsl::float64_t>(minDistance),
-                static_cast<hlsl::float64_t>(maxDistance),
-                outState.orbitUv,
-                appliedDistance))
-        {
-            return false;
-        }
-
-        outState.distance = static_cast<float>(appliedDistance);
-        return true;
-    }
-
-    static inline bool tryBuildTargetRelativePoseFromState(
-        const SCameraTargetRelativeState& state,
-        const float minDistance,
-        const float maxDistance,
-        SCameraTargetRelativePose& outPose)
-    {
-        outPose = {};
-        return CCameraMathUtilities::tryBuildSphericalPoseFromOrbit(
-            state.target,
-            state.orbitUv,
-            static_cast<hlsl::float64_t>(state.distance),
-            static_cast<hlsl::float64_t>(minDistance),
-            static_cast<hlsl::float64_t>(maxDistance),
-            outPose.position,
-            outPose.orientation,
-            &outPose.appliedDistance);
-    }
-
-    static inline bool tryBuildTargetRelativeBasis(
-        const SCameraTargetRelativeState& state,
-        const float minDistance,
-        const float maxDistance,
-        SCameraTargetRelativeBasis& outBasis)
-    {
-        SCameraTargetRelativePose pose = {};
-        if (!tryBuildTargetRelativePoseFromState(state, minDistance, maxDistance, pose))
-            return false;
-
-        outBasis.localOffset = pose.position - state.target;
-        const auto basis = CCameraMathUtilities::getOrientationBasis(pose.orientation);
-        outBasis.right = basis.right;
-        outBasis.up = basis.up;
-        outBasis.forward = basis.forward;
-        return true;
-    }
-
-    static inline bool tryBuildTargetRelativePoseFromPosition(
-        const hlsl::float64_t3& targetPosition,
-        const hlsl::float64_t3& position,
-        const float minDistance,
-        const float maxDistance,
-        SCameraTargetRelativePose& outPose,
-        SCameraTargetRelativeState* outState = nullptr)
-    {
-        SCameraTargetRelativeState state = {};
-        if (!tryBuildTargetRelativeStateFromPosition(targetPosition, position, minDistance, maxDistance, state))
-            return false;
-
-        if (!tryBuildTargetRelativePoseFromState(state, minDistance, maxDistance, outPose))
-            return false;
-
-        if (outState)
-            *outState = state;
-        return true;
-    }
-
     static inline SCameraTargetRelativeDelta buildTargetRelativeDelta(
         const ICamera::SphericalTargetState& currentState,
-        const SCameraTargetRelativeState& desiredState)
+        const STargetOrbit& desiredOrbit)
     {
         return {
             .orbitUv = hlsl::float64_t2(
-                CCameraMathUtilities::wrapAngleRad(desiredState.orbitUv.x - currentState.orbitUv.x),
-                CCameraMathUtilities::wrapAngleRad(desiredState.orbitUv.y - currentState.orbitUv.y)),
-            .distance = static_cast<double>(desiredState.distance - currentState.distance)
+                CCameraMathUtilities::wrapAngleRad(desiredOrbit.angles.x - currentState.orbitUv.x),
+                CCameraMathUtilities::wrapAngleRad(desiredOrbit.angles.y - currentState.orbitUv.y)),
+            .distance = desiredOrbit.distance - static_cast<hlsl::float64_t>(currentState.distance)
         };
     }
 

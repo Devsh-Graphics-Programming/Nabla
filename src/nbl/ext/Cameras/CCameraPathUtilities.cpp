@@ -293,7 +293,7 @@ bool CCameraPathUtilities::tryBuildCanonicalPathState(
 
     outState.targetRelative = {
         .target = targetPosition,
-        .orbitUv = outState.pose.orbitUv,
+        .angles = outState.pose.orbitUv,
         .distance = static_cast<float>(outState.pose.appliedDistance)
     };
     return true;

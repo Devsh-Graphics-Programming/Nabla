@@ -14,6 +14,8 @@
 #include "nbl/builtin/hlsl/matrix_utils/matrix_runtime_traits.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
 
+#include "SCameraTypes.hpp"
+
 namespace nbl::ext::cameras
 {
 
@@ -30,24 +32,6 @@ struct SCameraPoseDelta
 {
     T position = T(0);
     T rotationDeg = T(0);
-};
-
-// Orthonormal basis kept as three named vectors; `getRotationMatrix()` is the only place that commits to a matrix
-// layout, and it commits to the engine's: basis vectors in the columns, so `mul(R, local)` gives the world vector.
-template<typename T>
-struct SCameraBasis
-{
-    hlsl::vector<T, 3> right = hlsl::vector<T, 3>(T(1), T(0), T(0));
-    hlsl::vector<T, 3> up = hlsl::vector<T, 3>(T(0), T(1), T(0));
-    hlsl::vector<T, 3> forward = hlsl::vector<T, 3>(T(0), T(0), T(1));
-
-    inline hlsl::matrix<T, 3, 3> getRotationMatrix() const
-    {
-        return hlsl::matrix<T, 3, 3>(
-            hlsl::vector<T, 3>(right.x, up.x, forward.x),
-            hlsl::vector<T, 3>(right.y, up.y, forward.y),
-            hlsl::vector<T, 3>(right.z, up.z, forward.z));
-    }
 };
 
 struct SCameraViewRigDefaults final
@@ -67,6 +51,10 @@ struct SCameraViewRigDefaults final
     // Dolly and FPS rigs also stop short of straight up/down.
     static constexpr hlsl::float64_t DollyPitchLimitDeg = RightAngleDeg - DollyPitchMarginDeg;
     static constexpr hlsl::float64_t FpsVerticalPitchLimitDeg = RightAngleDeg - FpsVerticalPitchMarginDeg;
+    // TODO: -90 deg is an elevation of -90, which puts the top-down camera BELOW its target looking up
+    // (positive elevation is above the target; compare `IsometricPitchRad`, which is positive). The yaw
+    // recovery in `CTopDownCamera` is derived for +90. Fix: `TopDownPitchDeg = RightAngleDeg`. Not applied
+    // yet because it changes visible behaviour.
     static constexpr hlsl::float64_t TopDownPitchDeg = -RightAngleDeg;
     // Half of a right angle is the canonical isometric azimuth.
     static constexpr hlsl::float64_t IsometricYawDeg = RightAngleDeg / 2.0;
@@ -467,60 +455,68 @@ struct CCameraMathUtilities final
         return true;
     }
 
-    template<typename T>
-    static inline bool tryBuildSphericalPoseFromOrbit(
-        const hlsl::vector<T, 3>& targetPosition,
-        const hlsl::vector<T, 2>& orbitUv,
-        const T distance,
-        const T minDistance,
-        const T maxDistance,
-        hlsl::vector<T, 3>& outPosition,
-        hlsl::math::quaternion<T>& outOrientation,
-        T* outAppliedDistance = nullptr)
+    /// @brief Orbit state -> camera pose: the camera sits at `target + offset(angles, distance)` and looks at the target.
+    ///
+    /// `distance` is clamped to `[minDistance, maxDistance]` before use; the value actually used is reported
+    /// through the optional `outAppliedDistance` (pointer = optional, may be null).
+    /// TODO: the clamp is rig policy inside a coordinate conversion; candidate to move to the callers.
+    static inline bool tryBuildPoseFromOrbit(
+        const STargetOrbit& orbit,
+        const hlsl::float64_t minDistance,
+        const hlsl::float64_t maxDistance,
+        SCameraRigPose& outPose,
+        hlsl::float64_t* outAppliedDistance = nullptr)
     {
-        if (!isFiniteScalar(orbitUv.x) ||
-            !isFiniteScalar(orbitUv.y) ||
-            !isFiniteScalar(distance))
+        if (!isFiniteScalar(orbit.angles.x) ||
+            !isFiniteScalar(orbit.angles.y) ||
+            !isFiniteScalar(orbit.distance))
             return false;
 
-        const T appliedDistance = hlsl::clamp(distance, minDistance, maxDistance);
-        const auto spherePosition = makeSphericalOffsetFromOrbit(orbitUv, appliedDistance);
-        const auto upHint = safeNormalizeVec3(makeSphericalUpFromOrbit(orbitUv), getCameraWorldUp<T>());
-        hlsl::vector<T, 3> right = hlsl::vector<T, 3>(T(0));
-        hlsl::vector<T, 3> up = hlsl::vector<T, 3>(T(0));
-        hlsl::vector<T, 3> forward = hlsl::vector<T, 3>(T(0));
+        const hlsl::float64_t appliedDistance = hlsl::clamp(orbit.distance, minDistance, maxDistance);
+        const auto spherePosition = makeSphericalOffsetFromOrbit(orbit.angles, appliedDistance);
+        const auto upHint = safeNormalizeVec3(makeSphericalUpFromOrbit(orbit.angles), getCameraWorldUp<hlsl::float64_t>());
+        hlsl::float64_t3 right = hlsl::float64_t3(0.0);
+        hlsl::float64_t3 up = hlsl::float64_t3(0.0);
+        hlsl::float64_t3 forward = hlsl::float64_t3(0.0);
         if (!tryBuildCameraBasisFromForwardUpHint(-spherePosition, upHint, right, up, forward))
             return false;
 
-        outPosition = targetPosition + spherePosition;
-        outOrientation = makeQuaternionFromBasis(right, up, forward);
+        outPose.position = orbit.target + spherePosition;
+        outPose.orientation = makeQuaternionFromBasis(right, up, forward);
         if (outAppliedDistance)
             *outAppliedDistance = appliedDistance;
         return true;
     }
 
-    template<typename T>
+    /// @brief Camera position -> orbit state around `target` (the inverse of `tryBuildPoseFromOrbit` for the position).
+    ///
+    /// The angles describe the actual position; the distance is clamped to `[minDistance, maxDistance]`.
+    /// Fails when the camera sits on the target.
+    /// TODO: the clamp is rig policy inside a coordinate conversion; candidate to move to the callers.
     static inline bool tryBuildOrbitFromPosition(
-        const hlsl::vector<T, 3>& targetPosition,
-        const hlsl::vector<T, 3>& position,
-        const T minDistance,
-        const T maxDistance,
-        hlsl::vector<T, 2>& outOrbitUv,
-        T& outDistance)
+        const hlsl::float64_t3& target,
+        const hlsl::float64_t3& cameraPosition,
+        const hlsl::float64_t minDistance,
+        const hlsl::float64_t maxDistance,
+        STargetOrbit& outOrbit)
     {
-        const auto offset = position - targetPosition;
+        const auto offset = cameraPosition - target;
         const auto distance = hlsl::length(offset);
-        if (!isFiniteScalar(distance) || distance <= hlsl::numeric_limits<T>::epsilon)
+        if (!isFiniteScalar(distance) || distance <= hlsl::numeric_limits<hlsl::float64_t>::epsilon)
             return false;
 
-        outDistance = hlsl::clamp(distance, minDistance, maxDistance);
         const auto local = offset / distance;
-        outOrbitUv = hlsl::vector<T, 2>(
+        const auto angles = hlsl::float64_t2(
             hlsl::atan2(local.x, local.z),
-            hlsl::asin(hlsl::clamp(local.y, T(-1), T(1))));
-        return isFiniteScalar(outOrbitUv.x) &&
-            isFiniteScalar(outOrbitUv.y) &&
-            isFiniteScalar(outDistance);
+            hlsl::asin(hlsl::clamp(local.y, -1.0, 1.0)));
+        const auto appliedDistance = hlsl::clamp(distance, minDistance, maxDistance);
+        if (!isFiniteScalar(angles.x) || !isFiniteScalar(angles.y) || !isFiniteScalar(appliedDistance))
+            return false;
+
+        outOrbit.target = target;
+        outOrbit.angles = angles;
+        outOrbit.distance = appliedDistance;
+        return true;
     }
 
     // TODO: candidate for nbl::hlsl
@@ -539,20 +535,21 @@ struct CCameraMathUtilities final
         return getPitchYawFromForwardVector(getOrientationBasis(orientation).forward);
     }
 
-    template<typename T>
+    /// @brief Path state `(s, u, v, roll)` -> camera pose, by way of the orbit state around `targetPosition`.
+    /// Both pointer outputs are optional (may be null).
     static inline bool tryBuildPathPoseFromState(
-        const hlsl::vector<T, 3>& targetPosition,
-        const T pathS,
-        const T pathU,
-        const T pathV,
-        const T pathRoll,
-        const T minRadius,
-        const T minDistance,
-        const T maxDistance,
-        hlsl::vector<T, 3>& outPosition,
-        hlsl::math::quaternion<T>& outOrientation,
-        T* outAppliedDistance = nullptr,
-        hlsl::vector<T, 2>* outOrbitUv = nullptr)
+        const hlsl::float64_t3& targetPosition,
+        const hlsl::float64_t pathS,
+        const hlsl::float64_t pathU,
+        const hlsl::float64_t pathV,
+        const hlsl::float64_t pathRoll,
+        const hlsl::float64_t minRadius,
+        const hlsl::float64_t minDistance,
+        const hlsl::float64_t maxDistance,
+        hlsl::float64_t3& outPosition,
+        hlsl::math::quaternion<hlsl::float64_t>& outOrientation,
+        hlsl::float64_t* outAppliedDistance = nullptr,
+        hlsl::float64_t2* outOrbitUv = nullptr)
     {
         if (!isFiniteScalar(pathS) ||
             !isFiniteScalar(pathU) ||
@@ -560,30 +557,32 @@ struct CCameraMathUtilities final
             !isFiniteScalar(pathRoll))
             return false;
 
-        const T appliedU = hlsl::max(minRadius, pathU);
+        const hlsl::float64_t appliedU = hlsl::max(minRadius, pathU);
         const auto offset = makePathOffsetFromState(pathS, appliedU, pathV);
 
-        hlsl::vector<T, 2> orbitUv = hlsl::vector<T, 2>(T(0));
-        T distance = T(0);
-        if (!tryBuildOrbitFromPosition(targetPosition, targetPosition + offset, minDistance, maxDistance, orbitUv, distance))
+        STargetOrbit orbit = {};
+        if (!tryBuildOrbitFromPosition(targetPosition, targetPosition + offset, minDistance, maxDistance, orbit))
             return false;
-        if (!tryBuildSphericalPoseFromOrbit(targetPosition, orbitUv, distance, minDistance, maxDistance, outPosition, outOrientation, &distance))
+        SCameraRigPose pose = {};
+        if (!tryBuildPoseFromOrbit(orbit, minDistance, maxDistance, pose, &orbit.distance))
             return false;
 
-        if (!isNearlyZeroScalar(pathRoll, hlsl::numeric_limits<T>::epsilon))
+        outPosition = pose.position;
+        outOrientation = pose.orientation;
+        if (!isNearlyZeroScalar(pathRoll, hlsl::numeric_limits<hlsl::float64_t>::epsilon))
         {
             const auto basis = getOrientationBasis(outOrientation);
-            const T rollCos = hlsl::cos(pathRoll);
-            const T rollSin = hlsl::sin(pathRoll);
+            const hlsl::float64_t rollCos = hlsl::cos(pathRoll);
+            const hlsl::float64_t rollSin = hlsl::sin(pathRoll);
             const auto right = basis.right * rollCos + basis.up * rollSin;
             const auto up = basis.up * rollCos - basis.right * rollSin;
             outOrientation = makeQuaternionFromBasis(right, up, basis.forward);
         }
 
         if (outAppliedDistance)
-            *outAppliedDistance = distance;
+            *outAppliedDistance = orbit.distance;
         if (outOrbitUv)
-            *outOrbitUv = orbitUv;
+            *outOrbitUv = orbit.angles;
         return true;
     }
 

@@ -14,19 +14,13 @@ namespace nbl::ext::cameras
 
 /// @brief Free-position camera with world-space translation and yaw/pitch rotation.
 ///
-/// The runtime state consists of position plus an upright orientation derived
-/// from yaw and pitch. Reference-frame application rejects arbitrary roll and
-/// rebuilds the legal FPS orientation from the extracted forward axis.
+/// Holding roll at zero is this rig's contract, not a missing feature: the state is a position plus an
+/// orientation rebuilt every step from yaw and a pitch bounded short of straight up and down, which is
+/// what keeps the horizon level. Use `CFreeCamera` when you want the roll.
 class CFPSCamera final : public ICamera
-{ 
+{
 public:
     using base_t = ICamera;
-    struct SFpsCameraDefaults final
-    {
-        static inline constexpr float RollValidationEpsilonDeg = 1.e-4f;
-        static inline constexpr float StraightRollDeg = 0.0f;
-        static inline constexpr float InvertedRollDeg = 180.0f;
-    };
 
     CFPSCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::math::quaternion<hlsl::float64_t>::identity())
         : base_t(), m_gimbal(typename base_t::CGimbal::base_t::SCreationParameters{ .position = position, .orientation = orientation }) 
@@ -45,50 +39,55 @@ public:
         return m_gimbal;
     }
 
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents, const hlsl::float64_t4x4* referenceFrame = nullptr) override
+    using base_t::setPose;
+
+    /// @brief Place the rig at the position of `pose` and at the pitch and yaw its orientation encodes.
+    virtual bool setPose(const SCameraRigPose& pose) override
     {
-        if (not virtualEvents.size() and not referenceFrame)
+        if (!CCameraMathUtilities::isFiniteVec3(pose.position))
             return false;
 
-        CReferenceTransform reference;
-        if (not m_gimbal.extractReferenceTransform(&reference, referenceFrame))
+        const auto pitchYaw = CCameraMathUtilities::getPitchYawFromOrientation(pose.orientation);
+        if (!CCameraMathUtilities::isFiniteScalar(pitchYaw.x) || !CCameraMathUtilities::isFiniteScalar(pitchYaw.y))
             return false;
 
-        auto validateReference = [&]()
-        {
-            if (referenceFrame)
-            {
-                const float roll = static_cast<float>(hlsl::degrees(CCameraMathUtilities::getQuaternionEulerRadiansYXZ(reference.orientation).z));
-                const bool matchesStraightRoll =
-                    CCameraMathUtilities::getWrappedAngleDistanceDegrees(roll, SFpsCameraDefaults::StraightRollDeg) <= SFpsCameraDefaults::RollValidationEpsilonDeg;
-                const bool matchesInvertedRoll =
-                    CCameraMathUtilities::getWrappedAngleDistanceDegrees(roll, SFpsCameraDefaults::InvertedRollDeg) <= SFpsCameraDefaults::RollValidationEpsilonDeg;
-
-                if (!(matchesStraightRoll || matchesInvertedRoll))
-                    return false;
-            }
-
-            return true;
-        };
-
-        auto impulse = m_gimbal.accumulate<AllowedVirtualEvents>(virtualEvents);
-
-        bool manipulated = true;
+        const auto pitch = std::clamp<hlsl::float64_t>(pitchYaw.x, MinVerticalAngle, MaxVerticalAngle);
 
         m_gimbal.begin();
         {
-            const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-            const auto pitchYaw = CCameraMathUtilities::getPitchYawFromForwardVector(reference.getBasis().forward);
-            const float newPitch = std::clamp<float>(static_cast<float>(pitchYaw.x + scaleVirtualRotation(impulse.dVirtualRotation.x)), MinVerticalAngle, MaxVerticalAngle);
-            const float newYaw = static_cast<float>(pitchYaw.y + scaleVirtualRotation(impulse.dVirtualRotation.y));
+            m_gimbal.setOrientation(CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(pitch, pitchYaw.y, 0.0)));
+            m_gimbal.setPosition(pose.position);
+        }
+        m_gimbal.end();
+        m_gimbal.updateView();
 
-            if (validateReference())
-                m_gimbal.setOrientation(CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(newPitch, newYaw, 0.0f)));
-            m_gimbal.setPosition(reference.getPosition() + hlsl::normalize(reference.orientation).transformVector(hlsl::float64_t3(deltaTranslation), true));
+        return true;
+    }
+
+    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
+    {
+        if (virtualEvents.empty())
+            return false;
+
+        const auto impulse = m_gimbal.accumulate<AllowedVirtualEvents>(virtualEvents);
+        const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
+
+        // copies, because `setOrientation` rewrites the gimbal's orientation and basis in place
+        const auto anchorPosition = m_gimbal.getPosition();
+        const auto anchorOrientation = m_gimbal.getOrientation();
+        const auto pitchYaw = CCameraMathUtilities::getPitchYawFromForwardVector(m_gimbal.getZAxis());
+
+        const auto newPitch = std::clamp<hlsl::float64_t>(pitchYaw.x + scaleVirtualRotation(impulse.dVirtualRotation.x), MinVerticalAngle, MaxVerticalAngle);
+        const auto newYaw = pitchYaw.y + scaleVirtualRotation(impulse.dVirtualRotation.y);
+
+        m_gimbal.begin();
+        {
+            m_gimbal.setOrientation(CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(newPitch, newYaw, 0.0)));
+            m_gimbal.setPosition(anchorPosition + hlsl::normalize(anchorOrientation).transformVector(hlsl::float64_t3(deltaTranslation), true));
         }
         m_gimbal.end();
 
-        manipulated &= bool(m_gimbal.getManipulationCounter());
+        const bool manipulated = bool(m_gimbal.getManipulationCounter());
 
         if (manipulated)
             m_gimbal.updateView();
@@ -116,8 +115,8 @@ private:
     typename base_t::CGimbal m_gimbal;
 
     static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::Rotate;
-    static inline constexpr float MaxVerticalAngle = static_cast<float>(SCameraViewRigDefaults::FpsVerticalPitchLimitRad);
-    static inline constexpr float MinVerticalAngle = -MaxVerticalAngle;
+    static inline constexpr hlsl::float64_t MaxVerticalAngle = SCameraViewRigDefaults::FpsVerticalPitchLimitRad;
+    static inline constexpr hlsl::float64_t MinVerticalAngle = -MaxVerticalAngle;
 };
 
 }

@@ -15,7 +15,7 @@
 
 #include "CCameraFollowRegressionUtilities.hpp"
 #include "CCameraScriptedRuntime.hpp"
-#include "SCameraRigPose.hpp"
+#include "SCameraTypes.hpp"
 
 namespace nbl::ext::cameras
 {

@@ -7,51 +7,54 @@
 namespace nbl::ext::cameras
 {
 
-/// @brief Common base for target-relative cameras represented by target position, distance, and `orbitUv`.
+/// @brief Common base for target-relative cameras, whose whole state is one `STargetOrbit`.
 ///
-/// Derived cameras keep the same target-relative storage but apply different
-/// constraints and event policies in `manipulate(...)`.
+/// `updateGimbal()` is the single writer of the gimbal pose and derives it from that state.
+/// Derived cameras share the storage and define which parts of the orbit their `manipulate(...)`
+/// changes, and how `setPose(...)` projects an authored pose onto it.
 class CSphericalTargetCamera : public ICamera
 {
 public:
     using base_t = ICamera;
 
     CSphericalTargetCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target)
-        : base_t(), m_targetPosition(target), m_distance(SCameraTargetRelativeRigDefaults::InitialDistance),
+        : base_t(), m_orbit{ .target = target, .angles = hlsl::float64_t2(0.0), .distance = MinDistance },
           m_gimbal(typename base_t::CGimbal::base_t::SCreationParameters{
               .position = position,
               .orientation = hlsl::math::quaternion<hlsl::float64_t>::identity()
           })
     {
-        initFromPosition(position);
+        // a position that coincides with the target has no orbit, so the members keep their fallback
+        CCameraMathUtilities::tryBuildOrbitFromPosition(target, position, MinDistance, MaxDistance, m_orbit);
     }
     ~CSphericalTargetCamera() = default;
 
-    inline bool setDistance(float d)
+    inline bool setDistance(const hlsl::float64_t d)
     {
-        const auto clamped = std::clamp<float>(d, MinDistance, MaxDistance);
+        const auto clamped = std::clamp(d, MinDistance, MaxDistance);
         const bool ok = clamped == d;
-        if (m_distance == clamped)
+        if (m_orbit.distance == clamped)
             return ok;
-        m_distance = clamped;
-        applyPose();
+        m_orbit.distance = clamped;
+        updateGimbal();
         return ok;
     }
 
     inline void target(const hlsl::float64_t3& p)
     {
-        if (m_targetPosition == p)
+        if (m_orbit.target == p)
             return;
-        m_targetPosition = p;
-        applyPose();
+        m_orbit.target = p;
+        updateGimbal();
     }
-    inline hlsl::float64_t3 getTarget() const { return m_targetPosition; }
+    inline hlsl::float64_t3 getTarget() const { return m_orbit.target; }
 
-    inline float getDistance() const { return m_distance; }
-    inline const hlsl::float64_t2& getOrbitUv() const { return m_orbitUv; }
+    inline hlsl::float64_t getDistance() const { return m_orbit.distance; }
+    /// @brief Return the whole target-relative state backing this camera.
+    inline const STargetOrbit& getOrbit() const { return m_orbit; }
 
-    static inline constexpr float MinDistance = ICamera::DefaultMinTargetDistance;
-    static inline constexpr float MaxDistance = ICamera::DefaultMaxTargetDistance;
+    static inline constexpr hlsl::float64_t MinDistance = ICamera::DefaultMinTargetDistance;
+    static inline constexpr hlsl::float64_t MaxDistance = ICamera::DefaultMaxTargetDistance;
 
     virtual uint32_t getCapabilities() const override
     {
@@ -60,11 +63,11 @@ public:
 
     virtual bool tryGetSphericalTargetState(typename base_t::SphericalTargetState& out) const override
     {
-        out.target = m_targetPosition;
-        out.distance = m_distance;
-        out.orbitUv = m_orbitUv;
-        out.minDistance = MinDistance;
-        out.maxDistance = MaxDistance;
+        out.target = m_orbit.target;
+        out.distance = static_cast<float>(m_orbit.distance);
+        out.orbitUv = m_orbit.angles;
+        out.minDistance = static_cast<float>(MinDistance);
+        out.maxDistance = static_cast<float>(MaxDistance);
         return true;
     }
 
@@ -76,149 +79,35 @@ public:
 
     virtual bool trySetSphericalDistance(float distance) override
     {
-        return setDistance(distance);
+        return setDistance(static_cast<hlsl::float64_t>(distance));
     }
 
 protected:
-    using SphericalBasis = SCameraTargetRelativeBasis;
-
-    /// @brief Return the current canonical target-relative state stored by the spherical rig.
-    inline SCameraTargetRelativeState currentTargetRelativeState() const
-    {
-        return {
-            .target = m_targetPosition,
-            .orbitUv = m_orbitUv,
-            .distance = m_distance
-        };
-    }
-
-    /// @brief Replace the stored target-relative state without touching the gimbal pose yet.
-    inline void adoptTargetRelativeState(const SCameraTargetRelativeState& state)
-    {
-        m_targetPosition = state.target;
-        m_orbitUv = state.orbitUv;
-        m_distance = state.distance;
-    }
-
-    /// @brief Extract one rigid reference transform from the optional external override or the current gimbal pose.
-    inline bool tryExtractReferenceTransform(CReferenceTransform& outReference, const hlsl::float64_t4x4* referenceFrame)
-    {
-        return m_gimbal.extractReferenceTransform(&outReference, referenceFrame);
-    }
-
-    /// @brief Resolve the current target-relative state from one rigid reference position around the current target.
-    inline bool tryResolveReferenceTargetRelativeState(const CReferenceTransform& reference, SCameraTargetRelativeState& outState) const
-    {
-        return CCameraTargetRelativeUtilities::tryBuildTargetRelativeStateFromPosition(
-            m_targetPosition,
-            reference.getPosition(),
-            MinDistance,
-            MaxDistance,
-            outState);
-    }
-
-    /// @brief Resolve the top-down yaw encoded by a rigid reference orientation.
-    static inline double resolveTopDownYawFromReference(const CReferenceTransform& reference, const double fallbackYaw)
-    {
-        const auto basis = CCameraMathUtilities::getOrientationBasis(reference.orientation);
-        // looking straight down, the camera up vector lies in the ground plane; with +Y up that is the XZ plane,
-        // where `makeSphericalUpFromOrbit` gives up = (-sin(yaw), 0, -cos(yaw))
-        const auto planarUp = hlsl::float64_t2(basis.up.x, basis.up.z);
-        constexpr auto Epsilon = static_cast<hlsl::float64_t>(SCameraToolingThresholds::TinyScalarEpsilon);
-        if (!CCameraMathUtilities::isNearlyZeroVector(planarUp, Epsilon))
-            return hlsl::atan2(-planarUp.x, -planarUp.y);
-
-        // the same pose gives right = (-cos(yaw), 0, sin(yaw))
-        const auto planarRight = hlsl::float64_t2(basis.right.x, basis.right.z);
-        if (!CCameraMathUtilities::isNearlyZeroVector(planarRight, Epsilon))
-            return hlsl::atan2(planarRight.y, -planarRight.x);
-
-        return fallbackYaw;
-    }
-
-    /// @brief Project one rigid reference pose onto the legal top-down state manifold around the current target.
-    inline bool tryResolveReferenceTopDownState(const CReferenceTransform& reference, SCameraTargetRelativeState& outState) const
-    {
-        const auto offset = reference.getPosition() - m_targetPosition;
-        const auto distance = hlsl::length(offset);
-        if (!CCameraMathUtilities::isFiniteScalar(distance) ||
-            distance <= static_cast<hlsl::float64_t>(SCameraToolingThresholds::TinyScalarEpsilon))
-        {
-            return false;
-        }
-
-        outState = currentTargetRelativeState();
-        outState.distance = static_cast<float>(std::clamp(
-            distance,
-            static_cast<hlsl::float64_t>(MinDistance),
-            static_cast<hlsl::float64_t>(MaxDistance)));
-        outState.orbitUv.x = resolveTopDownYawFromReference(reference, m_orbitUv.x);
-        outState.orbitUv.y = SCameraTargetRelativeRigDefaults::TopDownPitchRad;
-        return true;
-    }
-
-    /// @brief Project one rigid reference pose onto the legal fixed-angle isometric manifold around the current target.
-    inline bool tryResolveReferenceIsometricState(const CReferenceTransform& reference, SCameraTargetRelativeState& outState) const
-    {
-        if (!tryResolveReferenceTargetRelativeState(reference, outState))
-            return false;
-
-        outState.orbitUv = hlsl::float64_t2(
-            SCameraTargetRelativeRigDefaults::IsometricYawRad,
-            SCameraTargetRelativeRigDefaults::IsometricPitchRad);
-        return true;
-    }
-
-    inline SphericalBasis computeBasis(const hlsl::float64_t2& orbitUv, float distance) const
-    {
-        SphericalBasis basis;
-        const SCameraTargetRelativeState state = {
-            .target = m_targetPosition,
-            .orbitUv = orbitUv,
-            .distance = distance
-        };
-        if (!CCameraTargetRelativeUtilities::tryBuildTargetRelativeBasis(state, MinDistance, MaxDistance, basis))
-            return basis;
-        return basis;
-    }
-
-    inline void initFromPosition(const hlsl::float64_t3& position)
-    {
-        SCameraTargetRelativeState state = {};
-        if (!CCameraTargetRelativeUtilities::tryBuildTargetRelativeStateFromPosition(m_targetPosition, position, MinDistance, MaxDistance, state))
-        {
-            m_distance = MinDistance;
-            m_orbitUv = hlsl::float64_t2(0.0);
-            return;
-        }
-
-        m_distance = state.distance;
-        m_orbitUv = state.orbitUv;
-    }
-
-    inline void applyPlanarTargetTranslation(const hlsl::float64_t3& deltaTranslation, const SphericalBasis& basis)
+    /// @brief Move the target in the view plane of the pose currently committed to the gimbal.
+    ///
+    /// The camera position is derived from the target, so it follows and the scene slides across the screen.
+    /// TODO: the delta is a fixed world-space length, so panning does not track the cursor the way it
+    /// does in a DCC. It should scale with `m_orbit.distance`.
+    inline void applyPlanarTargetTranslation(const hlsl::float64_t3& deltaTranslation)
     {
         if (!CCameraMathUtilities::hasPlanarDeltaXY(deltaTranslation, static_cast<hlsl::float64_t>(SCameraToolingThresholds::TinyScalarEpsilon)))
             return;
 
-        m_targetPosition += CCameraMathUtilities::transformLocalVectorToWorldBasis(
+        const auto& basis = m_gimbal.getBasis();
+        m_orbit.target += CCameraMathUtilities::transformLocalVectorToWorldBasis(
             hlsl::float64_t3(deltaTranslation.x, deltaTranslation.y, 0.0),
             basis.right,
             basis.up,
             basis.forward);
     }
 
-    inline bool applyPose()
+    /// @brief Rebuild the gimbal pose from the current orbit, clamping the stored distance to the legal range.
+    /// @return whether the gimbal pose actually changed.
+    inline bool updateGimbal()
     {
-        const SCameraTargetRelativeState state = {
-            .target = m_targetPosition,
-            .orbitUv = m_orbitUv,
-            .distance = m_distance
-        };
-        SCameraTargetRelativePose pose = {};
-        if (!CCameraTargetRelativeUtilities::tryBuildTargetRelativePoseFromState(state, MinDistance, MaxDistance, pose))
+        SCameraRigPose pose = {};
+        if (!CCameraMathUtilities::tryBuildPoseFromOrbit(m_orbit, MinDistance, MaxDistance, pose, &m_orbit.distance))
             return false;
-        m_distance = static_cast<float>(pose.appliedDistance);
 
         m_gimbal.begin();
         {
@@ -234,13 +123,10 @@ protected:
         return manipulated;
     }
 
-    hlsl::float64_t3 m_targetPosition;
-    float m_distance;
+    STargetOrbit m_orbit;
     typename base_t::CGimbal m_gimbal;
-    hlsl::float64_t2 m_orbitUv = hlsl::float64_t2(0.0);
 };
 
 }
 
 #endif
-

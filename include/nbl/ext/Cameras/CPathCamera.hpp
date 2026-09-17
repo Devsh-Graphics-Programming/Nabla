@@ -51,58 +51,40 @@ public:
 
     const typename base_t::CGimbal& getGimbal() override { return m_gimbal; }
 
-    /// @brief Consume virtual events through the active path model and update the runtime pose from the resulting path state.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents, const hlsl::float64_t4x4* referenceFrame = nullptr) override
+    using base_t::setPose;
+
+    /// @brief Resolve the path state the active model gives for the position of `pose`, then run one control step.
+    virtual bool setPose(const SCameraRigPose& pose) override
     {
-        if (virtualEvents.empty() && !referenceFrame)
+        if (!m_pathModel.resolveState)
             return false;
 
         PathState nextPathState = m_pathState;
-        CReferenceTransform reference = {};
-        const CReferenceTransform* resolvedReference = nullptr;
-        if (referenceFrame)
-        {
-            if (!m_gimbal.extractReferenceTransform(&reference, referenceFrame))
-                return false;
-            resolvedReference = &reference;
-            if (!m_pathModel.resolveState ||
-                !m_pathModel.resolveState(
-                    m_targetPosition,
-                    reference.getPosition(),
-                    m_pathLimits,
-                    nullptr,
-                    nextPathState))
-            {
-                return false;
-            }
-        }
+        if (!m_pathModel.resolveState(m_orbit.target, pose.position, m_pathLimits, nullptr, nextPathState))
+            return false;
+
+        return tryApplyPathControlStep(nextPathState, {}, {}, &pose, nullptr);
+    }
+
+    /// @brief Consume virtual events through the active path model and update the runtime pose from the resulting path state.
+    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
+    {
+        if (virtualEvents.empty())
+            return false;
 
         const auto impulse = m_gimbal.accumulate<AllowedVirtualEvents>(virtualEvents);
-        const SCameraPathControlContext context = {
-            .currentState = nextPathState,
-            .translation = scaleVirtualTranslation(impulse.dVirtualTranslate),
-            .rotation = scaleVirtualRotation(impulse.dVirtualRotation),
-            .targetPosition = m_targetPosition,
-            .reference = resolvedReference,
-            .limits = m_pathLimits
-        };
-
-        if (!m_pathModel.controlLaw || !m_pathModel.integrate)
-            return false;
-
-        const auto stateDelta = m_pathModel.controlLaw(context);
-        if (!m_pathModel.integrate(nextPathState, stateDelta, m_pathLimits, nextPathState))
-            return false;
-
-        const auto previousPathState = m_pathState;
-        m_pathState = nextPathState;
         bool manipulated = false;
-        if (refreshFromPathState(&manipulated))
-            return manipulated;
+        if (!tryApplyPathControlStep(
+                m_pathState,
+                scaleVirtualTranslation(impulse.dVirtualTranslate),
+                scaleVirtualRotation(impulse.dVirtualRotation),
+                nullptr,
+                &manipulated))
+        {
+            return false;
+        }
 
-        m_pathState = previousPathState;
-        refreshFromPathState();
-        return false;
+        return manipulated;
     }
 
     virtual uint32_t getAllowedVirtualEvents() const override { return AllowedVirtualEvents; }
@@ -126,9 +108,9 @@ public:
     /// @brief Query the derived spherical-target state corresponding to the current path-state evaluation.
     virtual bool tryGetSphericalTargetState(typename base_t::SphericalTargetState& out) const override
     {
-        out.target = m_targetPosition;
-        out.distance = m_distance;
-        out.orbitUv = m_orbitUv;
+        out.target = m_orbit.target;
+        out.distance = static_cast<float>(m_orbit.distance);
+        out.orbitUv = m_orbit.angles;
         out.minDistance = static_cast<float>(m_pathLimits.minDistance);
         out.maxDistance = static_cast<float>(m_pathLimits.maxDistance);
         return true;
@@ -137,15 +119,15 @@ public:
     /// @brief Replace only the tracked target position and rebuild the current path pose against it.
     virtual bool trySetSphericalTarget(const hlsl::float64_t3& targetPosition) override
     {
-        if (m_targetPosition == targetPosition)
+        if (m_orbit.target == targetPosition)
             return true;
 
-        const auto previousTarget = m_targetPosition;
-        m_targetPosition = targetPosition;
+        const auto previousTarget = m_orbit.target;
+        m_orbit.target = targetPosition;
         if (refreshFromPathState())
             return true;
 
-        m_targetPosition = previousTarget;
+        m_orbit.target = previousTarget;
         refreshFromPathState();
         return false;
     }
@@ -157,7 +139,7 @@ public:
             return false;
 
         PathState sanitized = {};
-        if (!m_pathModel.resolveState(m_targetPosition, m_gimbal.getPosition(), m_pathLimits, &state, sanitized))
+        if (!m_pathModel.resolveState(m_orbit.target, m_gimbal.getPosition(), m_pathLimits, &state, sanitized))
             return false;
 
         const bool exact = CCameraPathUtilities::pathStatesNearlyEqual(sanitized, state, SCameraPathDefaults::ExactComparisonThresholds);
@@ -214,7 +196,7 @@ public:
             return false;
 
         PathState sanitizedState = {};
-        if (!m_pathModel.resolveState(m_targetPosition, m_gimbal.getPosition(), pathLimits, &m_pathState, sanitizedState))
+        if (!m_pathModel.resolveState(m_orbit.target, m_gimbal.getPosition(), pathLimits, &m_pathState, sanitizedState))
             return false;
 
         const auto previousLimits = m_pathLimits;
@@ -237,7 +219,7 @@ public:
             return false;
 
         PathState sanitized = {};
-        if (!pathModel.resolveState(m_targetPosition, m_gimbal.getPosition(), m_pathLimits, &m_pathState, sanitized))
+        if (!pathModel.resolveState(m_orbit.target, m_gimbal.getPosition(), m_pathLimits, &m_pathState, sanitized))
             return false;
 
         const auto previousModel = m_pathModel;
@@ -273,7 +255,7 @@ private:
             return false;
 
         PathState resolvedState = {};
-        if (!pathModel.resolveState(m_targetPosition, position, pathLimits, nullptr, resolvedState))
+        if (!pathModel.resolveState(m_orbit.target, position, pathLimits, nullptr, resolvedState))
             return false;
 
         m_pathLimits = pathLimits;
@@ -299,13 +281,48 @@ private:
         m_pathLimits = CCameraPathUtilities::makeDefaultPathLimits();
         m_pathModel = CCameraPathUtilities::makeDefaultPathModel();
         m_pathState = CCameraPathUtilities::makeDefaultPathState(m_pathLimits.minU);
-        m_pathModel.resolveState(m_targetPosition, position, m_pathLimits, nullptr, m_pathState);
+        m_pathModel.resolveState(m_orbit.target, position, m_pathLimits, nullptr, m_pathState);
         refreshFromPathState();
     }
 
     path_model_t m_pathModel = CCameraPathUtilities::makeDefaultPathModel();
     path_limits_t m_pathLimits = CCameraPathUtilities::makeDefaultPathLimits();
     PathState m_pathState = CCameraPathUtilities::makeDefaultPathState(CCameraPathUtilities::makeDefaultPathLimits().minU);
+
+    /// @brief Run one control-law + integrate step from `startState` and commit it, rolling back if the pose fails.
+    bool tryApplyPathControlStep(
+        const PathState& startState,
+        const hlsl::float64_t3& translation,
+        const hlsl::float64_t3& rotation,
+        const SCameraRigPose* reference,
+        bool* outManipulated)
+    {
+        if (!m_pathModel.controlLaw || !m_pathModel.integrate)
+            return false;
+
+        const SCameraPathControlContext context = {
+            .currentState = startState,
+            .translation = translation,
+            .rotation = rotation,
+            .targetPosition = m_orbit.target,
+            .reference = reference,
+            .limits = m_pathLimits
+        };
+
+        PathState nextPathState = startState;
+        const auto stateDelta = m_pathModel.controlLaw(context);
+        if (!m_pathModel.integrate(startState, stateDelta, m_pathLimits, nextPathState))
+            return false;
+
+        const auto previousPathState = m_pathState;
+        m_pathState = nextPathState;
+        if (refreshFromPathState(outManipulated))
+            return true;
+
+        m_pathState = previousPathState;
+        refreshFromPathState();
+        return false;
+    }
 
     /// @brief Evaluate the current path state into a canonical pose and write it back to the runtime gimbal.
     bool refreshFromPathState(bool* outManipulated = nullptr)
@@ -314,11 +331,11 @@ private:
             return false;
 
         SCameraCanonicalPathState canonicalPathState = {};
-        if (!m_pathModel.evaluate(m_targetPosition, m_pathState, m_pathLimits, canonicalPathState))
+        if (!m_pathModel.evaluate(m_orbit.target, m_pathState, m_pathLimits, canonicalPathState))
             return false;
 
-        m_distance = canonicalPathState.targetRelative.distance;
-        m_orbitUv = canonicalPathState.targetRelative.orbitUv;
+        m_orbit.distance = canonicalPathState.targetRelative.distance;
+        m_orbit.angles = canonicalPathState.targetRelative.angles;
 
         m_gimbal.begin();
         {

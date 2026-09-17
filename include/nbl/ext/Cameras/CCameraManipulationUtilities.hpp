@@ -16,15 +16,6 @@ namespace nbl::ext::cameras
 struct CCameraManipulationUtilities final
 {
 public:
-    /// @brief Apply an authored world-space reference frame through the shared camera runtime entry point.
-    static inline bool applyReferenceFrameToCamera(ICamera* camera, const hlsl::float64_t4x4& referenceFrame)
-    {
-        if (!camera)
-            return false;
-
-        return camera->manipulateWithUnitMotionScales({}, &referenceFrame);
-    }
-
     /// @brief Scale translation and rotation event magnitudes without touching unrelated event types.
     static inline void scaleVirtualEvents(std::vector<CVirtualGimbalEvent>& events, const uint32_t count, const float translationScale, const float rotationScale)
     {

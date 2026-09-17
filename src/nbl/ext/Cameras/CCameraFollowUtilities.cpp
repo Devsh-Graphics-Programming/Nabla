@@ -164,7 +164,7 @@ bool CCameraFollowUtilities::tryBuildFollowGoal(
                 outGoal,
                 {
                     .target = targetPosition,
-                    .orbitUv = outGoal.orbitUv,
+                    .angles = outGoal.orbitUv,
                     .distance = orbitDistance
                 });
         }
