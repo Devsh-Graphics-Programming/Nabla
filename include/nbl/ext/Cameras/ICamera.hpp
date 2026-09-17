@@ -12,7 +12,8 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/util/bitflag.h"
 #include "SCameraToolingThresholds.hpp"
-#include "IGimbal.hpp"
+#include "CCameraGimbal.hpp"
+#include "CVirtualGimbalEvent.hpp"
 
 namespace nbl::ext::cameras
 {
@@ -20,7 +21,7 @@ namespace nbl::ext::cameras
 /// @brief Shared runtime camera interface.
 ///
 /// `ICamera` consumes batches of `CVirtualGimbalEvent` values and updates one
-/// camera pose stored in `CGimbal`. A `CVirtualGimbalEvent` identifies one
+/// camera pose stored in `CCameraGimbal`. A `CVirtualGimbalEvent` identifies one
 /// semantic command such as `MoveForward`, `PanLeft`, or `RollRight` and carries
 /// one source-normalized scalar magnitude for that command.
 ///
@@ -189,60 +190,11 @@ public:
         }
     };
 
-    /// @brief Gimbal that stores the runtime camera pose and cached world-to-view transform.
-    ///
-    /// Camera implementations own one `CGimbal` instance and update it after
-    /// applying their internal state model. The gimbal stores world-space
-    /// position, orientation, and the cached view matrix derived from them.
-    class CGimbal : public IGimbal<hlsl::float64_t>
-    {
-    public:
-        using base_t = IGimbal<hlsl::float64_t>;
-        using model_matrix_t = typename base_t::model_matrix_t;
-
-        CGimbal(typename base_t::SCreationParameters parameters) : base_t(std::move(parameters)) { updateView(); }
-        ~CGimbal() = default;
-
-        /// @brief Rebuild the cached left-handed world-to-view matrix from the current gimbal pose.
-        inline void updateView()
-        {            
-            const auto& gRight = this->getXAxis();
-            const auto& gUp = this->getYAxis();
-            const auto& gForward = this->getZAxis();
-
-            const SCameraBasis<hlsl::float64_t> gBasis = { gRight, gUp, gForward };
-            assert((hlsl::math::linalg::RuntimeTraits<hlsl::float64_t3x3>::create(gBasis.getRotationMatrix()).orthonormal));
-
-            const auto& position = this->getPosition();
-
-            m_viewMatrix[0u] = hlsl::float64_t4(gRight, -hlsl::dot(gRight, position));
-            m_viewMatrix[1u] = hlsl::float64_t4(gUp, -hlsl::dot(gUp, position));
-            m_viewMatrix[2u] = hlsl::float64_t4(gForward, -hlsl::dot(gForward, position));
-        }
-
-        /// @brief Return the cached left-handed world-to-view matrix derived from the current pose.
-        inline const hlsl::float64_t3x4& getViewMatrix() const { return getViewMatrixLH(); }
-
-        /// @brief Return the cached left-handed world-to-view matrix derived from the current pose.
-        inline const hlsl::float64_t3x4& getViewMatrixLH() const { return m_viewMatrix; }
-
-        /// @brief Return the right-handed world-to-view matrix derived from the current pose.
-        inline hlsl::float64_t3x4 getViewMatrixRH() const
-        {
-            auto rhViewMatrix = m_viewMatrix;
-            rhViewMatrix[2u] *= -1.0;
-            return rhViewMatrix;
-        }
-
-    private:
-        hlsl::float64_t3x4 m_viewMatrix;
-    };
-
     ICamera() {}
 	virtual ~ICamera() = default;
 
-    /// @brief Return the mutable gimbal backing the runtime camera pose.
-	virtual const CGimbal& getGimbal() = 0u;
+    /// @brief Return the gimbal holding the runtime camera pose.
+	virtual const CCameraGimbal& getGimbal() = 0u;
 
     /// @brief Apply one frame of semantic virtual events on top of the pose currently held by the gimbal.
     ///

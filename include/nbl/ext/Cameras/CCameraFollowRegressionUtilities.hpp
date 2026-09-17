@@ -30,23 +30,23 @@ struct SCameraFollowRegressionResult
 {
     bool passed = false;
     bool hasLockMetrics = false;
-    float lockAngleDeg = 0.0f;
-    double targetDistance = 0.0;
+    hlsl::float64_t lockAngleDeg = 0.0;
+    hlsl::float64_t targetDistance = 0.0;
     bool hasProjectedMetrics = false;
     SCameraProjectedTargetMetrics projectedTarget = {};
     bool hasSphericalState = false;
     hlsl::float64_t3 sphericalTarget = hlsl::float64_t3(0.0);
-    float sphericalDistance = 0.0f;
+    hlsl::float64_t sphericalDistance = 0.0;
 };
 
 /// @brief Reusable visual/debug metrics for one active follow configuration.
 struct SCameraFollowVisualMetrics
 {
     bool active = false;
-    ECameraFollowMode mode = ECameraFollowMode::Disabled;
+    ECameraFollowMode mode = ECameraFollowMode::Unknown;
     bool lockValid = false;
-    float lockAngleDeg = 0.0f;
-    float targetDistance = 0.0f;
+    hlsl::float64_t lockAngleDeg = 0.0;
+    hlsl::float64_t targetDistance = 0.0;
     bool projectedValid = false;
     SCameraProjectedTargetMetrics projectedTarget = {};
 };
@@ -63,7 +63,7 @@ struct SCameraFollowRegressionThresholds
 {
     static inline constexpr float DefaultClipWEpsilon = 1e-5f;
     static inline constexpr float DefaultProjectedNdcTolerance = 0.03f;
-    static inline constexpr float DefaultLockAngleToleranceDeg = static_cast<float>(SCameraToolingThresholds::DefaultAngularToleranceDeg);
+    static inline constexpr hlsl::float64_t DefaultLockAngleToleranceDeg = SCameraToolingThresholds::DefaultAngularToleranceDeg;
     static inline constexpr double DefaultDistanceTolerance = SCameraToolingThresholds::ScalarTolerance;
     static inline constexpr double DefaultTargetTolerance = SCameraToolingThresholds::TinyScalarEpsilon;
     static inline constexpr double DefaultPositionTolerance = SCameraToolingThresholds::DefaultPositionTolerance;
@@ -72,7 +72,7 @@ struct SCameraFollowRegressionThresholds
 
     float clipWEpsilon = DefaultClipWEpsilon;
     float projectedNdcTolerance = DefaultProjectedNdcTolerance;
-    float lockAngleToleranceDeg = DefaultLockAngleToleranceDeg;
+    hlsl::float64_t lockAngleToleranceDeg = DefaultLockAngleToleranceDeg;
     double distanceTolerance = DefaultDistanceTolerance;
     double targetTolerance = DefaultTargetTolerance;
     double positionTolerance = DefaultPositionTolerance;
@@ -98,7 +98,7 @@ struct CCameraFollowRegressionUtilities final
 public:
     static SCameraFollowRegressionThresholds makeFollowRegressionThresholds(
         float projectedNdcTolerance = SCameraFollowRegressionThresholds::DefaultProjectedNdcTolerance,
-        float lockAngleToleranceDeg = SCameraFollowRegressionThresholds::DefaultLockAngleToleranceDeg);
+        hlsl::float64_t lockAngleToleranceDeg = SCameraFollowRegressionThresholds::DefaultLockAngleToleranceDeg);
 
     static bool tryComputeProjectedFollowTargetMetrics(
         const SCameraProjectionContext& projectionContext,
@@ -106,6 +106,8 @@ public:
         SCameraProjectedTargetMetrics& outMetrics,
         float clipWEpsilon = SCameraFollowRegressionThresholds::DefaultClipWEpsilon);
 
+    /// @brief Check that the tracked target projects close enough to the screen centre.
+    /// @param error optional (may be null); receives a description of the first failure.
     static bool validateProjectedFollowTargetContract(
         const SCameraProjectionContext& projectionContext,
         const CTrackedTarget& trackedTarget,

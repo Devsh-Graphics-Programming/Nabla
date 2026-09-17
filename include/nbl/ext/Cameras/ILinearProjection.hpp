@@ -24,7 +24,7 @@ protected:
     core::smart_refctd_ptr<ICamera> m_camera;
 public:
     /// @brief World transform type expected by the linear projection helpers.
-    using model_matrix_t = typename ICamera::CGimbal::model_matrix_t;
+    using model_matrix_t = hlsl::float64_t3x4;
 
     /// @brief Matrix type used for fully concatenated linear transforms.
     using concatenated_matrix_t = hlsl::float64_t4x4;

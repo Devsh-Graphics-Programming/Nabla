@@ -49,7 +49,7 @@ public:
 
     ~CPathCamera() = default;
 
-    const typename base_t::CGimbal& getGimbal() override { return m_gimbal; }
+    const CCameraGimbal& getGimbal() override { return m_gimbal; }
 
     using base_t::setPose;
 
@@ -72,7 +72,7 @@ public:
         if (virtualEvents.empty())
             return false;
 
-        const auto impulse = m_gimbal.accumulate<AllowedVirtualEvents>(virtualEvents);
+        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
         bool manipulated = false;
         if (!tryApplyPathControlStep(
                 m_pathState,
@@ -337,16 +337,7 @@ private:
         m_orbit.distance = canonicalPathState.targetRelative.distance;
         m_orbit.angles = canonicalPathState.targetRelative.angles;
 
-        m_gimbal.begin();
-        {
-            m_gimbal.setPosition(canonicalPathState.pose.position);
-            m_gimbal.setOrientation(canonicalPathState.pose.orientation);
-        }
-        m_gimbal.end();
-
-        const bool manipulated = bool(m_gimbal.getManipulationCounter());
-        if (manipulated)
-            m_gimbal.updateView();
+        const bool manipulated = m_gimbal.setPose(canonicalPathState.pose);
 
         if (outManipulated)
             *outManipulated = manipulated;

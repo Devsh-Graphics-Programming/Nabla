@@ -2,7 +2,9 @@
 #define _NBL_C_VIRTUAL_GIMBAL_EVENT_HPP_
 
 #include <array>
+#include <cassert>
 #include <cstdint>
+#include <span>
 #include <string_view>
 
 #include "nbl/builtin/hlsl/cpp_compat/vector.hlsl"
@@ -153,6 +155,80 @@ struct CVirtualGimbalEvent
         return output;
     }();
 };
+
+/// @brief One batch of virtual events summed into signed translation and rotation amounts, in virtual units.
+struct SVirtualImpulse
+{
+    hlsl::float64_t3 dVirtualTranslate = hlsl::float64_t3(0.0);
+    hlsl::float64_t3 dVirtualRotation = hlsl::float64_t3(0.0);
+};
+
+/// @brief Sum one batch of virtual events into an impulse.
+///
+/// Events not in `AllowedEvents` are dropped at compile time. The camera decides what a virtual unit
+/// means and in which frame it applies.
+template<uint32_t AllowedEvents>
+inline SVirtualImpulse accumulateVirtualEvents(std::span<const CVirtualGimbalEvent> virtualEvents)
+{
+    SVirtualImpulse impulse;
+
+    for (const auto& event : virtualEvents)
+    {
+        assert(event.magnitude >= 0);
+
+        // translation events
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::MoveRight)
+            if (event.type == CVirtualGimbalEvent::MoveRight)
+                impulse.dVirtualTranslate.x += event.magnitude;
+
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::MoveLeft)
+            if (event.type == CVirtualGimbalEvent::MoveLeft)
+                impulse.dVirtualTranslate.x -= event.magnitude;
+
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::MoveUp)
+            if (event.type == CVirtualGimbalEvent::MoveUp)
+                impulse.dVirtualTranslate.y += event.magnitude;
+
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::MoveDown)
+            if (event.type == CVirtualGimbalEvent::MoveDown)
+                impulse.dVirtualTranslate.y -= event.magnitude;
+
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::MoveForward)
+            if (event.type == CVirtualGimbalEvent::MoveForward)
+                impulse.dVirtualTranslate.z += event.magnitude;
+
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::MoveBackward)
+            if (event.type == CVirtualGimbalEvent::MoveBackward)
+                impulse.dVirtualTranslate.z -= event.magnitude;
+
+        // rotation events
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::TiltUp)
+            if (event.type == CVirtualGimbalEvent::TiltUp)
+                impulse.dVirtualRotation.x += event.magnitude;
+
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::TiltDown)
+            if (event.type == CVirtualGimbalEvent::TiltDown)
+                impulse.dVirtualRotation.x -= event.magnitude;
+
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::PanRight)
+            if (event.type == CVirtualGimbalEvent::PanRight)
+                impulse.dVirtualRotation.y += event.magnitude;
+
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::PanLeft)
+            if (event.type == CVirtualGimbalEvent::PanLeft)
+                impulse.dVirtualRotation.y -= event.magnitude;
+
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::RollRight)
+            if (event.type == CVirtualGimbalEvent::RollRight)
+                impulse.dVirtualRotation.z += event.magnitude;
+
+        if constexpr (AllowedEvents & CVirtualGimbalEvent::RollLeft)
+            if (event.type == CVirtualGimbalEvent::RollLeft)
+                impulse.dVirtualRotation.z -= event.magnitude;
+    }
+
+    return impulse;
+}
 
 } // namespace nbl::ext::cameras
 

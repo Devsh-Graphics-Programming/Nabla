@@ -27,7 +27,7 @@ public:
     }
     ~CChaseCamera() = default;
 
-    const typename base_t::CGimbal& getGimbal() override { return m_gimbal; }
+    const CCameraGimbal& getGimbal() override { return m_gimbal; }
 
     using base_t::setPose;
 
@@ -50,7 +50,7 @@ public:
         if (virtualEvents.empty())
             return false;
 
-        const auto impulse = m_gimbal.accumulate<AllowedVirtualEvents>(virtualEvents);
+        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
 
         const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
         const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
@@ -58,7 +58,7 @@ public:
 
         // chase translation stays on the ground plane, so the committed basis is flattened before it is used
         // TODO: like the planar pan in the base rig, this delta is a fixed world-space length and should scale with distance
-        const auto& basis = m_gimbal.getBasis();
+        const auto basis = m_gimbal.getBasis();
 
         const auto planarForward = CCameraMathUtilities::safeNormalizeVec3(
             hlsl::float64_t3(basis.forward.x, 0.0, basis.forward.z),

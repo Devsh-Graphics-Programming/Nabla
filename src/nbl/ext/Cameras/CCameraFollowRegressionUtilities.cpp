@@ -9,7 +9,7 @@ namespace nbl::ext::cameras
 
 SCameraFollowRegressionThresholds CCameraFollowRegressionUtilities::makeFollowRegressionThresholds(
     const float projectedNdcTolerance,
-    const float lockAngleToleranceDeg)
+    const hlsl::float64_t lockAngleToleranceDeg)
 {
     auto thresholds = SCameraFollowRegressionThresholds{};
     thresholds.projectedNdcTolerance = projectedNdcTolerance;
@@ -78,17 +78,14 @@ SCameraFollowVisualMetrics CCameraFollowRegressionUtilities::buildFollowVisualMe
     const SCameraProjectionContext* projectionContext)
 {
     SCameraFollowVisualMetrics out = {};
-    if (!camera || !followConfig || !followConfig->enabled || followConfig->mode == ECameraFollowMode::Disabled)
+    if (!camera || !followConfig || !followConfig->enabled || followConfig->mode == ECameraFollowMode::Unknown)
         return out;
 
     out.active = true;
     out.mode = followConfig->mode;
 
-    double targetDistance = 0.0;
     out.lockValid = CCameraFollowUtilities::cameraFollowModeLocksViewToTarget(followConfig->mode) &&
-        CCameraFollowUtilities::tryComputeFollowTargetLockMetrics(camera->getGimbal(), trackedTarget, out.lockAngleDeg, &targetDistance);
-    if (out.lockValid)
-        out.targetDistance = static_cast<float>(targetDistance);
+        CCameraFollowUtilities::tryComputeFollowTargetLockMetrics(camera->getGimbal(), trackedTarget, out.lockAngleDeg, &out.targetDistance);
 
     if (out.lockValid && projectionContext)
         out.projectedValid = tryComputeProjectedFollowTargetMetrics(*projectionContext, trackedTarget, out.projectedTarget);
@@ -128,6 +125,9 @@ bool CCameraFollowRegressionUtilities::validateFollowTargetContract(
         const auto& cameraGimbal = camera->getGimbal();
         const hlsl::float64_t3 trackedTargetPosition = trackedTargetGimbal.getPosition();
         const hlsl::float64_t3 cameraPosition = cameraGimbal.getPosition();
+        // TODO: `out.targetDistance` was just measured as this same camera-to-target length, so the comparison
+        // below can only ever catch non-finite input. Compare against the distance the follow goal asked for
+        // (`followGoal.orbitDistance` / `followGoal.distance`) to make it a real check.
         const double expectedTargetDistance = hlsl::length(trackedTargetPosition - cameraPosition);
         if (!CCameraMathUtilities::isFiniteScalar(expectedTargetDistance) || hlsl::abs(expectedTargetDistance - out.targetDistance) > thresholds.distanceTolerance)
         {
@@ -148,27 +148,10 @@ bool CCameraFollowRegressionUtilities::validateFollowTargetContract(
 
         if (projectionContext)
         {
-            out.hasProjectedMetrics = tryComputeProjectedFollowTargetMetrics(
-                *projectionContext,
-                trackedTarget,
-                out.projectedTarget,
-                thresholds.clipWEpsilon);
-            if (!out.hasProjectedMetrics)
-            {
-                if (error)
-                    *error = "failed to compute projected follow target metrics";
+            if (!validateProjectedFollowTargetContract(*projectionContext, trackedTarget, out.projectedTarget, error, thresholds))
                 return false;
-            }
 
-            if (out.projectedTarget.radius > thresholds.projectedNdcTolerance)
-            {
-                if (error)
-                {
-                    *error = "projected target mismatch ndc=(" + std::to_string(out.projectedTarget.ndc.x) +
-                        "," + std::to_string(out.projectedTarget.ndc.y) + ") radius=" + std::to_string(out.projectedTarget.radius);
-                }
-                return false;
-            }
+            out.hasProjectedMetrics = true;
         }
     }
 
@@ -184,7 +167,7 @@ bool CCameraFollowRegressionUtilities::validateFollowTargetContract(
 
         out.hasSphericalState = true;
         out.sphericalTarget = state.target;
-        out.sphericalDistance = state.distance;
+        out.sphericalDistance = static_cast<hlsl::float64_t>(state.distance);
 
         const auto& trackedTargetGimbal = trackedTarget.getGimbal();
         const auto& cameraGimbal = camera->getGimbal();

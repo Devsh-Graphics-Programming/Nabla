@@ -29,7 +29,7 @@ bool CCameraGoalSolver::capture(ICamera* camera, CCameraGoal& out) const
     if (!camera)
         return false;
 
-    const ICamera::CGimbal& gimbal = camera->getGimbal();
+    const CCameraGimbal& gimbal = camera->getGimbal();
     out.position = hlsl::float64_t3(gimbal.getPosition());
     out.orientation = gimbal.getOrientation();
     out.sourceKind = camera->getKind();
@@ -354,7 +354,7 @@ bool CCameraGoalSolver::computePoseMismatch(ICamera* camera, const CCameraGoal& 
     if (!camera)
         return false;
 
-    const ICamera::CGimbal& gimbal = camera->getGimbal();
+    const CCameraGimbal& gimbal = camera->getGimbal();
     SCameraPoseDelta<hlsl::float64_t> poseDelta = {};
     if (!CCameraMathUtilities::tryComputePoseDelta<hlsl::float64_t>(gimbal.getPosition(), gimbal.getOrientation(), target.position, target.orientation, poseDelta))
         return false;
@@ -500,7 +500,7 @@ bool CCameraGoalSolver::buildSphericalEvents(ICamera* camera, const CCameraGoal&
 
 bool CCameraGoalSolver::buildFreeEvents(ICamera* camera, const CCameraGoal& target, std::vector<CVirtualGimbalEvent>& out) const
 {
-    const ICamera::CGimbal& gimbal = camera->getGimbal();
+    const CCameraGimbal& gimbal = camera->getGimbal();
     const hlsl::float64_t3 currentPos = gimbal.getPosition();
     const hlsl::float64_t3 deltaWorld = target.position - currentPos;
     CCameraVirtualEventUtilities::appendWorldTranslationAsLocalEvents(

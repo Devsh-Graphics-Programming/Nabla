@@ -31,7 +31,7 @@ public:
     }
     ~CArcballCamera() = default;
 
-    const typename base_t::CGimbal& getGimbal() override { return m_gimbal; }
+    const CCameraGimbal& getGimbal() override { return m_gimbal; }
 
     using base_t::setPose;
 
@@ -54,7 +54,7 @@ public:
         if (virtualEvents.empty())
             return false;
 
-        const auto impulse = m_gimbal.accumulate<AllowedVirtualEvents>(virtualEvents);
+        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
 
         const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
         const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);

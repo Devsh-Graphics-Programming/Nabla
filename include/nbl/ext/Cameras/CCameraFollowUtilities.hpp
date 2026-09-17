@@ -22,7 +22,7 @@ namespace nbl::ext::cameras
 class CTrackedTarget
 {
 public:
-    using gimbal_t = ICamera::CGimbal;
+    using gimbal_t = IGimbal;
 
     /// @brief Construct a tracked target from an initial pose and optional identifier.
     CTrackedTarget(
@@ -60,14 +60,14 @@ private:
 ///
 /// - `OrbitTarget` rewrites target-relative camera state so the tracked target becomes the camera target
 /// - `LookAtTarget` preserves camera position and rebuilds orientation toward the tracked target
-/// - `KeepWorldOffset` places the camera at `trackedTarget.position + worldOffset` and looks at the target
-/// - `KeepLocalOffset` transforms `localOffset` by the tracked-target local frame and looks at the target
+/// - `KeepWorldOffset` places the camera at `trackedTarget.position + offset` and looks at the target
+/// - `KeepLocalOffset` transforms `offset` by the tracked-target local frame and looks at the target
 ///
 /// The tracked target provides pose data. The camera reads that data and does
 /// not own the tracked subject.
 enum class ECameraFollowMode : uint8_t
 {
-    Disabled,
+    Unknown,
     OrbitTarget,
     LookAtTarget,
     KeepWorldOffset,
@@ -75,136 +75,35 @@ enum class ECameraFollowMode : uint8_t
 };
 
 /// @brief Reusable follow configuration interpreted against a tracked target gimbal.
-/// `worldOffset` and `localOffset` are only meaningful for their matching offset-based modes.
 struct SCameraFollowConfig
 {
     /// @brief Whether follow should be applied at all.
     bool enabled = false;
     /// @brief Follow policy used when the configuration is enabled.
     ECameraFollowMode mode = ECameraFollowMode::OrbitTarget;
-    /// @brief World-space offset preserved by `KeepWorldOffset`.
-    hlsl::float64_t3 worldOffset = hlsl::float64_t3(0.0);
-    /// @brief Target-local offset preserved by `KeepLocalOffset`.
-    hlsl::float64_t3 localOffset = hlsl::float64_t3(0.0);
+    /// @brief Camera-to-target offset in the frame the mode reads it in: world space under `KeepWorldOffset`,
+    /// tracked-target local space under `KeepLocalOffset`, unused by the other modes.
+    /// `captureFollowOffsetsFromCamera` writes it in whichever frame the current mode needs.
+    hlsl::float64_t3 offset = hlsl::float64_t3(0.0);
 };
 
 /// @brief Shared policy helpers for tracked-target follow.
 ///
-/// The helpers decide which follow modes lock the view, which ones move the
-/// camera, how offsets are captured, and how a tracked target is translated into
-/// a `CCameraGoal` that can then be applied through the shared goal solver.
+/// The helpers decide which follow modes lock the view, how offsets are captured,
+/// and how a tracked target is translated into a `CCameraGoal` that can then be
+/// applied through the shared goal solver.
 struct CCameraFollowUtilities final
 {
     /// @brief Return whether the follow mode rebuilds camera orientation toward the tracked target.
-    static inline constexpr bool cameraFollowModeLocksViewToTarget(const ECameraFollowMode mode)
-    {
-        switch (mode)
-        {
-            case ECameraFollowMode::OrbitTarget:
-            case ECameraFollowMode::LookAtTarget:
-            case ECameraFollowMode::KeepWorldOffset:
-            case ECameraFollowMode::KeepLocalOffset:
-                return true;
-            default:
-                return false;
-        }
-    }
+    static bool cameraFollowModeLocksViewToTarget(ECameraFollowMode mode);
 
-    /// @brief Return whether the follow mode moves the camera world position together with the target.
-    static inline constexpr bool cameraFollowModeMovesCameraPosition(const ECameraFollowMode mode)
-    {
-        switch (mode)
-        {
-            case ECameraFollowMode::OrbitTarget:
-            case ECameraFollowMode::KeepWorldOffset:
-            case ECameraFollowMode::KeepLocalOffset:
-                return true;
-            default:
-                return false;
-        }
-    }
+    /// @brief Return whether the follow mode reads `SCameraFollowConfig::offset`, which has to be captured first.
+    static bool cameraFollowModeUsesCapturedOffset(ECameraFollowMode mode);
 
-    /// @brief Return whether the follow mode preserves the current camera world position.
-    static inline constexpr bool cameraFollowModeKeepsCameraWorldPosition(const ECameraFollowMode mode)
-    {
-        return mode == ECameraFollowMode::LookAtTarget;
-    }
+    /// @brief Build the shared default follow configuration for one camera instance; a null camera gives a disabled one.
+    static SCameraFollowConfig makeDefaultFollowConfig(const ICamera* camera);
 
-    /// @brief Return whether the follow mode interprets `worldOffset`.
-    static inline constexpr bool cameraFollowModeUsesWorldOffset(const ECameraFollowMode mode)
-    {
-        return mode == ECameraFollowMode::KeepWorldOffset;
-    }
-
-    /// @brief Return whether the follow mode interprets `localOffset`.
-    static inline constexpr bool cameraFollowModeUsesLocalOffset(const ECameraFollowMode mode)
-    {
-        return mode == ECameraFollowMode::KeepLocalOffset;
-    }
-
-    /// @brief Return whether the follow mode needs the tracked target local frame.
-    static inline constexpr bool cameraFollowModeUsesTrackedTargetLocalFrame(const ECameraFollowMode mode)
-    {
-        return mode == ECameraFollowMode::KeepLocalOffset;
-    }
-
-    /// @brief Return whether the follow mode requires a captured offset before it can be replayed.
-    static inline constexpr bool cameraFollowModeUsesCapturedOffset(const ECameraFollowMode mode)
-    {
-        return cameraFollowModeUsesWorldOffset(mode) || cameraFollowModeUsesLocalOffset(mode);
-    }
-
-    /// @brief Return the shared default follow mode for one camera kind.
-    static inline constexpr ECameraFollowMode getDefaultCameraFollowMode(const ICamera::CameraKind kind)
-    {
-        switch (kind)
-        {
-            case ICamera::CameraKind::Orbit:
-            case ICamera::CameraKind::Arcball:
-            case ICamera::CameraKind::Turntable:
-            case ICamera::CameraKind::TopDown:
-            case ICamera::CameraKind::Isometric:
-            case ICamera::CameraKind::DollyZoom:
-            case ICamera::CameraKind::Path:
-                return ECameraFollowMode::OrbitTarget;
-            case ICamera::CameraKind::Chase:
-            case ICamera::CameraKind::Dolly:
-                return ECameraFollowMode::KeepLocalOffset;
-            default:
-                return ECameraFollowMode::Disabled;
-        }
-    }
-
-    /// @brief Build the shared default follow configuration for one camera kind.
-    static inline constexpr SCameraFollowConfig makeDefaultFollowConfig(const ICamera::CameraKind kind)
-    {
-        const auto mode = getDefaultCameraFollowMode(kind);
-        return {
-            .enabled = mode != ECameraFollowMode::Disabled,
-            .mode = mode
-        };
-    }
-
-    /// @brief Build the shared default follow configuration for one concrete camera instance.
-    static inline constexpr SCameraFollowConfig makeDefaultFollowConfig(const ICamera* const camera)
-    {
-        return camera ? makeDefaultFollowConfig(camera->getKind()) : SCameraFollowConfig{};
-    }
-
-    /// @brief Transform a tracked-target local offset into world space.
-    static hlsl::float64_t3 transformFollowLocalOffset(const ICamera::CGimbal& gimbal, const hlsl::float64_t3& localOffset);
-
-    /// @brief Project a world-space offset into the tracked target local frame.
-    static hlsl::float64_t3 projectFollowWorldOffsetToLocal(const ICamera::CGimbal& gimbal, const hlsl::float64_t3& worldOffset);
-
-    /// @brief Build a look-at orientation that points from `position` toward the tracked target.
-    static bool buildFollowLookAtOrientation(
-        const hlsl::float64_t3& position,
-        const hlsl::float64_t3& targetPosition,
-        const hlsl::float64_t3& preferredUp,
-        hlsl::math::quaternion<hlsl::float64_t>& outOrientation);
-
-    /// @brief Capture world-space and target-local follow offsets from the current camera pose.
+    /// @brief Store the current camera-to-target offset into `ioConfig`, in the frame `ioConfig.mode` reads it in.
     static bool captureFollowOffsetsFromCamera(
         const CCameraGoalSolver& solver,
         ICamera* camera,
@@ -212,11 +111,12 @@ struct CCameraFollowUtilities final
         SCameraFollowConfig& ioConfig);
 
     /// @brief Measure the angular lock error between a camera forward axis and a tracked target.
+    /// @param outDistance optional (may be null); receives the camera-to-target distance on success.
     static bool tryComputeFollowTargetLockMetrics(
-        const ICamera::CGimbal& cameraGimbal,
+        const IGimbal& cameraGimbal,
         const CTrackedTarget& trackedTarget,
-        float& outAngleDeg,
-        double* outDistance = nullptr);
+        hlsl::float64_t& outAngleDeg,
+        hlsl::float64_t* outDistance = nullptr);
 
     static bool tryBuildFollowPositionGoal(
         ICamera* camera,

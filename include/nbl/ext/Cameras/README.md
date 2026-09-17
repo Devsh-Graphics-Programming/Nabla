@@ -193,7 +193,7 @@ planar->getPlanarProjections().push_back(
 auto& projection = planar->getPlanarProjections()[0];
 projection.update(leftHanded, aspectRatio);
 
-const auto& view = camera->getGimbal().getViewMatrix();
+const auto& view = camera->getGimbal().getViewMatrixLH();
 const auto& proj = projection.getProjectionMatrix();
 ```
 
@@ -526,18 +526,24 @@ The same event type can come from keyboard input, mouse input, ImGuizmo, scripte
 
 Defined in [`IGimbal.hpp`](IGimbal.hpp) and used by [`ICamera.hpp`](ICamera.hpp).
 
-The gimbal stores runtime pose:
+The gimbal stores the runtime pose plus a manipulation counter:
 
 - position
 - orientation
-- scale
-- orthonormal basis
+- number of manipulations that changed the pose
 
-It also accumulates one frame of semantic events into a `VirtualImpulse`.
+The orthonormal basis and the world matrix are derived from the orientation on each call.
+Each setter returns whether the stored pose changed, and a changed pose advances the counter by one.
 
-`ICamera::CGimbal` extends the base gimbal with a cached world-to-view matrix.
+`CCameraGimbal` in [`CCameraGimbal.hpp`](CCameraGimbal.hpp) extends it with the world-to-view matrix.
+That matrix is rebuilt on the first read after a manipulation and cached against the counter until the next
+one, so a burst of writes costs one rebuild. Reading mutates the cache, so one instance must not be read from
+several threads at once.
 
-Every runtime camera owns one `CGimbal`.
+Every runtime camera owns one `CCameraGimbal`.
+
+One frame of semantic events is summed into an `SVirtualImpulse` by
+`accumulateVirtualEvents<AllowedEvents>(...)` in [`CVirtualGimbalEvent.hpp`](CVirtualGimbalEvent.hpp).
 
 ### `ICamera`
 

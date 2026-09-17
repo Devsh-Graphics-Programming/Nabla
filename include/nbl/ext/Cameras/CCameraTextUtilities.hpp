@@ -48,7 +48,7 @@ public:
 	{
 		switch (mode)
 		{
-			case ECameraFollowMode::Disabled: return "Disabled";
+			case ECameraFollowMode::Unknown: return "Disabled";
 			case ECameraFollowMode::OrbitTarget: return "Orbit target";
 			case ECameraFollowMode::LookAtTarget: return "Look at target";
 			case ECameraFollowMode::KeepWorldOffset: return "Keep world offset";
@@ -62,7 +62,7 @@ public:
 	{
 		switch (mode)
 		{
-			case ECameraFollowMode::Disabled: return "Follow disabled";
+			case ECameraFollowMode::Unknown: return "Follow disabled";
 			case ECameraFollowMode::OrbitTarget: return "Keep orbit around moving target and keep it centered";
 			case ECameraFollowMode::LookAtTarget: return "Keep camera position and lock the view onto the target";
 			case ECameraFollowMode::KeepWorldOffset: return "Move with the target in world offset and keep it centered";
