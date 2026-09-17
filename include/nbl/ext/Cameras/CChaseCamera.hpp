@@ -57,10 +57,10 @@ public:
 
         const auto basis = computeBasis(m_orbitUv, m_distance);
 
-        const auto planarForward = hlsl::CCameraMathUtilities::safeNormalizeVec3(
+        const auto planarForward = CCameraMathUtilities::safeNormalizeVec3(
             hlsl::float64_t3(basis.forward.x, 0.0, basis.forward.z),
             hlsl::float64_t3(0.0, 0.0, 1.0));
-        const auto planarRight = hlsl::CCameraMathUtilities::safeNormalizeVec3(
+        const auto planarRight = CCameraMathUtilities::safeNormalizeVec3(
             hlsl::float64_t3(basis.right.x, 0.0, basis.right.z),
             hlsl::float64_t3(1.0, 0.0, 0.0));
 

@@ -246,10 +246,10 @@ CCameraGoalSolver::SApplyResult CCameraGoalSolver::applyDetailed(ICamera* camera
             }
             else
             {
-                const bool dynamicChanged = !hlsl::CCameraMathUtilities::nearlyEqualScalar(beforeState.baseFov, afterState.baseFov, static_cast<float>(SCameraToolingThresholds::ScalarTolerance)) ||
-                    !hlsl::CCameraMathUtilities::nearlyEqualScalar(beforeState.referenceDistance, afterState.referenceDistance, static_cast<float>(SCameraToolingThresholds::ScalarTolerance));
-                const bool dynamicExact = hlsl::CCameraMathUtilities::nearlyEqualScalar(afterState.baseFov, canonicalTarget.dynamicPerspectiveState.baseFov, static_cast<float>(SCameraToolingThresholds::ScalarTolerance)) &&
-                    hlsl::CCameraMathUtilities::nearlyEqualScalar(afterState.referenceDistance, canonicalTarget.dynamicPerspectiveState.referenceDistance, static_cast<float>(SCameraToolingThresholds::ScalarTolerance));
+                const bool dynamicChanged = !CCameraMathUtilities::nearlyEqualScalar(beforeState.baseFov, afterState.baseFov, static_cast<float>(SCameraToolingThresholds::ScalarTolerance)) ||
+                    !CCameraMathUtilities::nearlyEqualScalar(beforeState.referenceDistance, afterState.referenceDistance, static_cast<float>(SCameraToolingThresholds::ScalarTolerance));
+                const bool dynamicExact = CCameraMathUtilities::nearlyEqualScalar(afterState.baseFov, canonicalTarget.dynamicPerspectiveState.baseFov, static_cast<float>(SCameraToolingThresholds::ScalarTolerance)) &&
+                    CCameraMathUtilities::nearlyEqualScalar(afterState.referenceDistance, canonicalTarget.dynamicPerspectiveState.referenceDistance, static_cast<float>(SCameraToolingThresholds::ScalarTolerance));
 
                 absoluteChanged = absoluteChanged || dynamicChanged;
                 exact = exact && dynamicExact;
@@ -355,8 +355,8 @@ bool CCameraGoalSolver::computePoseMismatch(ICamera* camera, const CCameraGoal& 
         return false;
 
     const ICamera::CGimbal& gimbal = camera->getGimbal();
-    hlsl::SCameraPoseDelta<hlsl::float64_t> poseDelta = {};
-    if (!hlsl::CCameraMathUtilities::tryComputePoseDelta<hlsl::float64_t>(gimbal.getPosition(), gimbal.getOrientation(), target.position, target.orientation, poseDelta))
+    SCameraPoseDelta<hlsl::float64_t> poseDelta = {};
+    if (!CCameraMathUtilities::tryComputePoseDelta<hlsl::float64_t>(gimbal.getPosition(), gimbal.getOrientation(), target.position, target.orientation, poseDelta))
         return false;
 
     outPositionDelta = poseDelta.position;
@@ -391,7 +391,7 @@ bool CCameraGoalSolver::tryApplyAbsoluteReferencePose(ICamera* camera, const CCa
         return true;
     }
 
-    const auto targetFrame = hlsl::CCameraMathUtilities::composeTransformMatrix(target.position, target.orientation);
+    const auto targetFrame = CCameraMathUtilities::composeTransformMatrix(target.position, target.orientation);
 
     camera->manipulate({}, &targetFrame);
 
@@ -400,8 +400,8 @@ bool CCameraGoalSolver::tryApplyAbsoluteReferencePose(ICamera* camera, const CCa
     if (!computePoseMismatch(camera, target, afterPosDelta, afterRotDeltaDeg))
         return false;
 
-    outChanged = !hlsl::CCameraMathUtilities::isNearlyZeroScalar(afterPosDelta - beforePosDelta, static_cast<double>(SCameraToolingThresholds::TinyScalarEpsilon)) ||
-        !hlsl::CCameraMathUtilities::isNearlyZeroScalar(afterRotDeltaDeg - beforeRotDeltaDeg, static_cast<double>(SCameraToolingThresholds::TinyScalarEpsilon));
+    outChanged = !CCameraMathUtilities::isNearlyZeroScalar(afterPosDelta - beforePosDelta, static_cast<double>(SCameraToolingThresholds::TinyScalarEpsilon)) ||
+        !CCameraMathUtilities::isNearlyZeroScalar(afterRotDeltaDeg - beforeRotDeltaDeg, static_cast<double>(SCameraToolingThresholds::TinyScalarEpsilon));
     outExact = afterPosDelta <= SCameraToolingThresholds::DefaultPositionTolerance && afterRotDeltaDeg <= SCameraToolingThresholds::DefaultAngularToleranceDeg;
     return true;
 }
@@ -514,8 +514,8 @@ bool CCameraGoalSolver::buildFreeEvents(ICamera* camera, const CCameraGoal& targ
     {
         case ICamera::CameraKind::FPS:
         {
-            const hlsl::float64_t2 currentPitchYaw = hlsl::CCameraMathUtilities::getPitchYawFromOrientation(gimbal.getOrientation());
-            const hlsl::float64_t2 targetPitchYaw = hlsl::CCameraMathUtilities::getPitchYawFromOrientation(target.orientation);
+            const hlsl::float64_t2 currentPitchYaw = CCameraMathUtilities::getPitchYawFromOrientation(gimbal.getOrientation());
+            const hlsl::float64_t2 targetPitchYaw = CCameraMathUtilities::getPitchYawFromOrientation(target.orientation);
 
             const double rotScale = camera->getRotationSpeedScale();
             const double invScale = rotScale == 0.0 ? SGoalSolverDefaults::UnitScale : (SGoalSolverDefaults::UnitScale / rotScale);
@@ -523,8 +523,8 @@ bool CCameraGoalSolver::buildFreeEvents(ICamera* camera, const CCameraGoal& targ
             appendYawPitchRollEvents(
                 out,
                 hlsl::float64_t3(
-                    hlsl::CCameraMathUtilities::wrapAngleRad<hlsl::float64_t>(targetPitchYaw.x - currentPitchYaw.x) * invScale,
-                    hlsl::CCameraMathUtilities::wrapAngleRad<hlsl::float64_t>(targetPitchYaw.y - currentPitchYaw.y) * invScale,
+                    CCameraMathUtilities::wrapAngleRad<hlsl::float64_t>(targetPitchYaw.x - currentPitchYaw.x) * invScale,
+                    CCameraMathUtilities::wrapAngleRad<hlsl::float64_t>(targetPitchYaw.y - currentPitchYaw.y) * invScale,
                     0.0),
                 SGoalSolverDefaults::UnitScale,
                 false);
@@ -534,7 +534,7 @@ bool CCameraGoalSolver::buildFreeEvents(ICamera* camera, const CCameraGoal& targ
         {
             appendYawPitchRollEvents(
                 out,
-                hlsl::CCameraMathUtilities::getOrientationDeltaEulerRadiansYXZ<hlsl::float64_t>(gimbal.getOrientation(), target.orientation),
+                CCameraMathUtilities::getOrientationDeltaEulerRadiansYXZ<hlsl::float64_t>(gimbal.getOrientation(), target.orientation),
                 SGoalSolverDefaults::UnitScale);
         } break;
 

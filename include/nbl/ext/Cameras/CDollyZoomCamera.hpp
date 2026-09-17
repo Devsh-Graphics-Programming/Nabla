@@ -96,7 +96,7 @@ public:
     /// @brief Replace the authored dolly-zoom state after validating both scalars.
     virtual bool trySetDynamicPerspectiveState(const DynamicPerspectiveState& state) override
     {
-        if (!hlsl::CCameraMathUtilities::isFiniteScalar(state.baseFov) || !hlsl::CCameraMathUtilities::isFiniteScalar(state.referenceDistance) || state.referenceDistance <= 0.f)
+        if (!CCameraMathUtilities::isFiniteScalar(state.baseFov) || !CCameraMathUtilities::isFiniteScalar(state.referenceDistance) || state.referenceDistance <= 0.f)
             return false;
 
         m_baseFov = state.baseFov;

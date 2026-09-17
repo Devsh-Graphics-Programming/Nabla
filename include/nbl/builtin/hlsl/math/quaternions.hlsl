@@ -23,7 +23,7 @@ struct truncated_quaternion
     using scalar_type = T;
     using data_type = vector<T, 3>;
 
-    static this_t create()
+    static this_t identity()
     {
         this_t q;
         q.data = data_type(0.0, 0.0, 0.0);
@@ -44,17 +44,18 @@ struct quaternion
 
     using AsUint = typename unsigned_integer_of_size<sizeof(scalar_type)>::type;
 
-    static this_t create()
+    //! The rotation that does nothing.
+    static this_t identity()
     {
         this_t q;
         q.data = data_type(0.0, 0.0, 0.0, 1.0);
         return q;
     }
 
-    // angle: Rotation angle expressed in radians.
-    // axis: Rotation axis, must be normalized.
+    //! Rotation of `angle` radians about `axis`, which must be normalized.
+    //! `uniformScale` scales the resulting quaternion, so it no longer has unit length.
     template<typename U=vector3_type NBL_FUNC_REQUIRES(is_same_v<vector3_type,U>)
-    static this_t create(const U axis, const typename vector_traits<U>::scalar_type angle, const typename vector_traits<U>::scalar_type uniformScale = typename vector_traits<U>::scalar_type(1.0))
+    static this_t createFromAxisAngle(const U axis, const typename vector_traits<U>::scalar_type angle, const typename vector_traits<U>::scalar_type uniformScale = typename vector_traits<U>::scalar_type(1.0))
     {
         using scalar_t = typename vector_traits<U>::scalar_type;
         this_t q;
@@ -65,9 +66,10 @@ struct quaternion
         return q;
     }
 
-    // applies rotation equivalent to 3x3 matrix in order of pitch * yaw * roll (X * Y * Z) -- mul(roll,mul(yaw,mul(pitch,v)))
+    //! `createFromEulerAnglesXYZ` for callers that already hold the half angle sines and cosines.
+    //! Each argument is `(cos(halfAngle), sin(halfAngle))`; the composition order is the same X * Y * Z.
     template<typename U=vector<scalar_type,2> NBL_FUNC_REQUIRES(is_same_v<vector<scalar_type,2>,U>)
-    static this_t create(const U halfPitchCosSin, const U halfYawCosSin, const U halfRollCosSin)
+    static this_t createFromHalfAngleCosSinXYZ(const U halfPitchCosSin, const U halfYawCosSin, const U halfRollCosSin)
     {
         const scalar_type cp = halfPitchCosSin.x;
         const scalar_type sp = halfPitchCosSin.y;
@@ -87,21 +89,28 @@ struct quaternion
         return q;
     }
 
+    //! Applies pitch about X, then yaw about Y, then roll about Z, i.e. `mul(roll, mul(yaw, mul(pitch, v)))`.
+    //! Angles are in radians. The composition order is in the name because the same three angles composed in a
+    //! different order give a different rotation.
     template<typename U=scalar_type NBL_FUNC_REQUIRES(is_same_v<scalar_type,U>)
-    static this_t create(const U pitch, const U yaw, const U roll)
+    static this_t createFromEulerAnglesXYZ(const U pitch, const U yaw, const U roll)
     {
         const scalar_type halfPitch = pitch * scalar_type(0.5);
         const scalar_type halfYaw = yaw * scalar_type(0.5);
         const scalar_type halfRoll = roll * scalar_type(0.5);
 
-        return create(
+        return createFromHalfAngleCosSinXYZ(
             vector<scalar_type,2>(hlsl::cos(halfPitch), hlsl::sin(halfPitch)),
             vector<scalar_type,2>(hlsl::cos(halfYaw), hlsl::sin(halfYaw)),
             vector<scalar_type,2>(hlsl::cos(halfRoll), hlsl::sin(halfRoll))
         );
     }
 
-    static this_t create(NBL_CONST_REF_ARG(matrix_type) _m, const bool dontAssertValidMatrix=false)
+    //! Inverse of `_static_cast<matrix<T,3,3>>(q)`, so `_m` has its basis vectors in the COLUMNS and
+    //! `mul(_m, v) == q.transformVector(v)`.
+    //! Only orthogonal, uniformly scaled matrices convert. `dontAssertValidMatrix` returns a NaN quaternion
+    //! for anything else instead of asserting.
+    static this_t createFromRotationMatrix(NBL_CONST_REF_ARG(matrix_type) _m, const bool dontAssertValidMatrix=false)
     {
         scalar_type uniformColumnSqNorm;
         {
@@ -388,143 +397,11 @@ struct static_cast_helper<matrix<T,3,3>, math::quaternion<T> >
 };
 
 template<typename T>
-inline bool is_finite_quaternion(NBL_CONST_REF_ARG(math::quaternion<T>) q)
-{
-    return !hlsl::isnan(q.data.x) &&
-        !hlsl::isnan(q.data.y) &&
-        !hlsl::isnan(q.data.z) &&
-        !hlsl::isnan(q.data.w);
-}
-
-template<typename T>
-inline T score_matrix_to_quaternion_cast_candidate(
-    NBL_CONST_REF_ARG(matrix<T,3,3>) target,
-    NBL_CONST_REF_ARG(math::quaternion<T>) candidate)
-{
-    if (!is_finite_quaternion(candidate))
-        return bit_cast<T>(numeric_limits<T>::infinity);
-
-    const vector<T,3> rebuiltRight = candidate.transformVector(vector<T,3>(T(1), T(0), T(0)), true);
-    const vector<T,3> rebuiltUp = candidate.transformVector(vector<T,3>(T(0), T(1), T(0)), true);
-    const vector<T,3> rebuiltForward = candidate.transformVector(vector<T,3>(T(0), T(0), T(1)), true);
-    return
-        hlsl::length(rebuiltRight - target[0]) +
-        hlsl::length(rebuiltUp - target[1]) +
-        hlsl::length(rebuiltForward - target[2]);
-}
-
-template<typename T>
-inline math::quaternion<T> direct_matrix_to_quaternion_cast(NBL_CONST_REF_ARG(matrix<T,3,3>) input)
-{
-    typedef math::quaternion<T> quaternion_t;
-    typedef typename quaternion_t::data_type data_type;
-
-    const T xLengthSq = hlsl::dot(input[0], input[0]);
-    const T yLengthSq = hlsl::dot(input[1], input[1]);
-    const T zLengthSq = hlsl::dot(input[2], input[2]);
-    const T uniformScaleSq = (xLengthSq + yLengthSq + zLengthSq) / T(3.0);
-    if (uniformScaleSq < numeric_limits<T>::min)
-    {
-        quaternion_t retval;
-        retval.data = hlsl::promote<data_type>(bit_cast<T>(numeric_limits<T>::quiet_NaN));
-        return retval;
-    }
-
-    const T uniformScale = hlsl::sqrt(uniformScaleSq);
-    matrix<T,3,3> m = input;
-    m /= uniformScale;
-
-    const T m00 = m[0][0];
-    const T m11 = m[1][1];
-    const T m22 = m[2][2];
-    const T neg_m00 = -m00;
-    const T neg_m11 = -m11;
-    const T neg_m22 = -m22;
-    const data_type Qx = data_type(m00, m00, neg_m00, neg_m00);
-    const data_type Qy = data_type(m11, neg_m11, m11, neg_m11);
-    const data_type Qz = data_type(m22, neg_m22, neg_m22, m22);
-    const data_type tmp = Qx + Qy + Qz;
-
-    quaternion_t retval;
-    if (tmp.x > T(0.0))
-    {
-        const T scales = hlsl::sqrt(tmp.x + T(1.0));
-        const T invscales = T(0.5) / scales;
-        retval.data.x = (m[2][1] - m[1][2]) * invscales;
-        retval.data.y = (m[0][2] - m[2][0]) * invscales;
-        retval.data.z = (m[1][0] - m[0][1]) * invscales;
-        retval.data.w = scales * T(0.5);
-    }
-    else if (tmp.y > T(0.0))
-    {
-        const T scales = hlsl::sqrt(tmp.y + T(1.0));
-        const T invscales = T(0.5) / scales;
-        retval.data.x = scales * T(0.5);
-        retval.data.y = (m[0][1] + m[1][0]) * invscales;
-        retval.data.z = (m[2][0] + m[0][2]) * invscales;
-        retval.data.w = (m[2][1] - m[1][2]) * invscales;
-    }
-    else if (tmp.z > T(0.0))
-    {
-        const T scales = hlsl::sqrt(tmp.z + T(1.0));
-        const T invscales = T(0.5) / scales;
-        retval.data.x = (m[0][1] + m[1][0]) * invscales;
-        retval.data.y = scales * T(0.5);
-        retval.data.z = (m[1][2] + m[2][1]) * invscales;
-        retval.data.w = (m[0][2] - m[2][0]) * invscales;
-    }
-    else
-    {
-        const T scales = hlsl::sqrt(tmp.w + T(1.0));
-        const T invscales = T(0.5) / scales;
-        retval.data.x = (m[0][2] + m[2][0]) * invscales;
-        retval.data.y = (m[1][2] + m[2][1]) * invscales;
-        retval.data.z = scales * T(0.5);
-        retval.data.w = (m[1][0] - m[0][1]) * invscales;
-    }
-
-    retval.data *= uniformScale;
-    return retval;
-}
-
-template<typename T>
-inline math::quaternion<T> matrix_to_quaternion_cast(NBL_CONST_REF_ARG(matrix<T,3,3>) m)
-{
-    const math::quaternion<T> directCandidate = math::quaternion<T>::create(m, true);
-    const math::quaternion<T> transposedCandidate = math::quaternion<T>::create(hlsl::transpose(m), true);
-    const math::quaternion<T> directFallback = direct_matrix_to_quaternion_cast(m);
-    const math::quaternion<T> transposedFallback = direct_matrix_to_quaternion_cast(hlsl::transpose(m));
-
-    const T directScore = score_matrix_to_quaternion_cast_candidate(m, directCandidate);
-    const T transposedScore = score_matrix_to_quaternion_cast_candidate(m, transposedCandidate);
-    const T directFallbackScore = score_matrix_to_quaternion_cast_candidate(m, directFallback);
-    const T transposedFallbackScore = score_matrix_to_quaternion_cast_candidate(m, transposedFallback);
-
-    math::quaternion<T> bestCandidate = directCandidate;
-    T bestScore = directScore;
-
-    if (transposedScore < bestScore)
-    {
-        bestCandidate = transposedCandidate;
-        bestScore = transposedScore;
-    }
-    if (directFallbackScore < bestScore)
-    {
-        bestCandidate = directFallback;
-        bestScore = directFallbackScore;
-    }
-    if (transposedFallbackScore < bestScore)
-        bestCandidate = transposedFallback;
-
-    return bestCandidate;
-}
-
-template<typename T>
 struct static_cast_helper<math::quaternion<T>, matrix<T,3,3> >
 {
     static inline math::quaternion<T> cast(NBL_CONST_REF_ARG(matrix<T,3,3>) m)
     {
-        return matrix_to_quaternion_cast(m);
+        return math::quaternion<T>::createFromRotationMatrix(m, true);
     }
 };
 }

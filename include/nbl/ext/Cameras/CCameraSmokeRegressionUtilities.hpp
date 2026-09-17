@@ -15,7 +15,7 @@
 namespace nbl::ext::cameras
 {
 
-using SCameraManipulationDelta = hlsl::SCameraPoseDelta<hlsl::float64_t>;
+using SCameraManipulationDelta = SCameraPoseDelta<hlsl::float64_t>;
 
 struct SCameraSmokeComparisonThresholds final
 {
@@ -45,8 +45,8 @@ public:
 
         const auto& gimbal = camera->getGimbal();
         const auto afterPosition = gimbal.getPosition();
-        const auto afterOrientation = hlsl::CCameraMathUtilities::normalizeQuaternion(gimbal.getOrientation());
-        return hlsl::CCameraMathUtilities::tryComputePoseDelta(afterPosition, afterOrientation, beforePosition, beforeOrientation, outDelta);
+        const auto afterOrientation = hlsl::normalize(gimbal.getOrientation());
+        return CCameraMathUtilities::tryComputePoseDelta(afterPosition, afterOrientation, beforePosition, beforeOrientation, outDelta);
     }
 
     /// @brief Manipulate a camera and report how far its pose moved in position and Euler-angle terms.
@@ -62,8 +62,8 @@ public:
 
         const auto& beforeGimbal = camera->getGimbal();
         const auto beforePosition = beforeGimbal.getPosition();
-        const auto beforeOrientation = hlsl::CCameraMathUtilities::normalizeQuaternion(beforeGimbal.getOrientation());
-        if (!hlsl::CCameraMathUtilities::isFiniteVec3(beforePosition) || !hlsl::CCameraMathUtilities::isFiniteQuaternion(beforeOrientation))
+        const auto beforeOrientation = hlsl::normalize(beforeGimbal.getOrientation());
+        if (!CCameraMathUtilities::isFiniteVec3(beforePosition) || !CCameraMathUtilities::isFiniteQuaternion(beforeOrientation))
             return false;
 
         if (!camera->manipulate(events))

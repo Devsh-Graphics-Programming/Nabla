@@ -28,13 +28,13 @@ public:
         static inline constexpr float InvertedRollDeg = 180.0f;
     };
 
-    CFPSCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>())
+    CFPSCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::math::quaternion<hlsl::float64_t>::identity())
         : base_t(), m_gimbal(typename base_t::CGimbal::base_t::SCreationParameters{ .position = position, .orientation = orientation }) 
     {
         m_gimbal.begin();
         {
-            const auto pitchYaw = hlsl::CCameraMathUtilities::getPitchYawFromForwardVector(m_gimbal.getZAxis());
-            m_gimbal.setOrientation(hlsl::CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(pitchYaw.x, pitchYaw.y, 0.0)));
+            const auto pitchYaw = CCameraMathUtilities::getPitchYawFromForwardVector(m_gimbal.getZAxis());
+            m_gimbal.setOrientation(CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(pitchYaw.x, pitchYaw.y, 0.0)));
         }
         m_gimbal.end();
     }
@@ -58,11 +58,11 @@ public:
         {
             if (referenceFrame)
             {
-                const float roll = static_cast<float>(hlsl::degrees(hlsl::CCameraMathUtilities::getQuaternionEulerRadiansYXZ(reference.orientation).z));
+                const float roll = static_cast<float>(hlsl::degrees(CCameraMathUtilities::getQuaternionEulerRadiansYXZ(reference.orientation).z));
                 const bool matchesStraightRoll =
-                    hlsl::CCameraMathUtilities::getWrappedAngleDistanceDegrees(roll, SFpsCameraDefaults::StraightRollDeg) <= SFpsCameraDefaults::RollValidationEpsilonDeg;
+                    CCameraMathUtilities::getWrappedAngleDistanceDegrees(roll, SFpsCameraDefaults::StraightRollDeg) <= SFpsCameraDefaults::RollValidationEpsilonDeg;
                 const bool matchesInvertedRoll =
-                    hlsl::CCameraMathUtilities::getWrappedAngleDistanceDegrees(roll, SFpsCameraDefaults::InvertedRollDeg) <= SFpsCameraDefaults::RollValidationEpsilonDeg;
+                    CCameraMathUtilities::getWrappedAngleDistanceDegrees(roll, SFpsCameraDefaults::InvertedRollDeg) <= SFpsCameraDefaults::RollValidationEpsilonDeg;
 
                 if (!(matchesStraightRoll || matchesInvertedRoll))
                     return false;
@@ -78,13 +78,13 @@ public:
         m_gimbal.begin();
         {
             const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-            const auto pitchYaw = hlsl::CCameraMathUtilities::getPitchYawFromForwardVector(hlsl::float64_t3(reference.frame[2]));
+            const auto pitchYaw = CCameraMathUtilities::getPitchYawFromForwardVector(reference.getBasis().forward);
             const float newPitch = std::clamp<float>(static_cast<float>(pitchYaw.x + scaleVirtualRotation(impulse.dVirtualRotation.x)), MinVerticalAngle, MaxVerticalAngle);
             const float newYaw = static_cast<float>(pitchYaw.y + scaleVirtualRotation(impulse.dVirtualRotation.y));
 
             if (validateReference())
-                m_gimbal.setOrientation(hlsl::CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(newPitch, newYaw, 0.0f)));
-            m_gimbal.setPosition(hlsl::float64_t3(reference.frame[3]) + hlsl::CCameraMathUtilities::rotateVectorByQuaternion(reference.orientation, hlsl::float64_t3(deltaTranslation)));
+                m_gimbal.setOrientation(CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(newPitch, newYaw, 0.0f)));
+            m_gimbal.setPosition(reference.getPosition() + hlsl::normalize(reference.orientation).transformVector(hlsl::float64_t3(deltaTranslation), true));
         }
         m_gimbal.end();
 
@@ -116,7 +116,7 @@ private:
     typename base_t::CGimbal m_gimbal;
 
     static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::Rotate;
-    static inline constexpr float MaxVerticalAngle = static_cast<float>(hlsl::SCameraViewRigDefaults::FpsVerticalPitchLimitRad);
+    static inline constexpr float MaxVerticalAngle = static_cast<float>(SCameraViewRigDefaults::FpsVerticalPitchLimitRad);
     static inline constexpr float MinVerticalAngle = -MaxVerticalAngle;
 };
 

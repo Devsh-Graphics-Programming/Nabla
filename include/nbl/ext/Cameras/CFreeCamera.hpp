@@ -16,7 +16,7 @@ class CFreeCamera final : public ICamera
 public:
     using base_t = ICamera;
 
-    CFreeCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>())
+    CFreeCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::math::quaternion<hlsl::float64_t>::identity())
         : base_t(), m_gimbal(typename base_t::CGimbal::base_t::SCreationParameters{ .position = position, .orientation = orientation }) {}
     ~CFreeCamera() = default;
 
@@ -42,12 +42,13 @@ public:
         {
             const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
             const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-            const auto pitch = hlsl::CCameraMathUtilities::makeQuaternionFromAxisAngle(hlsl::normalize(hlsl::float64_t3(reference.frame[0])), deltaRotation.x);
-            const auto yaw = hlsl::CCameraMathUtilities::makeQuaternionFromAxisAngle(hlsl::normalize(hlsl::float64_t3(reference.frame[1])), deltaRotation.y);
-            const auto roll = hlsl::CCameraMathUtilities::makeQuaternionFromAxisAngle(hlsl::normalize(hlsl::float64_t3(reference.frame[2])), deltaRotation.z);
+            const auto referenceBasis = reference.getBasis();
+            const auto pitch = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(referenceBasis.right, deltaRotation.x);
+            const auto yaw = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(referenceBasis.up, deltaRotation.y);
+            const auto roll = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(referenceBasis.forward, deltaRotation.z);
 
-            m_gimbal.setOrientation(hlsl::CCameraMathUtilities::normalizeQuaternion(yaw * pitch * roll * reference.orientation));
-            m_gimbal.setPosition(hlsl::float64_t3(reference.frame[3]) + hlsl::CCameraMathUtilities::rotateVectorByQuaternion(reference.orientation, hlsl::float64_t3(deltaTranslation)));
+            m_gimbal.setOrientation(hlsl::normalize(yaw * pitch * roll * reference.orientation));
+            m_gimbal.setPosition(reference.getPosition() + hlsl::normalize(reference.orientation).transformVector(hlsl::float64_t3(deltaTranslation), true));
         }
         m_gimbal.end();
 

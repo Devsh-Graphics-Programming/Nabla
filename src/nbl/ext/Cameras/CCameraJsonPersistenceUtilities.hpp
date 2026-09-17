@@ -33,7 +33,7 @@ struct CCameraJsonPersistenceUtilities final
         if (entry.contains("orientation") && entry["orientation"].is_array())
         {
             const auto values = entry["orientation"].get<std::array<hlsl::float64_t, 4>>();
-            goal.orientation = hlsl::CCameraMathUtilities::makeQuaternionFromComponents<hlsl::float64_t>(values[0], values[1], values[2], values[3]);
+            goal.orientation = CCameraMathUtilities::makeQuaternionFromComponents<hlsl::float64_t>(values[0], values[1], values[2], values[3]);
         }
         if (entry.contains("target_position") && entry["target_position"].is_array())
         {

@@ -24,11 +24,11 @@ bool CCameraFollowRegressionUtilities::tryComputeProjectedFollowTargetMetrics(
     const float clipWEpsilon)
 {
     outMetrics = {};
-    const hlsl::float32_t3 target = hlsl::CCameraMathUtilities::castVector<hlsl::float32_t>(trackedTarget.getGimbal().getPosition());
+    const hlsl::float32_t3 target = hlsl::_static_cast<hlsl::float32_t3>(trackedTarget.getGimbal().getPosition());
     const auto viewSpace = hlsl::mul(projectionContext.viewMatrix, hlsl::float32_t4(target.x, target.y, target.z, 1.0f));
     const auto clipProjection = hlsl::transpose(projectionContext.projectionMatrix);
     const auto clip = hlsl::mul(clipProjection, viewSpace);
-    if (!hlsl::CCameraMathUtilities::isFiniteScalar(clip.x) || !hlsl::CCameraMathUtilities::isFiniteScalar(clip.y) || !hlsl::CCameraMathUtilities::isFiniteScalar(clip.z) || !hlsl::CCameraMathUtilities::isFiniteScalar(clip.w))
+    if (!CCameraMathUtilities::isFiniteScalar(clip.x) || !CCameraMathUtilities::isFiniteScalar(clip.y) || !CCameraMathUtilities::isFiniteScalar(clip.z) || !CCameraMathUtilities::isFiniteScalar(clip.w))
         return false;
 
     const auto absW = hlsl::abs(clip.w);
@@ -37,7 +37,7 @@ bool CCameraFollowRegressionUtilities::tryComputeProjectedFollowTargetMetrics(
 
     const float invW = 1.0f / clip.w;
     outMetrics.ndc = hlsl::float32_t2(clip.x, clip.y) * invW;
-    if (!hlsl::CCameraMathUtilities::isFiniteScalar(outMetrics.ndc.x) || !hlsl::CCameraMathUtilities::isFiniteScalar(outMetrics.ndc.y))
+    if (!CCameraMathUtilities::isFiniteScalar(outMetrics.ndc.x) || !CCameraMathUtilities::isFiniteScalar(outMetrics.ndc.y))
         return false;
 
     outMetrics.radius = hlsl::length(outMetrics.ndc);
@@ -129,7 +129,7 @@ bool CCameraFollowRegressionUtilities::validateFollowTargetContract(
         const hlsl::float64_t3 trackedTargetPosition = trackedTargetGimbal.getPosition();
         const hlsl::float64_t3 cameraPosition = cameraGimbal.getPosition();
         const double expectedTargetDistance = hlsl::length(trackedTargetPosition - cameraPosition);
-        if (!hlsl::CCameraMathUtilities::isFiniteScalar(expectedTargetDistance) || hlsl::abs(expectedTargetDistance - out.targetDistance) > thresholds.distanceTolerance)
+        if (!CCameraMathUtilities::isFiniteScalar(expectedTargetDistance) || hlsl::abs(expectedTargetDistance - out.targetDistance) > thresholds.distanceTolerance)
         {
             if (error)
             {
@@ -191,7 +191,7 @@ bool CCameraFollowRegressionUtilities::validateFollowTargetContract(
         const hlsl::float64_t3 trackedTargetPosition = trackedTargetGimbal.getPosition();
         const hlsl::float64_t3 targetDelta = state.target - trackedTargetPosition;
         const double targetDeltaLen = hlsl::length(targetDelta);
-        if (!hlsl::CCameraMathUtilities::isFiniteScalar(targetDeltaLen) || targetDeltaLen > thresholds.targetTolerance)
+        if (!CCameraMathUtilities::isFiniteScalar(targetDeltaLen) || targetDeltaLen > thresholds.targetTolerance)
         {
             if (error)
                 *error = "spherical target writeback mismatch";
@@ -201,7 +201,7 @@ bool CCameraFollowRegressionUtilities::validateFollowTargetContract(
         const double actualDistance = hlsl::length(cameraGimbal.getPosition() - trackedTargetPosition);
         const auto expectedDistance = followGoal.hasOrbitState ? static_cast<double>(followGoal.orbitDistance) :
             (followGoal.hasDistance ? static_cast<double>(followGoal.distance) : actualDistance);
-        if (!hlsl::CCameraMathUtilities::isFiniteScalar(actualDistance) || !hlsl::CCameraMathUtilities::isFiniteScalar(expectedDistance) ||
+        if (!CCameraMathUtilities::isFiniteScalar(actualDistance) || !CCameraMathUtilities::isFiniteScalar(expectedDistance) ||
             hlsl::abs(actualDistance - expectedDistance) > thresholds.distanceTolerance ||
             hlsl::abs(static_cast<double>(state.distance) - expectedDistance) > thresholds.distanceTolerance)
         {

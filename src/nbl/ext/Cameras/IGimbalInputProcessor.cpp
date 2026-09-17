@@ -123,8 +123,8 @@ void IGimbalInputProcessor::processImguizmo(gimbal_event_t* output, uint32_t& co
             {
                 const auto& deltaWorldTRS = ev;
 
-                hlsl::SRigidTransformComponents<hlsl::float32_t> world = {};
-                if (!hlsl::CCameraMathUtilities::tryExtractRigidTransformComponents(deltaWorldTRS, world))
+                SRigidTransformComponents<hlsl::float32_t> world = {};
+                if (!CCameraMathUtilities::tryExtractRigidTransformComponents(deltaWorldTRS, world))
                     continue;
 
                 requestMagnitudeUpdateWithSignedComponents(
@@ -133,7 +133,7 @@ void IGimbalInputProcessor::processImguizmo(gimbal_event_t* output, uint32_t& co
                     SInputProcessorBindingGroups::ImguizmoTranslation,
                     map);
 
-                const auto dRotationRad = hlsl::CCameraMathUtilities::getCameraOrientationEulerRadians(world.orientation);
+                const auto dRotationRad = CCameraMathUtilities::getCameraOrientationEulerRadians(world.orientation);
                 requestMagnitudeUpdateWithSignedComponents(
                     ZeroPivot,
                     dRotationRad,

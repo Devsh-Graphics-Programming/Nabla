@@ -30,16 +30,16 @@ SCameraPathComparisonThresholds CCameraPathUtilities::makePathComparisonThreshol
 
 bool CCameraPathUtilities::isPathStateFinite(const ICamera::PathState& state)
 {
-    return hlsl::CCameraMathUtilities::isFiniteScalar(state.s) &&
-        hlsl::CCameraMathUtilities::isFiniteScalar(state.u) &&
-        hlsl::CCameraMathUtilities::isFiniteScalar(state.v) &&
-        hlsl::CCameraMathUtilities::isFiniteScalar(state.roll);
+    return CCameraMathUtilities::isFiniteScalar(state.s) &&
+        CCameraMathUtilities::isFiniteScalar(state.u) &&
+        CCameraMathUtilities::isFiniteScalar(state.v) &&
+        CCameraMathUtilities::isFiniteScalar(state.roll);
 }
 
 bool CCameraPathUtilities::isPathLimitsWellFormed(const SCameraPathLimits& limits)
 {
-    return hlsl::CCameraMathUtilities::isFiniteScalar(limits.minU) &&
-        hlsl::CCameraMathUtilities::isFiniteScalar(limits.minDistance) &&
+    return CCameraMathUtilities::isFiniteScalar(limits.minU) &&
+        CCameraMathUtilities::isFiniteScalar(limits.minDistance) &&
         !std::isnan(static_cast<double>(limits.maxDistance));
 }
 
@@ -62,7 +62,7 @@ bool CCameraPathUtilities::sanitizePathLimits(SCameraPathLimits& limits)
 
 bool CCameraPathUtilities::sanitizePathState(ICamera::PathState& state, const double minU)
 {
-    return hlsl::CCameraMathUtilities::sanitizePathState(state.s, state.u, state.v, state.roll, minU);
+    return CCameraMathUtilities::sanitizePathState(state.s, state.u, state.v, state.roll, minU);
 }
 
 bool CCameraPathUtilities::sanitizePathState(ICamera::PathState& state, const SCameraPathLimits& limits, double* outAppliedDistance)
@@ -75,7 +75,7 @@ bool CCameraPathUtilities::sanitizePathState(ICamera::PathState& state, const SC
         return false;
 
     const auto desiredDistance = std::clamp(
-        hlsl::CCameraMathUtilities::getPathDistance(state.u, state.v),
+        CCameraMathUtilities::getPathDistance(state.u, state.v),
         sanitizedLimits.minDistance,
         sanitizedLimits.maxDistance);
     return tryScalePathStateDistance(desiredDistance, sanitizedLimits.minU, state, outAppliedDistance);
@@ -87,7 +87,7 @@ bool CCameraPathUtilities::tryScalePathStateDistance(
     ICamera::PathState& ioState,
     double* outAppliedDistance)
 {
-    return hlsl::CCameraMathUtilities::tryScalePathStateDistance(
+    return CCameraMathUtilities::tryScalePathStateDistance(
         desiredDistance,
         minU,
         ioState.u,
@@ -114,7 +114,7 @@ bool CCameraPathUtilities::tryUpdatePathStateDistance(
     {
         outResult->appliedDistance = appliedDistance;
         outResult->exact = (clampedDistance == desiredDistance) &&
-            hlsl::CCameraMathUtilities::nearlyEqualScalar(appliedDistance, static_cast<double>(desiredDistance), SCameraPathDefaults::ScalarTolerance);
+            CCameraMathUtilities::nearlyEqualScalar(appliedDistance, static_cast<double>(desiredDistance), SCameraPathDefaults::ScalarTolerance);
     }
     return true;
 }
@@ -126,7 +126,7 @@ bool CCameraPathUtilities::tryBuildPathStateFromPosition(
     ICamera::PathState& outState)
 {
     outState = {};
-    if (!hlsl::CCameraMathUtilities::tryBuildPathStateFromPosition(
+    if (!CCameraMathUtilities::tryBuildPathStateFromPosition(
             targetPosition,
             position,
             minU,
@@ -175,7 +175,7 @@ bool CCameraPathUtilities::tryBuildPathPoseFromState(
     if (!sanitizePathLimits(sanitizedLimits))
         return false;
 
-    return hlsl::CCameraMathUtilities::tryBuildPathPoseFromState(
+    return CCameraMathUtilities::tryBuildPathPoseFromState(
         targetPosition,
         state.s,
         state.u,
@@ -217,10 +217,10 @@ bool CCameraPathUtilities::pathStatesNearlyEqual(
     const ICamera::PathState& rhs,
     const SCameraPathComparisonThresholds& thresholds)
 {
-    return hlsl::CCameraMathUtilities::getWrappedAngleDistanceDegrees(lhs.s, rhs.s) <= thresholds.sToleranceDeg &&
-        hlsl::CCameraMathUtilities::nearlyEqualScalar(lhs.u, rhs.u, thresholds.scalarTolerance) &&
-        hlsl::CCameraMathUtilities::nearlyEqualScalar(lhs.v, rhs.v, thresholds.scalarTolerance) &&
-        hlsl::CCameraMathUtilities::getWrappedAngleDistanceDegrees(lhs.roll, rhs.roll) <= thresholds.rollToleranceDeg;
+    return CCameraMathUtilities::getWrappedAngleDistanceDegrees(lhs.s, rhs.s) <= thresholds.sToleranceDeg &&
+        CCameraMathUtilities::nearlyEqualScalar(lhs.u, rhs.u, thresholds.scalarTolerance) &&
+        CCameraMathUtilities::nearlyEqualScalar(lhs.v, rhs.v, thresholds.scalarTolerance) &&
+        CCameraMathUtilities::getWrappedAngleDistanceDegrees(lhs.roll, rhs.roll) <= thresholds.rollToleranceDeg;
 }
 
 bool CCameraPathUtilities::pathStatesChanged(
@@ -236,8 +236,8 @@ hlsl::float64_t4 CCameraPathUtilities::buildPathStateDeltaVector(
     const ICamera::PathState& desiredState)
 {
     auto deltaVector = desiredState.asVector() - currentState.asVector();
-    deltaVector.x = hlsl::CCameraMathUtilities::wrapAngleRad(deltaVector.x);
-    deltaVector.w = hlsl::CCameraMathUtilities::wrapAngleRad(deltaVector.w);
+    deltaVector.x = CCameraMathUtilities::wrapAngleRad(deltaVector.x);
+    deltaVector.w = CCameraMathUtilities::wrapAngleRad(deltaVector.w);
     return deltaVector;
 }
 
@@ -306,8 +306,8 @@ bool CCameraPathUtilities::tryApplyPathStateDelta(
     ICamera::PathState& outState)
 {
     auto stateVector = currentState.asVector() + delta.asVector();
-    stateVector.x = hlsl::CCameraMathUtilities::wrapAngleRad(stateVector.x);
-    stateVector.w = hlsl::CCameraMathUtilities::wrapAngleRad(stateVector.w);
+    stateVector.x = CCameraMathUtilities::wrapAngleRad(stateVector.x);
+    stateVector.w = CCameraMathUtilities::wrapAngleRad(stateVector.w);
     outState = ICamera::PathState::fromVector(stateVector);
     return sanitizePathState(outState, limits);
 }
@@ -320,10 +320,10 @@ ICamera::PathState CCameraPathUtilities::blendPathStates(
     const auto fromVector = from.asVector();
     const auto toVector = to.asVector();
     return {
-        .s = hlsl::CCameraMathUtilities::lerpWrappedAngleRad(fromVector.x, toVector.x, alpha),
+        .s = CCameraMathUtilities::lerpWrappedAngleRad(fromVector.x, toVector.x, alpha),
         .u = fromVector.y + (toVector.y - fromVector.y) * alpha,
         .v = fromVector.z + (toVector.z - fromVector.z) * alpha,
-        .roll = hlsl::CCameraMathUtilities::lerpWrappedAngleRad(fromVector.w, toVector.w, alpha)
+        .roll = CCameraMathUtilities::lerpWrappedAngleRad(fromVector.w, toVector.w, alpha)
     };
 }
 

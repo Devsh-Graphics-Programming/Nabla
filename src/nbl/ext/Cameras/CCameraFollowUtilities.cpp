@@ -39,8 +39,8 @@ void CTrackedTarget::setOrientation(const hlsl::math::quaternion<hlsl::float64_t
 bool CTrackedTarget::trySetFromTransform(const hlsl::float64_t4x4& transform)
 {
     hlsl::float64_t3 position = hlsl::float64_t3(0.0);
-    hlsl::math::quaternion<hlsl::float64_t> orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>();
-    if (!hlsl::CCameraMathUtilities::tryExtractRigidPoseFromTransform(transform, position, orientation))
+    hlsl::math::quaternion<hlsl::float64_t> orientation = hlsl::math::quaternion<hlsl::float64_t>::identity();
+    if (!CCameraMathUtilities::tryExtractRigidPoseFromTransform(transform, position, orientation))
         return false;
 
     setPose(position, orientation);
@@ -49,12 +49,12 @@ bool CTrackedTarget::trySetFromTransform(const hlsl::float64_t4x4& transform)
 
 hlsl::float64_t3 CCameraFollowUtilities::transformFollowLocalOffset(const ICamera::CGimbal& gimbal, const hlsl::float64_t3& localOffset)
 {
-    return hlsl::CCameraMathUtilities::rotateVectorByQuaternion(gimbal.getOrientation(), localOffset);
+    return hlsl::normalize(gimbal.getOrientation()).transformVector(localOffset, true);
 }
 
 hlsl::float64_t3 CCameraFollowUtilities::projectFollowWorldOffsetToLocal(const ICamera::CGimbal& gimbal, const hlsl::float64_t3& worldOffset)
 {
-    return hlsl::CCameraMathUtilities::projectWorldVectorToLocalQuaternionFrame(gimbal.getOrientation(), worldOffset);
+    return CCameraMathUtilities::projectWorldVectorToLocalQuaternionFrame(gimbal.getOrientation(), worldOffset);
 }
 
 bool CCameraFollowUtilities::buildFollowLookAtOrientation(
@@ -63,7 +63,7 @@ bool CCameraFollowUtilities::buildFollowLookAtOrientation(
     const hlsl::float64_t3& preferredUp,
     hlsl::math::quaternion<hlsl::float64_t>& outOrientation)
 {
-    return hlsl::CCameraMathUtilities::tryBuildLookAtOrientation(position, targetPosition, preferredUp, outOrientation);
+    return CCameraMathUtilities::tryBuildLookAtOrientation(position, targetPosition, preferredUp, outOrientation);
 }
 
 bool CCameraFollowUtilities::captureFollowOffsetsFromCamera(
@@ -90,19 +90,19 @@ bool CCameraFollowUtilities::tryComputeFollowTargetLockMetrics(
 {
     const auto toTarget = trackedTarget.getGimbal().getPosition() - cameraGimbal.getPosition();
     const auto targetDistance = hlsl::length(toTarget);
-    if (!hlsl::CCameraMathUtilities::isFiniteScalar(targetDistance) || targetDistance <= SCameraToolingThresholds::TinyScalarEpsilon)
+    if (!CCameraMathUtilities::isFiniteScalar(targetDistance) || targetDistance <= SCameraToolingThresholds::TinyScalarEpsilon)
         return false;
 
     const auto forward = cameraGimbal.getZAxis();
     const auto forwardLength = hlsl::length(forward);
-    if (!hlsl::CCameraMathUtilities::isFiniteVec3(forward) || !hlsl::CCameraMathUtilities::isFiniteScalar(forwardLength) || forwardLength <= SCameraToolingThresholds::TinyScalarEpsilon)
+    if (!CCameraMathUtilities::isFiniteVec3(forward) || !CCameraMathUtilities::isFiniteScalar(forwardLength) || forwardLength <= SCameraToolingThresholds::TinyScalarEpsilon)
         return false;
 
     const auto forwardDirection = forward / forwardLength;
     const auto targetDir = toTarget / targetDistance;
     const auto dotForward = std::clamp(hlsl::dot(forwardDirection, targetDir), -1.0, 1.0);
     outAngleDeg = static_cast<float>(hlsl::degrees(hlsl::acos(dotForward)));
-    if (!hlsl::CCameraMathUtilities::isFiniteScalar(outAngleDeg))
+    if (!CCameraMathUtilities::isFiniteScalar(outAngleDeg))
         return false;
 
     if (outDistance)

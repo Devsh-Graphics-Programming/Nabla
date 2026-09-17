@@ -27,7 +27,7 @@ public:
     /// @brief Construct a tracked target from an initial pose and optional identifier.
     CTrackedTarget(
         const hlsl::float64_t3& position = hlsl::float64_t3(0.0),
-        const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>(),
+        const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::math::quaternion<hlsl::float64_t>::identity(),
         std::string identifier = "Follow Target");
 
     /// @brief Return the stable human-readable identifier of the tracked target.

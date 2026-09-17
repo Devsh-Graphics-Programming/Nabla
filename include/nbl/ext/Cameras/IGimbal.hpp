@@ -19,8 +19,21 @@ namespace nbl::ext::cameras
     /// and its orientation in a form ready for `IGimbal::transform(...)`.
     struct CReferenceTransform
     {
+        /// @brief Rigid frame in the engine convention: basis vectors in the columns, translation in the last column.
         hlsl::float64_t4x4 frame;
-        hlsl::math::quaternion<hlsl::float64_t> orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>();
+        hlsl::math::quaternion<hlsl::float64_t> orientation = hlsl::math::quaternion<hlsl::float64_t>::identity();
+
+        /// @brief World-space position, which lives in the last column of `frame`.
+        inline hlsl::float64_t3 getPosition() const
+        {
+            return hlsl::float64_t3(frame[0].w, frame[1].w, frame[2].w);
+        }
+
+        /// @brief The reference basis, taken from `orientation` so it cannot be read with the wrong layout.
+        inline SCameraBasis<hlsl::float64_t> getBasis() const
+        {
+            return CCameraMathUtilities::getOrientationBasis(orientation);
+        }
     };
 
     /// @brief Generic world-space gimbal used by runtime cameras and tracked targets.
@@ -147,7 +160,7 @@ namespace nbl::ext::cameras
         struct SCreationParameters
         {
             vector_t<3u> position;
-            quaternion_t orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<precision_t>();
+            quaternion_t orientation = hlsl::math::quaternion<precision_t>::identity();
         };
 
         IGimbal(const IGimbal&) = default;
@@ -193,17 +206,17 @@ namespace nbl::ext::cameras
             if (m_orientation.data != orientation.data)
                 m_counter++;
 
-            m_orientation = hlsl::CCameraMathUtilities::normalizeQuaternion(orientation);
+            m_orientation = hlsl::normalize(orientation);
             updateOrthonormalOrientationBase();
         }
 
         /// @brief Apply a prebuilt rigid reference transform and an accumulated impulse in one step.
         inline void transform(const CReferenceTransform& reference, const VirtualImpulse& impulse)
         {
-            setOrientation(reference.orientation * hlsl::CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(impulse.dVirtualRotation));
+            setOrientation(reference.orientation * CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(impulse.dVirtualRotation));
             setPosition(
-                hlsl::float64_t3(reference.frame[3]) +
-                hlsl::CCameraMathUtilities::rotateVectorByQuaternion(reference.orientation, hlsl::float64_t3(impulse.dVirtualTranslate))
+                reference.getPosition() +
+                hlsl::normalize(reference.orientation).transformVector(hlsl::float64_t3(impulse.dVirtualTranslate), true)
             );
         }
 
@@ -215,8 +228,8 @@ namespace nbl::ext::cameras
             if(dRadians)
                 m_counter++;
 
-            const auto dRotation = hlsl::CCameraMathUtilities::makeQuaternionFromAxisAngle(axis, static_cast<precision_t>(dRadians));
-            m_orientation = hlsl::CCameraMathUtilities::normalizeQuaternion(dRotation * m_orientation);
+            const auto dRotation = hlsl::math::quaternion<precision_t>::createFromAxisAngle(axis, static_cast<precision_t>(dRadians));
+            m_orientation = hlsl::normalize(dRotation * m_orientation);
             updateOrthonormalOrientationBase();
         }
 
@@ -272,41 +285,41 @@ namespace nbl::ext::cameras
         const TRS operator()() const
         { 
             const auto& position = getPosition();
-            const auto& rotation = getOrthonornalMatrix();
+            const auto& basis = getBasis();
             const auto& scale = getScale();
 
             if constexpr (std::is_same_v<TRS, model_matrix_t>)
             {
                 return
                 {
-                    hlsl::vector<precision_t, 4>(rotation[0] * scale.x, position.x),
-                    hlsl::vector<precision_t, 4>(rotation[1] * scale.y, position.y),
-                    hlsl::vector<precision_t, 4>(rotation[2] * scale.z, position.z)
+                    hlsl::vector<precision_t, 4>(basis.right * scale.x, position.x),
+                    hlsl::vector<precision_t, 4>(basis.up * scale.y, position.y),
+                    hlsl::vector<precision_t, 4>(basis.forward * scale.z, position.z)
                 };
             }
             else
             {
                 return
                 {
-                    hlsl::vector<precision_t, 4>(rotation[0] * scale.x, T(0)),
-                    hlsl::vector<precision_t, 4>(rotation[1] * scale.y, T(0)),
-                    hlsl::vector<precision_t, 4>(rotation[2] * scale.z, T(0)),
+                    hlsl::vector<precision_t, 4>(basis.right * scale.x, T(0)),
+                    hlsl::vector<precision_t, 4>(basis.up * scale.y, T(0)),
+                    hlsl::vector<precision_t, 4>(basis.forward * scale.z, T(0)),
                     hlsl::vector<precision_t, 4>(position, T(1))
                 };
             }
         }
 
-        /// @brief Orthonormal [getXAxis(), getYAxis(), getZAxis()] orientation matrix
-        inline const hlsl::matrix<precision_t, 3, 3>& getOrthonornalMatrix() const { return m_orthonormal; }
+        /// @brief Orthonormal local basis, as three named vectors
+        inline const SCameraBasis<precision_t>& getBasis() const { return m_basis; }
 
         /// @brief Base "right" vector in orthonormal orientation basis (X-axis)
-        inline const vector_t<3u>& getXAxis() const { return m_orthonormal[0u]; }
+        inline const vector_t<3u>& getXAxis() const { return m_basis.right; }
 
         /// @brief Base "up" vector in orthonormal orientation basis (Y-axis)
-        inline const vector_t<3u>& getYAxis() const { return m_orthonormal[1u]; }
+        inline const vector_t<3u>& getYAxis() const { return m_basis.up; }
 
         /// @brief Base "forward" vector in orthonormal orientation basis (Z-axis)
-        inline const vector_t<3u>& getZAxis() const { return m_orthonormal[2u]; }
+        inline const vector_t<3u>& getZAxis() const { return m_basis.forward; }
 
         /// @brief Target vector in local space, alias for getZAxis()
         inline vector_t<3u> getLocalTarget() const { return getZAxis(); }
@@ -328,13 +341,13 @@ namespace nbl::ext::cameras
 
             if (referenceFrame)
             {
-                if (!hlsl::CCameraMathUtilities::tryBuildRigidFrameFromTransform(*referenceFrame, out->frame, out->orientation))
+                if (!CCameraMathUtilities::tryBuildRigidFrameFromTransform(*referenceFrame, out->frame, out->orientation))
                     return false;
             }
             else
             {
                 out->orientation = getOrientation();
-                out->frame = hlsl::CCameraMathUtilities::composeTransformMatrix(getPosition(), out->orientation);
+                out->frame = CCameraMathUtilities::composeTransformMatrix(getPosition(), out->orientation);
             }
 
             return true;
@@ -343,7 +356,7 @@ namespace nbl::ext::cameras
     private:
         inline void updateOrthonormalOrientationBase()
         {
-            m_orthonormal = hlsl::CCameraMathUtilities::getQuaternionBasisMatrix(m_orientation);
+            m_basis = CCameraMathUtilities::getOrientationBasis(m_orientation);
         }
 
         /// @brief Position of a gimbal in world space
@@ -356,7 +369,7 @@ namespace nbl::ext::cameras
         vector_t<3u> m_scale = { 1.f, 1.f , 1.f };
 
         /// @brief Orthonormal basis reconstructed from the current orientation.
-        hlsl::matrix<precision_t, 3, 3> m_orthonormal;
+        SCameraBasis<precision_t> m_basis;
 
         /// @brief Counter that increments for each performed manipulation, resets with each begin() call
         size_t m_counter = {};

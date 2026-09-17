@@ -61,7 +61,7 @@ void CCameraSequenceScriptUtilities::normalizeCaptureFractions(std::vector<float
             fractions.end(),
             [](const float lhs, const float rhs)
             {
-                return hlsl::CCameraMathUtilities::nearlyEqualScalar(lhs, rhs, static_cast<float>(SCameraToolingThresholds::ScalarTolerance));
+                return CCameraMathUtilities::nearlyEqualScalar(lhs, rhs, static_cast<float>(SCameraToolingThresholds::ScalarTolerance));
             }),
         fractions.end());
 }
@@ -101,9 +101,9 @@ bool CCameraSequenceScriptUtilities::buildSequenceKeyframePreset(const CCameraPr
 
     if (delta.hasRotationEulerDegOffset)
     {
-        goal.orientation = hlsl::CCameraMathUtilities::normalizeQuaternion(
-            goal.orientation * hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(
-                hlsl::CCameraMathUtilities::castVector<hlsl::float64_t>(delta.rotationEulerDegOffset)));
+        goal.orientation = hlsl::normalize(
+            goal.orientation * CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(
+                hlsl::_static_cast<hlsl::float64_t3>(delta.rotationEulerDegOffset)));
     }
 
     if (delta.hasTargetOffset)
@@ -127,7 +127,7 @@ bool CCameraSequenceScriptUtilities::buildSequenceKeyframePreset(const CCameraPr
         }
 
         if (delta.orbitDelta.hasU)
-            goal.orbitUv.x = hlsl::CCameraMathUtilities::wrapAngleRad(goal.orbitUv.x + delta.orbitDelta.uvDeltaRad.x);
+            goal.orbitUv.x = CCameraMathUtilities::wrapAngleRad(goal.orbitUv.x + delta.orbitDelta.uvDeltaRad.x);
         if (delta.orbitDelta.hasV)
         {
             goal.orbitUv.y = std::clamp(
@@ -224,8 +224,8 @@ bool CCameraSequenceScriptUtilities::buildSequenceTrackFromReference(const CCame
 
 bool CCameraSequenceScriptUtilities::isSequenceTrackedTargetPoseFinite(const CCameraSequenceTrackedTargetPose& pose)
 {
-    return hlsl::CCameraMathUtilities::isFiniteVec3(pose.position) &&
-        hlsl::CCameraMathUtilities::isFiniteQuaternion(pose.orientation);
+    return CCameraMathUtilities::isFiniteVec3(pose.position) &&
+        CCameraMathUtilities::isFiniteQuaternion(pose.orientation);
 }
 
 bool CCameraSequenceScriptUtilities::buildSequenceTrackedTargetPoseFromReference(
@@ -240,8 +240,8 @@ bool CCameraSequenceScriptUtilities::buildSequenceTrackedTargetPoseFromReference
         outPose.position = authored.absolutePosition;
     if (authored.hasAbsoluteRotationEulerDeg)
     {
-        outPose.orientation = hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(
-            hlsl::CCameraMathUtilities::castVector<hlsl::float64_t>(authored.absoluteRotationEulerDeg));
+        outPose.orientation = CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(
+            hlsl::_static_cast<hlsl::float64_t3>(authored.absoluteRotationEulerDeg));
     }
 
     if (authored.hasDelta)
@@ -250,9 +250,9 @@ bool CCameraSequenceScriptUtilities::buildSequenceTrackedTargetPoseFromReference
             outPose.position += authored.delta.positionOffset;
         if (authored.delta.hasRotationEulerDegOffset)
         {
-            outPose.orientation = hlsl::CCameraMathUtilities::normalizeQuaternion(
-                outPose.orientation * hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(
-                    hlsl::CCameraMathUtilities::castVector<hlsl::float64_t>(authored.delta.rotationEulerDegOffset)));
+            outPose.orientation = hlsl::normalize(
+                outPose.orientation * CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(
+                    hlsl::_static_cast<hlsl::float64_t3>(authored.delta.rotationEulerDegOffset)));
         }
     }
 
@@ -299,7 +299,7 @@ bool CCameraSequenceScriptUtilities::buildSequenceTrackedTargetTrackFromReferenc
     for (const auto& keyframe : outTrack.keyframes)
     {
         if (!normalized.empty() &&
-            hlsl::CCameraMathUtilities::nearlyEqualScalar(
+            CCameraMathUtilities::nearlyEqualScalar(
                 normalized.back().time,
                 keyframe.time,
                 static_cast<float>(SCameraToolingThresholds::ScalarTolerance)))
@@ -344,7 +344,7 @@ bool CCameraSequenceScriptUtilities::tryBuildSequenceTrackedTargetPoseAtTime(
         const auto span = std::max(static_cast<float>(SCameraToolingThresholds::ScalarTolerance), rhs.time - lhs.time);
         const auto alpha = std::clamp((time - lhs.time) / span, 0.f, 1.f);
         outPose.position = lhs.pose.position + (rhs.pose.position - lhs.pose.position) * static_cast<double>(alpha);
-        outPose.orientation = hlsl::CCameraMathUtilities::slerpQuaternion(lhs.pose.orientation, rhs.pose.orientation, static_cast<hlsl::float64_t>(alpha));
+        outPose.orientation = hlsl::math::quaternion<hlsl::float64_t>::slerp(hlsl::normalize(lhs.pose.orientation), hlsl::normalize(rhs.pose.orientation), static_cast<hlsl::float64_t>(alpha));
         return true;
     }
 

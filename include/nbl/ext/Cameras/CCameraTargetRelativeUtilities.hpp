@@ -28,8 +28,8 @@ struct SCameraTargetRelativeBasis final
 {
     hlsl::float64_t3 localOffset = hlsl::float64_t3(0.0);
     hlsl::float64_t3 right = hlsl::float64_t3(1.0, 0.0, 0.0);
-    hlsl::float64_t3 up = hlsl::float64_t3(0.0, 0.0, 1.0);
-    hlsl::float64_t3 forward = hlsl::float64_t3(0.0, 1.0, 0.0);
+    hlsl::float64_t3 up = hlsl::float64_t3(0.0, 1.0, 0.0);
+    hlsl::float64_t3 forward = hlsl::float64_t3(0.0, 0.0, 1.0);
 };
 
 /// @brief Delta between current spherical target state and canonical target-relative goal.
@@ -60,14 +60,14 @@ struct SCameraTargetRelativeEventPolicy final
 struct SCameraTargetRelativeRigDefaults final
 {
     static constexpr float InitialDistance = 1.0f;
-    static constexpr double ArcballPitchLimitRad = hlsl::SCameraViewRigDefaults::ArcballPitchLimitRad;
-    static constexpr double TurntablePitchLimitRad = hlsl::SCameraViewRigDefaults::TurntablePitchLimitRad;
-    static constexpr double ChaseMaxPitchRad = hlsl::SCameraViewRigDefaults::ChaseMaxPitchRad;
-    static constexpr double ChaseMinPitchRad = hlsl::SCameraViewRigDefaults::ChaseMinPitchRad;
-    static constexpr double DollyPitchLimitRad = hlsl::SCameraViewRigDefaults::DollyPitchLimitRad;
-    static constexpr double TopDownPitchRad = hlsl::SCameraViewRigDefaults::TopDownPitchRad;
-    static constexpr double IsometricYawRad = hlsl::SCameraViewRigDefaults::IsometricYawRad;
-    static inline const double IsometricPitchRad = hlsl::SCameraViewRigDefaults::IsometricPitchRad;
+    static constexpr double ArcballPitchLimitRad = SCameraViewRigDefaults::ArcballPitchLimitRad;
+    static constexpr double TurntablePitchLimitRad = SCameraViewRigDefaults::TurntablePitchLimitRad;
+    static constexpr double ChaseMaxPitchRad = SCameraViewRigDefaults::ChaseMaxPitchRad;
+    static constexpr double ChaseMinPitchRad = SCameraViewRigDefaults::ChaseMinPitchRad;
+    static constexpr double DollyPitchLimitRad = SCameraViewRigDefaults::DollyPitchLimitRad;
+    static constexpr double TopDownPitchRad = SCameraViewRigDefaults::TopDownPitchRad;
+    static constexpr double IsometricYawRad = SCameraViewRigDefaults::IsometricYawRad;
+    static inline const double IsometricPitchRad = SCameraViewRigDefaults::IsometricPitchRad;
 
     static inline constexpr SCameraTargetRelativeEventPolicy OrbitTranslatePolicy = {
         .translateOrbit = true
@@ -121,7 +121,7 @@ struct CCameraTargetRelativeUtilities final
         outState.target = targetPosition;
 
         hlsl::float64_t appliedDistance = static_cast<hlsl::float64_t>(minDistance);
-        if (!hlsl::CCameraMathUtilities::tryBuildOrbitFromPosition(
+        if (!CCameraMathUtilities::tryBuildOrbitFromPosition(
                 targetPosition,
                 position,
                 static_cast<hlsl::float64_t>(minDistance),
@@ -143,7 +143,7 @@ struct CCameraTargetRelativeUtilities final
         SCameraTargetRelativePose& outPose)
     {
         outPose = {};
-        return hlsl::CCameraMathUtilities::tryBuildSphericalPoseFromOrbit(
+        return CCameraMathUtilities::tryBuildSphericalPoseFromOrbit(
             state.target,
             state.orbitUv,
             static_cast<hlsl::float64_t>(state.distance),
@@ -165,10 +165,10 @@ struct CCameraTargetRelativeUtilities final
             return false;
 
         outBasis.localOffset = pose.position - state.target;
-        const auto basis = hlsl::CCameraMathUtilities::getQuaternionBasisMatrix(pose.orientation);
-        outBasis.right = basis[0];
-        outBasis.up = basis[1];
-        outBasis.forward = basis[2];
+        const auto basis = CCameraMathUtilities::getOrientationBasis(pose.orientation);
+        outBasis.right = basis.right;
+        outBasis.up = basis.up;
+        outBasis.forward = basis.forward;
         return true;
     }
 
@@ -198,8 +198,8 @@ struct CCameraTargetRelativeUtilities final
     {
         return {
             .orbitUv = hlsl::float64_t2(
-                hlsl::CCameraMathUtilities::wrapAngleRad(desiredState.orbitUv.x - currentState.orbitUv.x),
-                hlsl::CCameraMathUtilities::wrapAngleRad(desiredState.orbitUv.y - currentState.orbitUv.y)),
+                CCameraMathUtilities::wrapAngleRad(desiredState.orbitUv.x - currentState.orbitUv.x),
+                CCameraMathUtilities::wrapAngleRad(desiredState.orbitUv.y - currentState.orbitUv.y)),
             .distance = static_cast<double>(desiredState.distance - currentState.distance)
         };
     }

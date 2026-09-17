@@ -37,7 +37,7 @@ struct RuntimeTraits
             NBL_UNROLL for (uint16_t i = 0; i < N; i++)
             {
                 // |cos(theta)| <= 1e-5 allows ~5.73e-4 degrees of deviation from 90deg, independent of the row lengths
-                // so uniformly scaled matrices pass too (`quaternion::create` relies on that), see `approx::isPerpendicular`
+                // so uniformly scaled matrices pass too (`quaternion::createFromRotationMatrix` relies on that), see `approx::isPerpendicular`
                 const scalar_t cosThetaEpsilon = scalar_t(1e-5);
                 orthogonal = orthogonal && approx::isPerpendicular<row_t>(m[i], m[(i+1)%N], cosThetaEpsilon);
             }

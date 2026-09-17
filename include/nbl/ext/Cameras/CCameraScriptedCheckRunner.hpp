@@ -80,7 +80,7 @@ struct CCameraScriptedCheckRunnerUtilities final
         const hlsl::math::quaternion<hlsl::float64_t>& currentOrientation,
         const hlsl::float64_t3& referencePosition,
         const hlsl::math::quaternion<hlsl::float64_t>& referenceOrientation,
-        hlsl::SCameraPoseDelta<hlsl::float64_t>& outDelta);
+        SCameraPoseDelta<hlsl::float64_t>& outDelta);
 
     template<typename Fn>
     static inline std::string buildScriptedCheckMessage(Fn&& formatter)

@@ -59,7 +59,7 @@ public:
         }
 
         const auto worldDelta = CCameraVirtualEventUtilities::collectSignedTranslationDelta({ events.data(), count });
-        if (hlsl::CCameraMathUtilities::isNearlyZeroVector(worldDelta, static_cast<hlsl::float64_t>(SCameraToolingThresholds::TinyScalarEpsilon)))
+        if (CCameraMathUtilities::isNearlyZeroVector(worldDelta, static_cast<hlsl::float64_t>(SCameraToolingThresholds::TinyScalarEpsilon)))
         {
             events = std::move(filtered);
             count = static_cast<uint32_t>(events.size());

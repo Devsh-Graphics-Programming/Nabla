@@ -18,7 +18,7 @@ struct SCameraRigPose
     /// @brief Camera origin in world space.
     hlsl::float64_t3 position = hlsl::float64_t3(0.0);
     /// @brief Camera orientation in world space expressed as a unit quaternion.
-    hlsl::math::quaternion<hlsl::float64_t> orientation = hlsl::CCameraMathUtilities::makeIdentityQuaternion<hlsl::float64_t>();
+    hlsl::math::quaternion<hlsl::float64_t> orientation = hlsl::math::quaternion<hlsl::float64_t>::identity();
 };
 
 } // namespace nbl::ext::cameras

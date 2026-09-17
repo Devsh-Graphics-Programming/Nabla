@@ -68,7 +68,7 @@ public:
             if (!m_pathModel.resolveState ||
                 !m_pathModel.resolveState(
                     m_targetPosition,
-                    hlsl::float64_t3(reference.frame[3]),
+                    reference.getPosition(),
                     m_pathLimits,
                     nullptr,
                     nextPathState))

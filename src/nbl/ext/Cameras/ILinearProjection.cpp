@@ -53,8 +53,8 @@ ILinearProjection::concatenated_matrix_t ILinearProjection::getMV(const model_ma
 {
     const auto& view = m_camera->getGimbal().getViewMatrix();
     return hlsl::mul(
-        hlsl::CCameraMathUtilities::promoteAffine3x4To4x4(view),
-        hlsl::CCameraMathUtilities::promoteAffine3x4To4x4(model));
+        hlsl::math::linalg::promote_affine<4,4,3,4>(view),
+        hlsl::math::linalg::promote_affine<4,4,3,4>(model));
 }
 
 ILinearProjection::concatenated_matrix_t ILinearProjection::getMVP(const CProjection& projection, const model_matrix_t& model) const

@@ -39,7 +39,7 @@ private:
 
 public:
     /// @brief Smallest target distance accepted by target-relative cameras; guards the divisions by the distance.
-    /// Becomes a creation parameter of `CSphericalTargetCamera` in Phase 4, this is only the interim default.
+    /// Default only; the guard exists so target-relative reconstruction never divides by a zero distance.
     static inline constexpr hlsl::float64_t DefaultMinTargetDistance = 0.1;
     /// @brief Interim unbounded default for the largest target distance.
     static inline constexpr hlsl::float64_t DefaultMaxTargetDistance = std::numeric_limits<hlsl::float64_t>::infinity();
@@ -219,7 +219,7 @@ public:
         inline const hlsl::float64_t3& getPosition() const { return base_t::getPosition(); }
         inline const hlsl::math::quaternion<hlsl::float64_t>& getOrientation() const { return base_t::getOrientation(); }
         inline const hlsl::float64_t3& getScale() const { return base_t::getScale(); }
-        inline const hlsl::matrix<hlsl::float64_t, 3, 3>& getOrthonornalMatrix() const { return base_t::getOrthonornalMatrix(); }
+        inline const SCameraBasis<hlsl::float64_t>& getBasis() const { return base_t::getBasis(); }
         inline const hlsl::float64_t3& getXAxis() const { return base_t::getXAxis(); }
         inline const hlsl::float64_t3& getYAxis() const { return base_t::getYAxis(); }
         inline const hlsl::float64_t3& getZAxis() const { return base_t::getZAxis(); }
@@ -245,7 +245,8 @@ public:
             const auto& gUp = this->getYAxis();
             const auto& gForward = this->getZAxis();
 
-            assert(hlsl::CCameraMathUtilities::isOrthoBase(gRight, gUp, gForward));
+            const SCameraBasis<hlsl::float64_t> gBasis = { gRight, gUp, gForward };
+            assert((hlsl::math::linalg::RuntimeTraits<hlsl::float64_t3x3>::create(gBasis.getRotationMatrix()).orthonormal));
 
             const auto& position = this->getPosition();
 

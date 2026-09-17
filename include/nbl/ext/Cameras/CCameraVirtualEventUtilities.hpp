@@ -44,7 +44,7 @@ public:
         const CVirtualGimbalEvent::VirtualEventType negative,
         const double tolerance = static_cast<double>(SCameraToolingThresholds::TinyScalarEpsilon))
     {
-        if (!hlsl::CCameraMathUtilities::isFiniteScalar(value) || hlsl::CCameraMathUtilities::isNearlyZeroScalar(value, tolerance))
+        if (!CCameraMathUtilities::isFiniteScalar(value) || CCameraMathUtilities::isNearlyZeroScalar(value, tolerance))
             return;
 
         auto& ev = events.emplace_back();
@@ -61,7 +61,7 @@ public:
         const CVirtualGimbalEvent::VirtualEventType positive,
         const CVirtualGimbalEvent::VirtualEventType negative)
     {
-        if (!hlsl::CCameraMathUtilities::isFiniteScalar(denominator) || hlsl::CCameraMathUtilities::isNearlyZeroScalar(denominator, static_cast<double>(SCameraToolingThresholds::TinyScalarEpsilon)))
+        if (!CCameraMathUtilities::isFiniteScalar(denominator) || CCameraMathUtilities::isNearlyZeroScalar(denominator, static_cast<double>(SCameraToolingThresholds::TinyScalarEpsilon)))
             return;
 
         appendSignedVirtualEvent(events, value / denominator, positive, negative, tolerance);
@@ -76,8 +76,8 @@ public:
         const CVirtualGimbalEvent::VirtualEventType positive,
         const CVirtualGimbalEvent::VirtualEventType negative)
     {
-        if (!hlsl::CCameraMathUtilities::isFiniteScalar(deltaRadians) ||
-            hlsl::CCameraMathUtilities::isNearlyZeroScalar(hlsl::degrees(deltaRadians), toleranceDeg))
+        if (!CCameraMathUtilities::isFiniteScalar(deltaRadians) ||
+            CCameraMathUtilities::isNearlyZeroScalar(hlsl::degrees(deltaRadians), toleranceDeg))
         {
             return;
         }
@@ -136,7 +136,7 @@ public:
     {
         appendLocalTranslationEvents(
             events,
-            hlsl::CCameraMathUtilities::projectWorldVectorToLocalQuaternionFrame(orientation, worldDelta),
+            CCameraMathUtilities::projectWorldVectorToLocalQuaternionFrame(orientation, worldDelta),
             denominators,
             tolerances);
     }
