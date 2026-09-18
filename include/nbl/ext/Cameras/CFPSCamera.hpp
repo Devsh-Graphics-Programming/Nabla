@@ -17,6 +17,9 @@ namespace nbl::ext::cameras
 /// Holding roll at zero is this rig's contract, not a missing feature: the state is a position plus an
 /// orientation rebuilt every step from yaw and a pitch bounded short of straight up and down, which is
 /// what keeps the horizon level. Use `CFreeCamera` when you want the roll.
+///
+/// Controls: `translate` in the camera's own frame (x right, y up, z forward), world units. `rotate.x` pitch,
+/// clamped short of straight up and down; `rotate.y` yaw about the world up axis; radians.
 class CFPSCamera final : public ICamera
 {
 public:
@@ -56,32 +59,9 @@ public:
         return true;
     }
 
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
+    virtual uint32_t getAcceptedControls() const override
     {
-        if (virtualEvents.empty())
-            return false;
-
-        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
-        const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-
-        // a copy, because the pose is replaced below while its orientation still anchors the translation
-        const auto anchor = m_gimbal.getPose();
-        const auto pitchYaw = CCameraMathUtilities::getPitchYawFromForwardVector(m_gimbal.getForward());
-
-        const auto newPitch = std::clamp<hlsl::float64_t>(pitchYaw.x + scaleVirtualRotation(impulse.dVirtualRotation.x), MinVerticalAngle, MaxVerticalAngle);
-        const auto newYaw = pitchYaw.y + scaleVirtualRotation(impulse.dVirtualRotation.y);
-
-        // the translation is applied in the anchor frame, so it is resolved before the pose is replaced
-        const auto newPosition = anchor.position + anchor.orientation.transformVector(hlsl::float64_t3(deltaTranslation), true);
-        return m_gimbal.setPose(SCameraRigPose{
-            .position = newPosition,
-            .orientation = CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(newPitch, newYaw, 0.0))
-        });
-    }
-
-    virtual uint32_t getAllowedVirtualEvents() const override
-    {
-        return AllowedVirtualEvents;
+        return AcceptedControls;
     }
 
     virtual CameraKind getKind() const override
@@ -94,11 +74,29 @@ public:
         return "FPS Camera";
     }
 
-private:
+    static inline constexpr uint32_t AcceptedControls = ECameraControlAxis::Translate | ECameraControlAxis::RotateX | ECameraControlAxis::RotateY;
 
+protected:
+    virtual bool applyControls(const SCameraControls& controls) override
+    {
+        // a copy, because the pose is replaced below while its orientation still anchors the translation
+        const auto anchor = m_gimbal.getPose();
+        const auto pitchYaw = CCameraMathUtilities::getPitchYawFromForwardVector(m_gimbal.getForward());
+
+        const auto newPitch = std::clamp<hlsl::float64_t>(pitchYaw.x + controls.rotate.x, MinVerticalAngle, MaxVerticalAngle);
+        const auto newYaw = pitchYaw.y + controls.rotate.y;
+
+        // the translation is applied in the anchor frame, so it is resolved before the pose is replaced
+        const auto newPosition = anchor.position + anchor.orientation.transformVector(controls.translate, true);
+        return m_gimbal.setPose(SCameraRigPose{
+            .position = newPosition,
+            .orientation = CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(newPitch, newYaw, 0.0))
+        });
+    }
+
+private:
     CCameraGimbal m_gimbal;
 
-    static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::Rotate;
     static inline constexpr hlsl::float64_t MaxVerticalAngle = SCameraViewRigDefaults::FpsVerticalPitchLimitRad;
     static inline constexpr hlsl::float64_t MinVerticalAngle = -MaxVerticalAngle;
 };

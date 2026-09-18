@@ -23,7 +23,7 @@ If you want to know which type to touch first, use this table.
 | I want to... | Use |
 |---|---|
 | move a camera from live input this frame | `ICamera::manipulate(...)` |
-| convert keyboard or mouse input into camera commands | `IGimbalInputProcessor` or `CGimbalInputBinder` |
+| convert keyboard or mouse input into a control frame | `CCameraMouseKeyboardController` with `CCameraMouseKeyboardPresets` |
 | pair one camera with one or more projection entries | `CPlanarProjection` and `IPlanarProjection::CProjection` |
 | apply one absolute rigid pose request at runtime | `camera->setPose(...)` |
 | set exact position or exact orientation on `Free` and `FPS` | `SCameraRigPose` built from `camera->getGimbal()` |
@@ -36,122 +36,86 @@ This section shows the common entry points before any deeper explanation.
 
 ### 1. Live runtime camera control
 
-Use this when keyboard, mouse, or ImGuizmo should move the camera right now.
+Use this when keyboard and mouse should move the camera right now.
 
 ```cpp
 auto camera = core::make_smart_refctd_ptr<COrbitCamera>(eye, target);
 
-ui::CGimbalInputBinder binder;
-ui::CCameraInputBindingUtilities::applyDefaultCameraInputBindingPreset(binder, *camera);
+CCameraMouseKeyboardController controller;
+controller.binding = CCameraMouseKeyboardPresets::makeDefaultBinding(*camera);
 
-auto collected = binder.collectVirtualEvents(timestamp, {
-    .keyboardEvents = { keyEvents.data(), keyEvents.size() },
-    .mouseEvents = { mouseEvents.data(), mouseEvents.size() },
-    // .imguizmoEvents = { gizmoDeltaTransforms.data(), gizmoDeltaTransforms.size() },
-});
+const auto controls = controller.collect(nextPresentationTimestamp,
+    { keyEvents.data(), keyEvents.size() },
+    { mouseEvents.data(), mouseEvents.size() });
 
-camera->manipulate(collected.events);
+camera->manipulate(controls);
 ```
-
-The update payload currently accepts:
-
-- `keyboardEvents`
-- `mouseEvents`
-- `imguizmoEvents`
 
 What happens here:
 
-1. device input is converted into semantic camera commands
-2. the camera consumes those commands through `manipulate(...)`
+1. the controller turns one frame of `ui::SKeyboardEvent` and `ui::SMouseEvent` into one `SCameraControls`, in world units and radians
+2. the camera applies the frame through `manipulate(...)`
 3. the camera updates its gimbal pose
 
-The controller-side stack is:
+`manipulate(...)` takes only the frame. Nothing about it depends on where the frame came from, so the same call serves:
 
-- `IGimbalBindingLayout` for the static mapping from device inputs to virtual events
-- `IGimbalInputProcessor` for converting one frame of raw input into event magnitudes
-- `CGimbalInputBinder` for the common runtime object that owns a layout and collects one frame of events
-- `CCameraInputBindingUtilities` for shared preset layouts such as default `FPS`, `Orbit`, or `Path Rig` bindings
+- the mouse/keyboard controller above
+- a frame built by hand, in a script or a test:
 
-The two common ways to start are:
+```cpp
+SCameraControls controls = {};
+controls.rotate.y = hlsl::radians(15.0);   // yaw by 15 degrees
+controls.distance = -0.5;                  // half a unit closer
+camera->manipulate(controls);
+```
 
-- apply one shared preset for a camera family
-- write one binding layout explicitly
+- a frame built by any controller you write, for a gamepad, a network stream or a recording, as long as it fills `SCameraControls`
+
+**Question: Which controls does a camera accept?**
+
+`camera->getAcceptedControls()` returns an `ECameraControlAxis` mask. A frame that sets any axis outside it is refused whole: `manipulate` returns `false` and changes nothing. Each camera's header states what every accepted axis means for that rig: the frame a translation is applied in, the pivot of a rotation, the clamp. `SCameraControls::masked(mask)` zeroes the rest when one frame is sent to several cameras.
 
 **Question: How do I bind `FPS` to `WASD`?**
 
-Use the shared default binding preset for the active camera kind.
+Use the default binding for the camera kind.
 
 ```cpp
 auto camera = core::make_smart_refctd_ptr<CFPSCamera>(position, orientation);
 
-ui::CGimbalInputBinder binder;
-ui::CCameraInputBindingUtilities::applyDefaultCameraInputBindingPreset(binder, *camera);
+CCameraMouseKeyboardController controller;
+controller.binding = CCameraMouseKeyboardPresets::makeDefaultBinding(*camera);
 ```
 
-For `FPS`, the default preset gives you:
+For `FPS`, the default binding gives you:
 
-- keyboard `W/S/A/D` -> forward, backward, left, right
-- keyboard `I/K/J/L` -> tilt up, tilt down, pan left, pan right
-- mouse relative movement -> look yaw and pitch
+- keyboard `W/S` -> `translate.z`, `D/A` -> `translate.x`
+- keyboard `K/I` -> `rotate.x`, `L/J` -> `rotate.y`
+- mouse X -> `rotate.y`, mouse Y -> `rotate.x`
 
-For `Free`, the default preset adds `Q/E` for roll.
+For `Free`, the default binding adds `E/Q` for `rotate.z`.
 
-For target-relative families and `Path Rig`, the default preset keeps the same physical inputs but maps them to the legal state space of that family.
+Target-relative families and `Path Rig` keep the same physical inputs on the axes they accept.
 
 **Question: How do I define custom bindings?**
 
-Use one `IGimbalBindingLayout` implementation such as `CGimbalInputBinder` and write the mapping you want.
+A binding has one slot per control axis. Fill the slots you want.
 
 ```cpp
-ui::CGimbalInputBinder binder;
-const double customMoveGain = /* choose a sensitivity for this binding */;
+CCameraMouseKeyboardController controller;
+auto& binding = controller.binding;
 
-binder.updateKeyboardMapping([customMoveGain](auto& map)
-{
-    map.clear();
-    map.emplace(ui::E_KEY_CODE::EKC_W, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveForward, customMoveGain));
-    map.emplace(ui::E_KEY_CODE::EKC_S, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveBackward, customMoveGain));
-    map.emplace(ui::E_KEY_CODE::EKC_A, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveLeft, customMoveGain));
-    map.emplace(ui::E_KEY_CODE::EKC_D, ui::IGimbalBindingLayout::CHashInfo(core::CVirtualGimbalEvent::MoveRight, customMoveGain));
-});
+binding[ECameraControlAxis::TranslateZ] = { .positiveKey = ui::EKC_W, .negativeKey = ui::EKC_S, .keyRate = 2.0 };   // 2 units per second held
+binding[ECameraControlAxis::TranslateX] = { .positiveKey = ui::EKC_D, .negativeKey = ui::EKC_A, .keyRate = 2.0 };
+binding[ECameraControlAxis::RotateY].mouseMovementGain = { 0.003, 0.0 };                                             // radians per mouse count along X
+binding[ECameraControlAxis::RotateX].mouseMovementGain = { 0.0, 0.003 };
+binding[ECameraControlAxis::RotateY].mouseMovementGate = ui::EMB_RIGHT_BUTTON;                                        // only while the right button is held
+binding[ECameraControlAxis::RotateX].mouseMovementGate = ui::EMB_RIGHT_BUTTON;
+binding[ECameraControlAxis::Distance].mouseScrollGain = { -0.1, 0.0 };                                                // scroll up moves closer
 ```
 
-The same pattern works for:
+Sensitivity lives in the binding, not in the camera. A camera has no speed.
 
-- mouse bindings through `updateMouseMapping(...)`
-- ImGuizmo bindings through `updateImguizmoMapping(...)`
-
-**Question: How are `magnitude` values generated?**
-
-`CVirtualGimbalEvent::magnitude` is one non-negative scalar attached to one semantic command.
-
-It is not a raw device unit and it is not, by itself, the final world-space or angular motion applied by a camera.
-
-What stays stable at the API level is the meaning by event family:
-
-- translation events carry one controller-side translation amount
-- rotation events carry one controller-side angular amount
-- scale events carry one controller-side scale amount
-
-The binding layer maps raw producer values onto those amounts. Different sources may start from:
-
-- elapsed time for held input
-- cursor deltas for relative mouse input
-- scroll steps for wheel input
-- world-space translation or angular deltas for gizmo-driven input
-
-That means exact numeric gains are binding policy, not API contract. The binding layer owns sensitivity and repeat-rate tuning.
-
-After the controller side emits virtual magnitudes, the camera runtime applies its own motion scales and legalizes the result to the concrete camera family.
-
-The motion pipeline is therefore:
-
-1. raw device input
-2. binding-local gain
-3. `CVirtualGimbalEvent { type, magnitude }`
-4. camera-local motion scale
-5. family-specific legalization and state update
-
+TODO: revisit. How the controller turns held keys and event timestamps into an amount of motion
 ### 2. Projection is separate from camera state
 
 **Question: Where is `setProjectionMatrix(...)`?**
@@ -236,7 +200,7 @@ Common reasons are:
 - the supplied transform was not a valid rigid orthonormal transform
 - the concrete camera kind could not project the pose onto its own runtime state
 
-`manipulate(...)` returns `false` when the frame carried no virtual events, or when the resulting gimbal pose is the one the call started with.
+`manipulate(...)` returns `false` when the frame is all zero, is not finite or sets an axis the camera does not accept, or when the resulting gimbal pose is the one the call started with.
 
 **Question: Why not just expose `setPosition(...)` and `setOrientation(...)` everywhere?**
 
@@ -361,28 +325,17 @@ Use this path when you already have:
 
 ## Core concepts
 
-### `CVirtualGimbalEvent`
+### `SCameraControls`
 
-Defined in [`CVirtualGimbalEvent.hpp`](CVirtualGimbalEvent.hpp).
+Defined in [`SCameraControls.hpp`](SCameraControls.hpp).
 
-`CVirtualGimbalEvent` is one semantic camera command plus one scalar magnitude.
+`SCameraControls` is one frame of physical deltas: `translate` in world units, `rotate` in radians (x pitch,
+y yaw, z roll), `distance` in world units along the camera-target line, and `path.s`, `path.u`, `path.v`,
+`path.roll` in the units the active path model defines. `ECameraControlAxis` names each field with one bit; the
+group masks `Translate`, `Rotate`, `Path` and `AllControls` combine them.
 
-The scalar magnitude is a controller-side virtual amount emitted after binding
-gains are applied. It is not a raw device delta and it is not, by itself, the
-final world-space motion applied by a camera.
-
-Examples:
-
-- `MoveForward`
-- `MoveLeft`
-- `MoveUp`
-- `TiltUp`
-- `PanRight`
-- `RollLeft`
-- `ScaleZInc`
-
-The event does not store device-specific origin.
-The same event type can come from keyboard input, mouse input, ImGuizmo, scripted playback, or replay helpers.
+The frame does not store where it came from. The same struct is filled by the mouse/keyboard controller, by
+scripts, by solvers and by tests.
 
 ### `IGimbal`
 
@@ -404,9 +357,6 @@ several threads at once.
 
 Every runtime camera owns one `CCameraGimbal`.
 
-One frame of semantic events is summed into an `SVirtualImpulse` by
-`accumulateVirtualEvents<AllowedEvents>(...)` in [`CVirtualGimbalEvent.hpp`](CVirtualGimbalEvent.hpp).
-
 ### `ICamera`
 
 Defined in [`ICamera.hpp`](ICamera.hpp).
@@ -415,22 +365,21 @@ Defined in [`ICamera.hpp`](ICamera.hpp).
 
 Its main job is:
 
-- consume one frame of semantic virtual events
-- optionally consume one rigid reference frame
+- apply one frame of `SCameraControls` along the axes it accepts
+- optionally take one rigid pose
 - update internal camera state
 - update runtime pose in the gimbal
 
 Important members:
 
 - `manipulate(...)`
+- `getAcceptedControls()`
 - `getGimbal()`
-- `getAllowedVirtualEvents()`
 - `getKind()`
 - `getCapabilities()`
 - typed hooks such as `tryGetSphericalTargetState(...)` and `tryGetPathState(...)`
 
-Each camera also stores one local motion-scale bundle in `SMotionConfig`.
-Those scales are applied after the binding layer emits virtual magnitudes.
+A camera stores no speed. Sensitivity belongs to whatever fills the frame.
 
 ### `setPose`
 
@@ -456,8 +405,8 @@ setPose
   -> rebuild the gimbal pose
 
 manipulate
-  -> accumulate virtual events
-  -> apply deltas in that state space
+  -> refuse the frame if it sets an axis the rig does not accept
+  -> apply the accepted axes in that state space
   -> rebuild the gimbal pose
 ```
 

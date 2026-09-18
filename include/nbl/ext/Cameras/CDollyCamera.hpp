@@ -11,9 +11,11 @@ namespace nbl::ext::cameras
 
 /// @brief Target-relative camera that translates the target in the full local camera basis.
 ///
-/// Translation uses the current right/up/forward basis. Rotation updates orbit
-/// yaw and pitch while the camera pose is rebuilt from the maintained
-/// target-relative offset.
+/// Controls: `translate` moves the target through the camera's own frame (x right, y up, z forward), world
+/// units, so the camera follows at its distance; `rotate.y` azimuth and `rotate.x` elevation of the camera
+/// around the target, radians, the elevation clamped to the dolly pitch limit.
+/// TODO: `Distance` is not accepted; the rig cannot change its distance from input, as before, until its intent
+/// is decided.
 class CDollyCamera final : public CSphericalTargetCamera
 {
 public:
@@ -44,36 +46,29 @@ public:
         return true;
     }
 
-    /// @brief Apply one frame of local-frame dolly translation plus orbit rotation.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
-    {
-        if (virtualEvents.empty())
-            return false;
-
-        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
-
-        const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
-
-        const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-        // the dolly moves the target through the full committed basis, forward component included
-        // TODO: like the planar pan in the base rig, this delta is a fixed world-space length and should scale with distance
-        const auto basis = m_gimbal.getBasis();
-        const auto delta = CCameraMathUtilities::transformLocalVectorToWorldBasis(deltaTranslation, basis.right, basis.up, basis.forward);
-
-        m_orbit.target += delta;
-        m_orbit.angles.x += deltaRotation.y;
-        m_orbit.angles.y = std::clamp(m_orbit.angles.y + deltaRotation.x, MinPitch, MaxPitch);
-
-        return updateGimbal();
-    }
-
-    virtual uint32_t getAllowedVirtualEvents() const override { return AllowedVirtualEvents; }
+    virtual uint32_t getAcceptedControls() const override { return AcceptedControls; }
     virtual CameraKind getKind() const override { return CameraKind::Dolly; }
     /// @brief Return the stable user-facing identifier for this concrete camera kind.
     virtual std::string_view getIdentifier() const override { return "Dolly Camera"; }
 
+    static inline constexpr uint32_t AcceptedControls = ECameraControlAxis::Translate | ECameraControlAxis::RotateX | ECameraControlAxis::RotateY;
+
+protected:
+    virtual bool applyControls(const SCameraControls& controls) override
+    {
+        // the dolly moves the target through the full committed basis, forward component included
+        // TODO: like the planar pan in the base rig, this delta is a fixed world-space length and should scale with distance
+        const auto basis = m_gimbal.getBasis();
+        const auto delta = CCameraMathUtilities::transformLocalVectorToWorldBasis(controls.translate, basis.right, basis.up, basis.forward);
+
+        m_orbit.target += delta;
+        m_orbit.angles.x += controls.rotate.y;
+        m_orbit.angles.y = std::clamp(m_orbit.angles.y + controls.rotate.x, MinPitch, MaxPitch);
+
+        return updateGimbal();
+    }
+
 private:
-    static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::Rotate;
     static inline constexpr double MaxPitch = SCameraTargetRelativeRigDefaults::DollyPitchLimitRad;
     static inline constexpr double MinPitch = -MaxPitch;
 };

@@ -10,8 +10,9 @@ namespace nbl::ext::cameras
 
 /// @brief Target-relative camera whose state is one `STargetOrbit`.
 ///
-/// Runtime input updates only orbit yaw, orbit pitch, and camera distance.
-/// The target position remains unchanged during `manipulate(...)`.
+/// Controls: `rotate.y` azimuth and `rotate.x` elevation of the camera around the target, radians, neither
+/// clamped; `distance` along the camera-target line, world units, clamped to the distance limits. The target
+/// stays where it is.
 class COrbitCamera final : public CSphericalTargetCamera
 {
 public:
@@ -41,25 +42,9 @@ public:
         return true;
     }
 
-    /// @brief Apply one frame of orbit-angle and distance input around the current target.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
+    virtual uint32_t getAcceptedControls() const override
     {
-        if (virtualEvents.empty())
-            return false;
-
-        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
-        const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-        const auto deltaDistance = scaleUnscaledVirtualTranslation(impulse.dVirtualTranslate.z);
-
-        m_orbit.angles += hlsl::float64_t2(deltaTranslation.y, deltaTranslation.x);
-        m_orbit.distance = std::clamp(m_orbit.distance + deltaDistance, MinDistance, MaxDistance);
-
-        return updateGimbal();
-    }
-
-    virtual uint32_t getAllowedVirtualEvents() const override
-    {
-        return AllowedVirtualEvents;
+        return AcceptedControls;
     }
 
     virtual CameraKind getKind() const override
@@ -75,7 +60,16 @@ public:
     static inline constexpr hlsl::float64_t MinDistance = base_t::MinDistance;
     static inline constexpr hlsl::float64_t MaxDistance = base_t::MaxDistance;
 
-    static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate;
+    static inline constexpr uint32_t AcceptedControls = ECameraControlAxis::RotateX | ECameraControlAxis::RotateY | ECameraControlAxis::Distance;
+
+protected:
+    virtual bool applyControls(const SCameraControls& controls) override
+    {
+        m_orbit.angles += hlsl::float64_t2(controls.rotate.y, controls.rotate.x);
+        m_orbit.distance = std::clamp(m_orbit.distance + controls.distance, MinDistance, MaxDistance);
+
+        return updateGimbal();
+    }
 };
 
 }

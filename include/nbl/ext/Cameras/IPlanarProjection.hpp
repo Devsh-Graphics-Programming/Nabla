@@ -4,20 +4,16 @@
 #include "nbl/core/math/glslFunctions.h"
 #include "nbl/builtin/hlsl/math/thin_lens_projection.hlsl"
 
-#include "IGimbalBindingLayout.hpp"
 #include "ILinearProjection.hpp"
 
 namespace nbl::ext::cameras
 {
 
 /// @brief Linear projection wrapper for one camera-facing planar viewport.
-///
-/// The projection stores viewport-local binding layouts. Runtime input
-/// processing is handled by `CGimbalInputBinder`.
 class IPlanarProjection : public ILinearProjection
 {
 public:
-    /// @brief One perspective or orthographic projection entry plus its viewport-local bindings.
+    /// @brief One perspective or orthographic projection entry.
     struct CProjection : public ILinearProjection::CProjection
     {
         using base_t = ILinearProjection::CProjection;
@@ -82,14 +78,9 @@ public:
 
         /// @brief Return the authored planar projection parameters.
         inline const ProjectionParameters& getParameters() const { return m_parameters; }
-        /// @brief Return the viewport-local input binding layout stored next to this projection entry.
-        inline const IGimbalBindingLayout& getInputBinding() const { return m_inputBinding; }
-        /// @brief Return mutable access to the viewport-local input binding layout.
-        inline IGimbalBindingLayout& getInputBinding() { return m_inputBinding; }
     private:
         CProjection() = default;
         ProjectionParameters m_parameters;
-        CGimbalBindingLayoutStorage m_inputBinding;
     };
 
 protected:

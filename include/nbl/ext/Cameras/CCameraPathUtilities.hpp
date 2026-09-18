@@ -10,7 +10,6 @@
 
 #include "CCameraPathMetadata.hpp"
 #include "CCameraTargetRelativeUtilities.hpp"
-#include "CCameraVirtualEventUtilities.hpp"
 #include "ICamera.hpp"
 
 namespace nbl::ext::cameras
@@ -34,12 +33,6 @@ struct SCameraPathDelta final : ICamera::PathState
         return ICamera::PathState::asVector();
     }
 
-    /// @brief Reinterpret the delta as the translation-style helper representation.
-    inline hlsl::float64_t3 translationVector() const
-    {
-        return ICamera::PathState::asTranslationVector();
-    }
-
     /// @brief Rebuild the delta from the packed vector representation.
     static inline SCameraPathDelta fromVector(const hlsl::float64_t4& value)
     {
@@ -48,17 +41,6 @@ struct SCameraPathDelta final : ICamera::PathState
         delta.u = value.y;
         delta.v = value.z;
         delta.roll = value.w;
-        return delta;
-    }
-
-    /// @brief Rebuild the delta from a translation-style helper vector and optional roll value.
-    static inline SCameraPathDelta fromMotion(const hlsl::float64_t3& translation, const double pathRoll = 0.0)
-    {
-        SCameraPathDelta delta = {};
-        delta.s = translation.z;
-        delta.u = translation.x;
-        delta.v = translation.y;
-        delta.roll = pathRoll;
         return delta;
     }
 };
@@ -122,8 +104,8 @@ using SCameraPathLimits = ICamera::PathStateLimits;
 struct SCameraPathControlContext final
 {
     ICamera::PathState currentState = {};
-    hlsl::float64_t3 translation = hlsl::float64_t3(0.0);
-    hlsl::float64_t3 rotation = hlsl::float64_t3(0.0);
+    /// @brief The `s`, `u`, `v` and `roll` change asked for this step, in the units the model defines.
+    SCameraPathDelta requested = {};
     hlsl::float64_t3 targetPosition = hlsl::float64_t3(0.0);
     const SCameraRigPose* reference = nullptr;
     SCameraPathLimits limits = SCameraPathDefaults::Limits;
@@ -133,7 +115,7 @@ struct SCameraPathControlContext final
 ///
 /// A concrete `Path Rig` model provides:
 /// - state resolution from target position, world position, and optional typed input
-/// - one control law turning accumulated runtime motion into `SCameraPathDelta`
+/// - one control law turning the requested delta into the `SCameraPathDelta` to integrate
 /// - one state integrator
 /// - one canonical evaluator producing pose and target-relative view data
 /// - one distance-update rule for typed helpers that adjust distance directly
@@ -261,18 +243,7 @@ struct CCameraPathUtilities final
         const ICamera::PathState& currentState,
         const ICamera::PathState& desiredState);
 
-    static SCameraPathDelta makePathDeltaFromVirtualPathMotion(
-        const hlsl::float64_t3& translation,
-        const hlsl::float64_t3& rotation = hlsl::float64_t3(0.0));
-
     static SCameraPathDelta buildDefaultPathControlDelta(const SCameraPathControlContext& context);
-
-    static void appendPathDeltaEvents(
-        std::vector<CVirtualGimbalEvent>& events,
-        const SCameraPathDelta& delta,
-        double moveDenominator,
-        double rotationDenominator,
-        const SCameraPathComparisonThresholds& thresholds = {});
 
     static bool tryBuildCanonicalPathState(
         const hlsl::float64_t3& targetPosition,

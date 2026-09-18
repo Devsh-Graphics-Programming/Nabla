@@ -15,9 +15,10 @@ namespace nbl::ext::cameras
 
 /// @brief Target-relative camera with planar target translation and bounded arcball orbiting.
 ///
-/// The runtime state is inherited from `CSphericalTargetCamera`. Translation
-/// moves the target in the current view plane. Rotation updates orbit yaw and
-/// pitch under a symmetric pitch limit.
+/// Controls: `rotate.y` azimuth and `rotate.x` elevation of the camera around the target, radians, the
+/// elevation clamped to the arcball pitch limit; `distance` along the camera-target line, world units,
+/// clamped to the distance limits; `translate.x` and `translate.y` move the target in the current view plane
+/// (x right, y up), world units, so the camera slides with it.
 class CArcballCamera final : public CSphericalTargetCamera
 {
 public:
@@ -48,27 +49,7 @@ public:
         return true;
     }
 
-    /// @brief Apply one frame of semantic translation and rotation input to the arcball rig.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
-    {
-        if (virtualEvents.empty())
-            return false;
-
-        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
-
-        const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
-        const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-        const auto deltaDistance = scaleUnscaledVirtualTranslation(impulse.dVirtualTranslate.z);
-
-        m_orbit.angles.x += deltaRotation.y;
-        m_orbit.angles.y = std::clamp(m_orbit.angles.y + deltaRotation.x, MinPitch, MaxPitch);
-        m_orbit.distance = std::clamp(m_orbit.distance + deltaDistance, MinDistance, MaxDistance);
-        applyPlanarTargetTranslation(deltaTranslation);
-
-        return updateGimbal();
-    }
-
-    virtual uint32_t getAllowedVirtualEvents() const override { return AllowedVirtualEvents; }
+    virtual uint32_t getAcceptedControls() const override { return AcceptedControls; }
     virtual CameraKind getKind() const override { return CameraKind::Arcball; }
     /// @brief Return the stable user-facing identifier for this concrete camera kind.
     virtual std::string_view getIdentifier() const override { return "Arcball Camera"; }
@@ -76,9 +57,22 @@ public:
     static inline constexpr hlsl::float64_t MinDistance = base_t::MinDistance;
     static inline constexpr hlsl::float64_t MaxDistance = base_t::MaxDistance;
 
-private:
+    static inline constexpr uint32_t AcceptedControls =
+        ECameraControlAxis::RotateX | ECameraControlAxis::RotateY | ECameraControlAxis::Distance |
+        ECameraControlAxis::TranslateX | ECameraControlAxis::TranslateY;
 
-    static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::Rotate;
+protected:
+    virtual bool applyControls(const SCameraControls& controls) override
+    {
+        m_orbit.angles.x += controls.rotate.y;
+        m_orbit.angles.y = std::clamp(m_orbit.angles.y + controls.rotate.x, MinPitch, MaxPitch);
+        m_orbit.distance = std::clamp(m_orbit.distance + controls.distance, MinDistance, MaxDistance);
+        applyPlanarTargetTranslation(controls.translate);
+
+        return updateGimbal();
+    }
+
+private:
     static inline constexpr double MaxPitch = SCameraTargetRelativeRigDefaults::ArcballPitchLimitRad;
     static inline constexpr double MinPitch = -MaxPitch;
 };

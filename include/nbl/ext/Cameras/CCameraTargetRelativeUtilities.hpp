@@ -4,7 +4,7 @@
 #include <limits>
 
 #include "SCameraTypes.hpp"
-#include "CCameraVirtualEventUtilities.hpp"
+#include "ICamera.hpp"
 
 namespace nbl::ext::cameras
 {
@@ -27,19 +27,7 @@ struct SCameraTargetRelativeDelta final
     }
 };
 
-/// @brief Mapping policy describing how a target-relative delta is converted into virtual events.
-struct SCameraTargetRelativeEventPolicy final
-{
-    bool translateOrbit = false;
-    bool allowYaw = true;
-    bool allowPitch = true;
-    SCameraVirtualEventAxisBinding distanceBinding = {
-        CVirtualGimbalEvent::MoveForward,
-        CVirtualGimbalEvent::MoveBackward
-    };
-};
-
-/// @brief Default constants and event policies used by target-relative rigs.
+/// @brief Default constants used by target-relative rigs.
 struct SCameraTargetRelativeRigDefaults final
 {
     static constexpr float InitialDistance = 1.0f;
@@ -51,46 +39,9 @@ struct SCameraTargetRelativeRigDefaults final
     static constexpr double TopDownPitchRad = SCameraViewRigDefaults::TopDownPitchRad;
     static constexpr double IsometricYawRad = SCameraViewRigDefaults::IsometricYawRad;
     static inline const double IsometricPitchRad = SCameraViewRigDefaults::IsometricPitchRad;
-
-    static inline constexpr SCameraTargetRelativeEventPolicy OrbitTranslatePolicy = {
-        .translateOrbit = true
-    };
-    static inline constexpr SCameraTargetRelativeEventPolicy RotateDistancePolicy = {
-        .translateOrbit = false,
-        .allowYaw = true,
-        .allowPitch = true
-    };
-    static inline constexpr SCameraTargetRelativeEventPolicy TopDownPolicy = {
-        .translateOrbit = false,
-        .allowYaw = true,
-        .allowPitch = false
-    };
-    static inline constexpr SCameraTargetRelativeEventPolicy IsometricPolicy = {
-        .translateOrbit = false,
-        .allowYaw = false,
-        .allowPitch = false
-    };
-    static inline constexpr SCameraTargetRelativeEventPolicy DollyPolicy = {
-        .translateOrbit = false,
-        .allowYaw = true,
-        .allowPitch = true,
-        .distanceBinding = {
-            CVirtualGimbalEvent::None,
-            CVirtualGimbalEvent::None
-        }
-    };
-    static inline constexpr SCameraTargetRelativeEventPolicy ChasePolicy = {
-        .translateOrbit = false,
-        .allowYaw = true,
-        .allowPitch = true,
-        .distanceBinding = {
-            CVirtualGimbalEvent::MoveUp,
-            CVirtualGimbalEvent::MoveDown
-        }
-    };
 };
 
-/// @brief Helpers for converting between target-relative state, pose, basis, and virtual-event deltas.
+/// @brief Helpers for converting between target-relative state and a desired orbit.
 struct CCameraTargetRelativeUtilities final
 {
     static inline SCameraTargetRelativeDelta buildTargetRelativeDelta(
@@ -103,65 +54,6 @@ struct CCameraTargetRelativeUtilities final
                 CCameraMathUtilities::wrapAngleRad(desiredOrbit.angles.y - currentState.orbitUv.y)),
             .distance = desiredOrbit.distance - static_cast<hlsl::float64_t>(currentState.distance)
         };
-    }
-
-    static inline void appendTargetRelativeDeltaEvents(
-        std::vector<CVirtualGimbalEvent>& events,
-        const SCameraTargetRelativeDelta& delta,
-        const double angularDenominator,
-        const double angularToleranceDeg,
-        const double distanceDenominator,
-        const double distanceTolerance,
-        const SCameraTargetRelativeEventPolicy& policy)
-    {
-        if (policy.translateOrbit)
-        {
-            CCameraVirtualEventUtilities::appendAngularAxisEvents(
-                events,
-                delta.orbitVector(),
-                hlsl::float64_t3(angularDenominator),
-                hlsl::float64_t3(angularToleranceDeg, angularToleranceDeg, std::numeric_limits<hlsl::float64_t>::infinity()),
-                {{
-                    { CVirtualGimbalEvent::MoveRight, CVirtualGimbalEvent::MoveLeft },
-                    { CVirtualGimbalEvent::MoveUp, CVirtualGimbalEvent::MoveDown },
-                    { CVirtualGimbalEvent::None, CVirtualGimbalEvent::None }
-                }});
-        }
-        else
-        {
-            if (policy.allowYaw)
-            {
-                CCameraVirtualEventUtilities::appendAngularDeltaEvent(
-                    events,
-                    delta.orbitUv.x,
-                    angularDenominator,
-                    angularToleranceDeg,
-                    CVirtualGimbalEvent::PanRight,
-                    CVirtualGimbalEvent::PanLeft);
-            }
-            if (policy.allowPitch)
-            {
-                CCameraVirtualEventUtilities::appendAngularDeltaEvent(
-                    events,
-                    delta.orbitUv.y,
-                    angularDenominator,
-                    angularToleranceDeg,
-                    CVirtualGimbalEvent::TiltUp,
-                    CVirtualGimbalEvent::TiltDown);
-            }
-        }
-
-        if (policy.distanceBinding.positive != CVirtualGimbalEvent::None &&
-            policy.distanceBinding.negative != CVirtualGimbalEvent::None)
-        {
-            CCameraVirtualEventUtilities::appendScaledVirtualEvent(
-                events,
-                delta.distance,
-                distanceDenominator,
-                distanceTolerance,
-                policy.distanceBinding.positive,
-                policy.distanceBinding.negative);
-        }
     }
 };
 

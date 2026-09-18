@@ -12,9 +12,8 @@ namespace nbl::ext::cameras
 
 /// @brief Path-rig camera driven by typed `PathState` plus an injected path model.
 ///
-/// The public runtime path stays event-only through `manipulate(...)`.
-/// `CPathCamera` only interprets the accumulated impulse through `m_pathModel`
-/// instead of hardcoding one default target-relative mapping in the method body.
+/// Controls: `path.s`, `path.u`, `path.v` and `path.roll` are handed to the active path model's control law as
+/// the requested delta; the model defines their units and geometry. No generic axis is accepted.
 class CPathCamera final : public CSphericalTargetCamera
 {
 public:
@@ -63,31 +62,10 @@ public:
         if (!m_pathModel.resolveState(m_orbit.target, pose.position, m_pathLimits, nullptr, nextPathState))
             return false;
 
-        return tryApplyPathControlStep(nextPathState, {}, {}, &pose, nullptr);
+        return tryApplyPathControlStep(nextPathState, {}, &pose, nullptr);
     }
 
-    /// @brief Consume virtual events through the active path model and update the runtime pose from the resulting path state.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
-    {
-        if (virtualEvents.empty())
-            return false;
-
-        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
-        bool manipulated = false;
-        if (!tryApplyPathControlStep(
-                m_pathState,
-                scaleVirtualTranslation(impulse.dVirtualTranslate),
-                scaleVirtualRotation(impulse.dVirtualRotation),
-                nullptr,
-                &manipulated))
-        {
-            return false;
-        }
-
-        return manipulated;
-    }
-
-    virtual uint32_t getAllowedVirtualEvents() const override { return AllowedVirtualEvents; }
+    virtual uint32_t getAcceptedControls() const override { return AcceptedControls; }
     virtual CameraKind getKind() const override { return CameraKind::Path; }
     virtual uint32_t getGoalStateMask() const override { return base_t::getGoalStateMask() | base_t::GoalStatePath; }
 
@@ -235,10 +213,26 @@ public:
         return false;
     }
 
-private:
-    static inline constexpr auto AllowedVirtualEvents =
-        CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::RollLeft | CVirtualGimbalEvent::RollRight;
+    static inline constexpr uint32_t AcceptedControls = ECameraControlAxis::Path;
 
+protected:
+    /// @brief Run one control-law + integrate step with the requested path delta and commit the resulting pose.
+    virtual bool applyControls(const SCameraControls& controls) override
+    {
+        SCameraPathDelta requested = {};
+        requested.s = controls.path.s;
+        requested.u = controls.path.u;
+        requested.v = controls.path.v;
+        requested.roll = controls.path.roll;
+
+        bool manipulated = false;
+        if (!tryApplyPathControlStep(m_pathState, requested, nullptr, &manipulated))
+            return false;
+
+        return manipulated;
+    }
+
+private:
     /// @brief Check whether a path model provides all callbacks required by the runtime camera.
     static inline bool isPathModelComplete(const path_model_t& pathModel)
     {
@@ -292,8 +286,7 @@ private:
     /// @brief Run one control-law + integrate step from `startState` and commit it, rolling back if the pose fails.
     bool tryApplyPathControlStep(
         const PathState& startState,
-        const hlsl::float64_t3& translation,
-        const hlsl::float64_t3& rotation,
+        const SCameraPathDelta& requested,
         const SCameraRigPose* reference,
         bool* outManipulated)
     {
@@ -302,8 +295,7 @@ private:
 
         const SCameraPathControlContext context = {
             .currentState = startState,
-            .translation = translation,
-            .rotation = rotation,
+            .requested = requested,
             .targetPosition = m_orbit.target,
             .reference = reference,
             .limits = m_pathLimits

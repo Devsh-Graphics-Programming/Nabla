@@ -11,7 +11,7 @@
 #include "nbl/builtin/hlsl/math/quaternions.hlsl"
 
 // Foundational value types shared by the runtime cameras, the gimbal and the math helpers.
-// Nothing here knows about `ICamera`, virtual events or input processing; keep it that way.
+// Nothing here knows about `ICamera`, control frames or input processing; keep it that way.
 namespace nbl::ext::cameras
 {
 

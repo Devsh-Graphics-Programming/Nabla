@@ -11,8 +11,10 @@ namespace nbl::ext::cameras
 
 /// @brief Target-relative camera constrained to look straight down at the tracked target.
 ///
-/// Yaw may still rotate the view around the vertical axis, while pitch is fixed to
-/// the top-down angle and translation moves the tracked target in the view plane.
+/// Controls: `rotate.y` azimuth of the camera around the target, radians, unclamped; `distance` along the
+/// camera-target line, world units, clamped to the distance limits; `translate.x` and `translate.y` move the
+/// target in the current view plane (x right, y up), world units, so the camera slides with it. The pitch is
+/// held at the top-down angle.
 class CTopDownCamera final : public CSphericalTargetCamera
 {
 public:
@@ -47,30 +49,24 @@ public:
         return true;
     }
 
-    /// @brief Apply one frame of top-down yaw rotation, planar translation, and distance changes.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
-    {
-        if (virtualEvents.empty())
-            return false;
-
-        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
-
-        const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
-        const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-        const auto deltaDistance = scaleUnscaledVirtualTranslation(impulse.dVirtualTranslate.z);
-
-        m_orbit.angles.x += deltaRotation.y;
-        m_orbit.angles.y = TopDownPitch;
-        m_orbit.distance = std::clamp(m_orbit.distance + deltaDistance, MinDistance, MaxDistance);
-        applyPlanarTargetTranslation(deltaTranslation);
-
-        return updateGimbal();
-    }
-
-    virtual uint32_t getAllowedVirtualEvents() const override { return AllowedVirtualEvents; }
+    virtual uint32_t getAcceptedControls() const override { return AcceptedControls; }
     virtual CameraKind getKind() const override { return CameraKind::TopDown; }
     /// @brief Return the stable user-facing identifier for this concrete camera kind.
     virtual std::string_view getIdentifier() const override { return "Top-Down Camera"; }
+
+    static inline constexpr uint32_t AcceptedControls =
+        ECameraControlAxis::RotateY | ECameraControlAxis::Distance | ECameraControlAxis::TranslateX | ECameraControlAxis::TranslateY;
+
+protected:
+    virtual bool applyControls(const SCameraControls& controls) override
+    {
+        m_orbit.angles.x += controls.rotate.y;
+        m_orbit.angles.y = TopDownPitch;
+        m_orbit.distance = std::clamp(m_orbit.distance + controls.distance, MinDistance, MaxDistance);
+        applyPlanarTargetTranslation(controls.translate);
+
+        return updateGimbal();
+    }
 
 private:
     /// @brief Recover the yaw a top-down orientation encodes, falling back when the pose carries none.
@@ -95,7 +91,6 @@ private:
         return fallbackYaw;
     }
 
-    static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::Rotate;
     static inline constexpr double TopDownPitch = SCameraTargetRelativeRigDefaults::TopDownPitchRad;
 };
 

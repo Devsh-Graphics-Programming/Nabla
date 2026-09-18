@@ -11,6 +11,10 @@ namespace nbl::ext::cameras
 {
 
 /// @brief Free-position camera that allows full yaw/pitch/roll rotation.
+///
+/// Controls: `translate` in the camera's own frame (x right, y up, z forward), world units. `rotate.x`,
+/// `rotate.y` and `rotate.z` pitch, yaw and roll about the camera's own right, up and forward axes, radians,
+/// unclamped.
 class CFreeCamera final : public ICamera
 {
 public:
@@ -37,34 +41,9 @@ public:
         return true;
     }
 
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
+    virtual uint32_t getAcceptedControls() const override
     {
-        if (virtualEvents.empty())
-            return false;
-
-        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
-        const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
-        const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-
-        // a copy, because the pose is replaced below while it still anchors the rotation axes and the translation
-        const auto anchor = m_gimbal.getPose();
-        const auto anchorBasis = m_gimbal.getBasis();
-
-        // rotations about the anchor's own axes, translation in the anchor frame
-        const auto pitch = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.right, deltaRotation.x);
-        const auto yaw = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.up, deltaRotation.y);
-        const auto roll = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.forward, deltaRotation.z);
-        const auto newPosition = anchor.position + anchor.orientation.transformVector(hlsl::float64_t3(deltaTranslation), true);
-
-        return m_gimbal.setPose(SCameraRigPose{
-            .position = newPosition,
-            .orientation = yaw * pitch * roll * anchor.orientation
-        });
-    }
-
-    virtual uint32_t getAllowedVirtualEvents() const override
-    {
-        return AllowedVirtualEvents;
+        return AcceptedControls;
     }
 
     virtual CameraKind getKind() const override
@@ -77,10 +56,29 @@ public:
         return "Free-Look Camera";
     }
 
+    static inline constexpr uint32_t AcceptedControls = ECameraControlAxis::Translate | ECameraControlAxis::Rotate;
+
+protected:
+    virtual bool applyControls(const SCameraControls& controls) override
+    {
+        // a copy, because the pose is replaced below while it still anchors the rotation axes and the translation
+        const auto anchor = m_gimbal.getPose();
+        const auto anchorBasis = m_gimbal.getBasis();
+
+        // rotations about the anchor's own axes, translation in the anchor frame
+        const auto pitch = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.right, controls.rotate.x);
+        const auto yaw = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.up, controls.rotate.y);
+        const auto roll = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.forward, controls.rotate.z);
+        const auto newPosition = anchor.position + anchor.orientation.transformVector(controls.translate, true);
+
+        return m_gimbal.setPose(SCameraRigPose{
+            .position = newPosition,
+            .orientation = yaw * pitch * roll * anchor.orientation
+        });
+    }
+
 private:
     CCameraGimbal m_gimbal;
-
-    static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::Rotate;
 };
 
 }

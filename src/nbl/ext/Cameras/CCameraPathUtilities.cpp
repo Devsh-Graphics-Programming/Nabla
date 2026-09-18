@@ -248,37 +248,9 @@ SCameraPathDelta CCameraPathUtilities::buildPathStateDelta(
     return SCameraPathDelta::fromVector(buildPathStateDeltaVector(currentState, desiredState));
 }
 
-SCameraPathDelta CCameraPathUtilities::makePathDeltaFromVirtualPathMotion(
-    const hlsl::float64_t3& translation,
-    const hlsl::float64_t3& rotation)
-{
-    return SCameraPathDelta::fromMotion(translation, rotation.z);
-}
-
 SCameraPathDelta CCameraPathUtilities::buildDefaultPathControlDelta(const SCameraPathControlContext& context)
 {
-    return makePathDeltaFromVirtualPathMotion(context.translation, context.rotation);
-}
-
-void CCameraPathUtilities::appendPathDeltaEvents(
-    std::vector<CVirtualGimbalEvent>& events,
-    const SCameraPathDelta& delta,
-    const double moveDenominator,
-    const double rotationDenominator,
-    const SCameraPathComparisonThresholds& thresholds)
-{
-    CCameraVirtualEventUtilities::appendLocalTranslationEvents(
-        events,
-        delta.translationVector(),
-        hlsl::float64_t3(moveDenominator),
-        hlsl::float64_t3(thresholds.scalarTolerance));
-    CCameraVirtualEventUtilities::appendAngularDeltaEvent(
-        events,
-        delta.roll,
-        rotationDenominator,
-        thresholds.rollToleranceDeg,
-        CVirtualGimbalEvent::RollRight,
-        CVirtualGimbalEvent::RollLeft);
+    return context.requested;
 }
 
 bool CCameraPathUtilities::tryBuildCanonicalPathState(

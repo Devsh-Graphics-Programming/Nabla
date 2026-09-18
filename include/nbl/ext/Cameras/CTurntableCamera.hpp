@@ -15,8 +15,9 @@ namespace nbl::ext::cameras
 
 /// @brief Target-relative camera that behaves like a classic turntable around a fixed target.
 ///
-/// The camera exposes yaw, bounded pitch, and distance changes while keeping the
-/// target fixed in space and avoiding arbitrary planar target translation.
+/// Controls: `rotate.y` azimuth and `rotate.x` elevation of the camera around the target, radians, the
+/// elevation clamped to the turntable pitch limit; `distance` along the camera-target line, world units,
+/// clamped to the distance limits. The target stays where it is.
 class CTurntableCamera final : public CSphericalTargetCamera
 {
 public:
@@ -47,26 +48,7 @@ public:
         return true;
     }
 
-    /// @brief Apply one frame of yaw, bounded pitch, and distance input around the tracked target.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
-    {
-        if (virtualEvents.empty())
-            return false;
-
-        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
-
-        const auto deltaYaw = scaleVirtualRotation(impulse.dVirtualRotation.y);
-        const auto deltaPitch = scaleVirtualRotation(impulse.dVirtualRotation.x);
-        const auto deltaDistance = scaleUnscaledVirtualTranslation(impulse.dVirtualTranslate.z);
-
-        m_orbit.angles.x += deltaYaw;
-        m_orbit.angles.y = std::clamp(m_orbit.angles.y + deltaPitch, MinPitch, MaxPitch);
-        m_orbit.distance = std::clamp(m_orbit.distance + deltaDistance, MinDistance, MaxDistance);
-
-        return updateGimbal();
-    }
-
-    virtual uint32_t getAllowedVirtualEvents() const override { return AllowedVirtualEvents; }
+    virtual uint32_t getAcceptedControls() const override { return AcceptedControls; }
     virtual CameraKind getKind() const override { return CameraKind::Turntable; }
     /// @brief Return the stable user-facing identifier for this concrete camera kind.
     virtual std::string_view getIdentifier() const override { return "Turntable Camera"; }
@@ -74,9 +56,19 @@ public:
     static inline constexpr hlsl::float64_t MinDistance = base_t::MinDistance;
     static inline constexpr hlsl::float64_t MaxDistance = base_t::MaxDistance;
 
-private:
+    static inline constexpr uint32_t AcceptedControls = ECameraControlAxis::RotateX | ECameraControlAxis::RotateY | ECameraControlAxis::Distance;
 
-    static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::Rotate;
+protected:
+    virtual bool applyControls(const SCameraControls& controls) override
+    {
+        m_orbit.angles.x += controls.rotate.y;
+        m_orbit.angles.y = std::clamp(m_orbit.angles.y + controls.rotate.x, MinPitch, MaxPitch);
+        m_orbit.distance = std::clamp(m_orbit.distance + controls.distance, MinDistance, MaxDistance);
+
+        return updateGimbal();
+    }
+
+private:
     static inline constexpr double MaxPitch = SCameraTargetRelativeRigDefaults::TurntablePitchLimitRad;
     static inline constexpr double MinPitch = -MaxPitch;
 };

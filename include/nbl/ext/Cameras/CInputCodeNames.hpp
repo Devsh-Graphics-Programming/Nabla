@@ -6,38 +6,11 @@
 
 #include "nbl/ui/KeyCodes.h"
 
-// Stable string names for input codes, used by camera binding presets and their JSON persistence.
+// Stable string names for key codes and mouse buttons, used by persisted camera bindings.
 // These used to live in `nbl/ui/KeyCodes.h` but nothing in `nbl::ui` produces or consumes them, only the camera extension does.
 
 namespace nbl::ext::cameras
 {
-
-// Flattened mouse "codes" so a mouse button, a signed scroll direction or a signed relative movement axis can be bound like a key.
-// Only the legacy binding layout (`IGimbalBindingLayout`) and its editors use it; it goes away together with them.
-enum E_MOUSE_CODE : uint8_t
-{
-	EMC_NONE = 0,
-
-	EMC_LEFT_BUTTON,
-	EMC_RIGHT_BUTTON,
-	EMC_MIDDLE_BUTTON,
-	EMC_BUTTON_4,
-	EMC_BUTTON_5,
-
-	// SMouseEvent::E_EVENT_TYPE::EET_SCROLL split by sign
-	EMC_VERTICAL_POSITIVE_SCROLL,
-	EMC_VERTICAL_NEGATIVE_SCROLL,
-	EMC_HORIZONTAL_POSITIVE_SCROLL,
-	EMC_HORIZONTAL_NEGATIVE_SCROLL,
-
-	// SMouseEvent::E_EVENT_TYPE::EET_MOVEMENT split by sign
-	EMC_RELATIVE_POSITIVE_MOVEMENT_X,
-	EMC_RELATIVE_POSITIVE_MOVEMENT_Y,
-	EMC_RELATIVE_NEGATIVE_MOVEMENT_X,
-	EMC_RELATIVE_NEGATIVE_MOVEMENT_Y,
-
-	EMC_COUNT,
-};
 
 namespace impl
 {
@@ -167,20 +140,12 @@ inline constexpr auto NamedKeyCodes = std::to_array<SNamedCode<ui::E_KEY_CODE>>(
 });
 
 // one table for both directions so the two mappings cannot drift apart
-inline constexpr auto NamedMouseCodes = std::to_array<SNamedCode<E_MOUSE_CODE>>({
-	{ "LEFT_BUTTON", EMC_LEFT_BUTTON },
-	{ "RIGHT_BUTTON", EMC_RIGHT_BUTTON },
-	{ "MIDDLE_BUTTON", EMC_MIDDLE_BUTTON },
-	{ "BUTTON_4", EMC_BUTTON_4 },
-	{ "BUTTON_5", EMC_BUTTON_5 },
-	{ "VERTICAL_POSITIVE_SCROLL", EMC_VERTICAL_POSITIVE_SCROLL },
-	{ "VERTICAL_NEGATIVE_SCROLL", EMC_VERTICAL_NEGATIVE_SCROLL },
-	{ "HORIZONTAL_POSITIVE_SCROLL", EMC_HORIZONTAL_POSITIVE_SCROLL },
-	{ "HORIZONTAL_NEGATIVE_SCROLL", EMC_HORIZONTAL_NEGATIVE_SCROLL },
-	{ "RELATIVE_POSITIVE_MOVEMENT_X", EMC_RELATIVE_POSITIVE_MOVEMENT_X },
-	{ "RELATIVE_POSITIVE_MOVEMENT_Y", EMC_RELATIVE_POSITIVE_MOVEMENT_Y },
-	{ "RELATIVE_NEGATIVE_MOVEMENT_X", EMC_RELATIVE_NEGATIVE_MOVEMENT_X },
-	{ "RELATIVE_NEGATIVE_MOVEMENT_Y", EMC_RELATIVE_NEGATIVE_MOVEMENT_Y }
+inline constexpr auto NamedMouseButtons = std::to_array<SNamedCode<ui::E_MOUSE_BUTTON>>({
+	{ "LEFT_BUTTON", ui::EMB_LEFT_BUTTON },
+	{ "RIGHT_BUTTON", ui::EMB_RIGHT_BUTTON },
+	{ "MIDDLE_BUTTON", ui::EMB_MIDDLE_BUTTON },
+	{ "BUTTON_4", ui::EMB_BUTTON_4 },
+	{ "BUTTON_5", ui::EMB_BUTTON_5 }
 });
 
 } // namespace impl
@@ -206,14 +171,15 @@ constexpr std::string_view keyCodeToString(const ui::E_KEY_CODE code)
 	return impl::lookupCodeName(code, impl::NamedKeyCodes, "NONE");
 }
 
-constexpr E_MOUSE_CODE stringToMouseCode(std::string_view str)
+/// @brief Mouse button named by `str`, or `EMB_COUNT` when no button has that name.
+constexpr ui::E_MOUSE_BUTTON stringToMouseButton(std::string_view str)
 {
-	return impl::lookupNamedCode(str, impl::NamedMouseCodes, EMC_NONE);
+	return impl::lookupNamedCode(str, impl::NamedMouseButtons, ui::EMB_COUNT);
 }
 
-constexpr std::string_view mouseCodeToString(const E_MOUSE_CODE code)
+constexpr std::string_view mouseButtonToString(const ui::E_MOUSE_BUTTON button)
 {
-	return impl::lookupCodeName(code, impl::NamedMouseCodes, "NONE");
+	return impl::lookupCodeName(button, impl::NamedMouseButtons, "NONE");
 }
 
 } // namespace nbl::ext::cameras

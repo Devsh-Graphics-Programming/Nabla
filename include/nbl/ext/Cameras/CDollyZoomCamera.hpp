@@ -14,6 +14,10 @@ namespace nbl::ext::cameras
 /// The rig reuses spherical target-relative manipulation but exposes an additional
 /// dynamic-perspective state describing the authored base FOV and the reference
 /// distance used to compute the current dolly-zoom FOV.
+///
+/// Controls: `rotate.y` azimuth and `rotate.x` elevation of the camera around the target, radians, neither
+/// clamped; `distance` along the camera-target line, world units, clamped to the distance limits, from which
+/// the FOV is derived. The target stays where it is.
 class CDollyZoomCamera final : public CSphericalTargetCamera
 {
 public:
@@ -62,23 +66,7 @@ public:
         return true;
     }
 
-    /// @brief Apply one frame of orbit translation and distance input for the dolly-zoom rig.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
-    {
-        if (virtualEvents.empty())
-            return false;
-
-        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
-        const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-        const auto deltaDistance = scaleUnscaledVirtualTranslation(impulse.dVirtualTranslate.z);
-
-        m_orbit.angles += hlsl::float64_t2(deltaTranslation.y, deltaTranslation.x);
-        m_orbit.distance = std::clamp(m_orbit.distance + deltaDistance, MinDistance, MaxDistance);
-
-        return updateGimbal();
-    }
-
-    virtual uint32_t getAllowedVirtualEvents() const override { return AllowedVirtualEvents; }
+    virtual uint32_t getAcceptedControls() const override { return AcceptedControls; }
     virtual CameraKind getKind() const override { return CameraKind::DollyZoom; }
     virtual uint32_t getCapabilities() const override { return base_t::getCapabilities() | base_t::DynamicPerspectiveFov; }
     /// @brief Query the current derived FOV produced by the dolly-zoom state.
@@ -107,8 +95,18 @@ public:
     /// @brief Return the stable user-facing identifier for this concrete camera kind.
     virtual std::string_view getIdentifier() const override { return "Dolly Zoom Camera"; }
 
+    static inline constexpr uint32_t AcceptedControls = ECameraControlAxis::RotateX | ECameraControlAxis::RotateY | ECameraControlAxis::Distance;
+
+protected:
+    virtual bool applyControls(const SCameraControls& controls) override
+    {
+        m_orbit.angles += hlsl::float64_t2(controls.rotate.y, controls.rotate.x);
+        m_orbit.distance = std::clamp(m_orbit.distance + controls.distance, MinDistance, MaxDistance);
+
+        return updateGimbal();
+    }
+
 private:
-    static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate;
     static inline constexpr float DefaultBaseFovDeg = 40.0f;
     static inline constexpr float MinDynamicFovDeg = 10.0f;
     static inline constexpr float MaxDynamicFovDeg = 150.0f;

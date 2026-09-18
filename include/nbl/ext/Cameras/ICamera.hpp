@@ -13,49 +13,27 @@
 #include "nbl/core/util/bitflag.h"
 #include "SCameraToolingThresholds.hpp"
 #include "CCameraGimbal.hpp"
-#include "CVirtualGimbalEvent.hpp"
+#include "SCameraControls.hpp"
 
 namespace nbl::ext::cameras
 {
 
 /// @brief Shared runtime camera interface.
 ///
-/// `ICamera` consumes batches of `CVirtualGimbalEvent` values and updates one
-/// camera pose stored in `CCameraGimbal`. A `CVirtualGimbalEvent` identifies one
-/// semantic command such as `MoveForward`, `PanLeft`, or `RollRight` and carries
-/// one source-normalized scalar magnitude for that command.
-///
-/// Keyboard input, mouse input, ImGuizmo interaction, scripted playback,
-/// preset replay, follow helpers, and goal solving all drive cameras through
-/// the same `manipulate(...)` entry point.
+/// A camera owns one pose in a `CCameraGimbal`. It changes through two entry points: `manipulate(...)`
+/// applies one frame of physical deltas along the axes the rig accepts, and `setPose(...)` projects an
+/// authored world-space pose onto the state the rig stores. `manipulate` does not know what filled the frame;
+/// the mouse/keyboard controller, a script, a solver and a test all build the same `SCameraControls`.
 ///
 /// The optional typed hooks expose camera-family state for code that needs
 /// capture, restore, compatibility analysis, persistence, or validation.
 class ICamera : virtual public core::IReferenceCounted
-{ 
-private:
-    static inline constexpr hlsl::float64_t DefaultMoveSpeedScaleValue = 0.01;
-    static inline constexpr hlsl::float64_t DefaultRotationSpeedScaleValue = 0.003;
-    static inline constexpr hlsl::float64_t VirtualTranslationUnit = 0.01;
-
+{
 public:
     /// @brief Smallest target distance accepted by target-relative cameras; see `STargetOrbit::DefaultMinDistance`.
     static inline constexpr hlsl::float64_t DefaultMinTargetDistance = STargetOrbit::DefaultMinDistance;
     /// @brief Interim unbounded default for the largest target distance; see `STargetOrbit::DefaultMaxDistance`.
     static inline constexpr hlsl::float64_t DefaultMaxTargetDistance = STargetOrbit::DefaultMaxDistance;
-
-    /// @brief Camera-local multipliers applied when semantic virtual events are converted into motion.
-    ///
-    /// Input binders emit virtual magnitudes. Concrete cameras multiply those
-    /// magnitudes by this per-camera configuration before applying them to
-    /// their own state model.
-    struct SMotionConfig
-    {
-        /// @brief Camera-local scale applied to virtual translation magnitudes.
-        double moveSpeedScale = DefaultMoveSpeedScaleValue;
-        /// @brief Camera-local scale applied to virtual rotation magnitudes.
-        double rotationSpeedScale = DefaultRotationSpeedScaleValue;
-    };
 
     /// @brief Stable camera-family identifier used by metadata, presets, follow, and scripted helpers.
     enum class CameraKind : uint8_t
@@ -161,12 +139,6 @@ public:
             return hlsl::float64_t4(s, u, v, roll);
         }
 
-        /// @brief Project the state onto the translation-style representation used by replay helpers.
-        inline hlsl::float64_t3 asTranslationVector() const
-        {
-            return hlsl::float64_t3(u, v, s);
-        }
-
         /// @brief Rebuild one path state from the packed vector representation.
         static inline PathState fromVector(const hlsl::float64_t4& value)
         {
@@ -177,17 +149,6 @@ public:
                 .roll = value.w
             };
         }
-
-        /// @brief Rebuild one path state from the translation-style helper representation.
-        static inline PathState fromTranslationVector(const hlsl::float64_t3& value, const hlsl::float64_t pathRoll = 0.0)
-        {
-            return {
-                .s = value.z,
-                .u = value.x,
-                .v = value.y,
-                .roll = pathRoll
-            };
-        }
     };
 
     ICamera() {}
@@ -196,15 +157,23 @@ public:
     /// @brief Return the gimbal holding the runtime camera pose.
 	virtual const CCameraGimbal& getGimbal() = 0u;
 
-    /// @brief Apply one frame of semantic virtual events on top of the pose currently held by the gimbal.
+    /// @brief Apply one frame of physical deltas on top of the pose currently held by the gimbal.
     ///
-    /// `virtualEvents` stores one frame of semantic movement, rotation, and
-    /// scale commands. Translation commands use `Move*`, rotation commands use
-    /// `Tilt*`, `Pan*`, and `Roll*`, and scale commands use `Scale*`. Cameras
-    /// interpret only the subset advertised by `getAllowedVirtualEvents()`.
+    /// Refused whole, with nothing changed, when a value is not finite, when every axis is zero, or when an
+    /// axis outside `getAcceptedControls()` is non-zero.
     ///
     /// @return whether the resulting gimbal pose differs from the one the call started with.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) = 0;
+    inline bool manipulate(const SCameraControls& controls)
+    {
+        if (!controls.isFinite())
+            return false;
+
+        const auto set = controls.nonZeroAxes();
+        if (set == 0u || (set & ~getAcceptedControls()) != 0u)
+            return false;
+
+        return applyControls(controls);
+    }
 
     /// @brief Project one authored world-space pose onto the state this rig stores, then commit it to the gimbal.
     ///
@@ -226,12 +195,8 @@ public:
         return setPose(pose);
     }
 
-    /// @brief Return the semantic virtual-event mask accepted by this camera kind.
-    ///
-    /// Input binders, scripted replay, and restore helpers use this mask to
-    /// decide which `CVirtualGimbalEvent` categories may be passed to
-    /// `manipulate(...)`.
-	virtual uint32_t getAllowedVirtualEvents() const = 0u;
+    /// @brief Return the `ECameraControlAxis` mask this rig applies. Every other axis must be zero in a frame passed to `manipulate(...)`.
+    virtual uint32_t getAcceptedControls() const = 0u;
 
     /// @brief Return the stable camera-family identifier for this concrete runtime camera.
     virtual CameraKind getKind() const = 0;
@@ -323,80 +288,9 @@ public:
         return false;
     }
 
-    /// @brief Update only the translation motion scale used by the camera runtime.
-    inline void setMoveSpeedScale(double scalar)
-    {
-        m_motionConfig.moveSpeedScale = scalar;
-    }
-
-    /// @brief Update only the rotation motion scale used by the camera runtime.
-    inline void setRotationSpeedScale(double scalar)
-    {
-        m_motionConfig.rotationSpeedScale = scalar;
-    }
-
-    /// @brief Update both translation and rotation motion scales at once.
-    inline void setMotionScales(const double moveScale, const double rotationScale)
-    {
-        setMoveSpeedScale(moveScale);
-        setRotationSpeedScale(rotationScale);
-    }
-
-    /// @brief Return the current translation motion scale.
-    inline double getMoveSpeedScale() const { return m_motionConfig.moveSpeedScale; }
-    /// @brief Return the current rotation motion scale.
-    inline double getRotationSpeedScale() const { return m_motionConfig.rotationSpeedScale; }
-    /// @brief Return the full motion-scale bundle.
-    inline const SMotionConfig& getMotionConfig() const { return m_motionConfig; }
-    /// @brief Return the effective world-space translation represented by a unit virtual move event.
-    inline double getScaledVirtualTranslationMagnitude() const
-    {
-        return getUnscaledVirtualTranslationMagnitude() * getMoveSpeedScale();
-    }
-    /// @brief Return the raw translation magnitude before applying the camera-local move scale.
-    ///
-    /// TODO: target-relative rigs drive their distance through this, so zooming ignores `moveSpeedScale`
-    /// while panning honours it. Either route both through `scaleVirtualTranslation` or give the distance
-    /// its own documented scale.
-    inline double getUnscaledVirtualTranslationMagnitude() const
-    {
-        return VirtualTranslationUnit;
-    }
-    /// @brief Scale one scalar translation magnitude through the active move scale.
-    inline double scaleVirtualTranslation(const double magnitude) const
-    {
-        return magnitude * getScaledVirtualTranslationMagnitude();
-    }
-    /// @brief Scale one translation vector through the active move scale.
-    template<typename T, uint32_t N>
-    inline hlsl::vector<T, N> scaleVirtualTranslation(const hlsl::vector<T, N>& magnitude) const
-    {
-        return magnitude * static_cast<T>(getScaledVirtualTranslationMagnitude());
-    }
-    /// @brief Scale one scalar translation magnitude without applying the camera-local move scale.
-    inline double scaleUnscaledVirtualTranslation(const double magnitude) const
-    {
-        return magnitude * getUnscaledVirtualTranslationMagnitude();
-    }
-    /// @brief Scale one translation vector without applying the camera-local move scale.
-    template<typename T, uint32_t N>
-    inline hlsl::vector<T, N> scaleUnscaledVirtualTranslation(const hlsl::vector<T, N>& magnitude) const
-    {
-        return magnitude * static_cast<T>(getUnscaledVirtualTranslationMagnitude());
-    }
-    /// @brief Scale one scalar rotation magnitude through the active rotation scale.
-    inline double scaleVirtualRotation(const double magnitude) const
-    {
-        return magnitude * getRotationSpeedScale();
-    }
-    /// @brief Scale one rotation vector through the active rotation scale.
-    template<typename T, uint32_t N>
-    inline hlsl::vector<T, N> scaleVirtualRotation(const hlsl::vector<T, N>& magnitude) const
-    {
-        return magnitude * static_cast<T>(getRotationSpeedScale());
-    }
 protected:
-    SMotionConfig m_motionConfig;
+    /// @brief Apply a frame already checked against `getAcceptedControls()`.
+    virtual bool applyControls(const SCameraControls& controls) = 0;
 };
 
 }

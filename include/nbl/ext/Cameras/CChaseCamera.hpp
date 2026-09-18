@@ -11,9 +11,10 @@ namespace nbl::ext::cameras
 
 /// @brief Target-relative camera with planar target translation on the ground plane.
 ///
-/// Translation is resolved in a planar forward/right frame derived from the
-/// current orbit basis. Rotation updates orbit yaw and pitch. Distance remains
-/// clamped to the chase-camera limits.
+/// Controls: `translate.x` and `translate.z` move the target along the camera's right and forward flattened
+/// onto the ground plane, world units, so the camera follows at its distance; `distance` along the
+/// camera-target line, world units, clamped to the distance limits; `rotate.y` azimuth and `rotate.x`
+/// elevation of the camera around the target, radians, the elevation clamped to the chase pitch envelope.
 class CChaseCamera final : public CSphericalTargetCamera
 {
 public:
@@ -44,18 +45,18 @@ public:
         return true;
     }
 
-    /// @brief Apply chase-style planar translation, pitch/yaw orbiting, and distance changes.
-    virtual bool manipulate(std::span<const CVirtualGimbalEvent> virtualEvents) override
+    virtual uint32_t getAcceptedControls() const override { return AcceptedControls; }
+    virtual CameraKind getKind() const override { return CameraKind::Chase; }
+    /// @brief Return the stable user-facing identifier for this concrete camera kind.
+    virtual std::string_view getIdentifier() const override { return "Chase Camera"; }
+
+    static inline constexpr uint32_t AcceptedControls =
+        ECameraControlAxis::TranslateX | ECameraControlAxis::TranslateZ | ECameraControlAxis::Distance |
+        ECameraControlAxis::RotateX | ECameraControlAxis::RotateY;
+
+protected:
+    virtual bool applyControls(const SCameraControls& controls) override
     {
-        if (virtualEvents.empty())
-            return false;
-
-        const auto impulse = accumulateVirtualEvents<AllowedVirtualEvents>(virtualEvents);
-
-        const auto deltaRotation = scaleVirtualRotation(impulse.dVirtualRotation);
-        const auto deltaTranslation = scaleVirtualTranslation(impulse.dVirtualTranslate);
-        const auto deltaDistance = scaleUnscaledVirtualTranslation(impulse.dVirtualTranslate.y);
-
         // chase translation stays on the ground plane, so the committed basis is flattened before it is used
         // TODO: like the planar pan in the base rig, this delta is a fixed world-space length and should scale with distance
         const auto basis = m_gimbal.getBasis();
@@ -67,22 +68,16 @@ public:
             hlsl::float64_t3(basis.right.x, 0.0, basis.right.z),
             hlsl::float64_t3(1.0, 0.0, 0.0));
 
-        m_orbit.target += planarRight * deltaTranslation.x + planarForward * deltaTranslation.z;
-        m_orbit.distance = std::clamp(m_orbit.distance + deltaDistance, MinDistance, MaxDistance);
+        m_orbit.target += planarRight * controls.translate.x + planarForward * controls.translate.z;
+        m_orbit.distance = std::clamp(m_orbit.distance + controls.distance, MinDistance, MaxDistance);
 
-        m_orbit.angles.x += deltaRotation.y;
-        m_orbit.angles.y = std::clamp(m_orbit.angles.y + deltaRotation.x, MinPitch, MaxPitch);
+        m_orbit.angles.x += controls.rotate.y;
+        m_orbit.angles.y = std::clamp(m_orbit.angles.y + controls.rotate.x, MinPitch, MaxPitch);
 
         return updateGimbal();
     }
 
-    virtual uint32_t getAllowedVirtualEvents() const override { return AllowedVirtualEvents; }
-    virtual CameraKind getKind() const override { return CameraKind::Chase; }
-    /// @brief Return the stable user-facing identifier for this concrete camera kind.
-    virtual std::string_view getIdentifier() const override { return "Chase Camera"; }
-
 private:
-    static inline constexpr auto AllowedVirtualEvents = CVirtualGimbalEvent::Translate | CVirtualGimbalEvent::Rotate;
     static inline constexpr double MaxPitch = SCameraTargetRelativeRigDefaults::ChaseMaxPitchRad;
     static inline constexpr double MinPitch = SCameraTargetRelativeRigDefaults::ChaseMinPitchRad;
 };
