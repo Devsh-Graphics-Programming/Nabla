@@ -2,13 +2,19 @@
 
 This directory contains the reusable Nabla camera stack.
 
-The stack has two public faces:
+It is the runtime face: moving cameras during a frame, and reading or writing the state a camera owns.
+It is centered on [`ICamera.hpp`](ICamera.hpp).
 
-- a runtime face used to move cameras during one frame
-- a typed face used to capture, store, restore, compare, replay, and validate camera state
+## Camera tooling lives in the 61_UI example
 
-The runtime face is centered on [`ICamera.hpp`](ICamera.hpp).
-The typed face is centered on [`CCameraGoal.hpp`](CCameraGoal.hpp) and [`CCameraGoalSolver.hpp`](CCameraGoalSolver.hpp).
+The layer that captured one camera's state into a `CCameraGoal` and applied it to another camera, plus
+everything built on it (presets, keyframe tracks, playback, persistence, follow, sequence scripts, the
+scripted runtime and its checks), now lives in
+[`examples_tests/61_UI/include/camera/`](../../../../examples_tests/61_UI/include/camera/).
+
+It moved because that example was its only user and because the design is under review: a goal is the union
+of every rig's internal state, so each new camera kind has to answer for fragments it does not own. The
+README in that folder explains what has to be true before any of it comes back.
 
 ## TL;DR
 
@@ -21,15 +27,7 @@ If you want to know which type to touch first, use this table.
 | pair one camera with one or more projection entries | `CPlanarProjection` and `IPlanarProjection::CProjection` |
 | apply one absolute rigid pose request at runtime | `camera->setPose(...)` |
 | set exact position or exact orientation on `Free` and `FPS` | `SCameraRigPose` built from `camera->getGimbal()` |
-| set one absolute typed state that can be reused later | `CCameraGoal` + `CCameraGoalSolver` |
-| capture current camera state | `CCameraGoalSolver::capture...` |
-| restore a camera from typed state | `CCameraGoalSolver::apply...` |
-| save a named camera state | `CCameraPreset` |
-| store camera states over time | `CCameraKeyframeTrack` |
-| keep playback cursor state | `CCameraPlaybackTimeline` |
-| make a camera follow a moving target | `CCameraFollowUtilities` |
-| author compact scripted camera sequences | `CCameraSequenceScript` |
-| execute frame-by-frame scripted payloads | `CCameraScriptedRuntime` |
+| capture, store, replay or script camera state | moved to the 61_UI example, see below |
 | use the path-rig camera | `CPathCamera` and `SCameraPathModel` |
 
 ## Quick start
@@ -215,7 +213,6 @@ When you want to change pose or camera-family state, touch the camera layer:
 
 - `ICamera::manipulate(...)`
 - `ICamera::setPose(...)`
-- `CCameraGoal`
 - family-specific typed hooks such as `trySetSphericalTarget(...)` or `trySetPathState(...)`
 
 ### 3. Apply one absolute rigid pose request
@@ -330,83 +327,9 @@ camera->setPose(rigidFrame);
 
 `FPS` keeps the exact position but legalizes orientation to its upright `pitch/yaw` state.
 
-For constrained target-relative and path cameras, prefer family-specific typed state or `CCameraGoal` instead of describing this as an exact component setter.
+For constrained target-relative and path cameras, prefer family-specific typed state instead of describing this as an exact component setter.
 
-### 5. Set one absolute typed state
-
-Use this when the state should survive beyond one frame or should be reused by presets, follow, playback, persistence, or scripts.
-
-```cpp
-core::CCameraGoal goal = {};
-goal.position = desiredPosition;
-goal.orientation = desiredOrientation;
-
-core::CCameraGoalSolver solver;
-auto apply = solver.applyDetailed(camera.get(), goal);
-
-if (apply.succeeded() && apply.changed())
-{
-    // camera was updated during applyDetailed(...)
-}
-```
-
-`applyDetailed(...)` does not build a deferred command object.
-It immediately tries to apply `goal` to the runtime camera.
-
-The returned `apply` value is a report describing what happened:
-
-- whether the apply succeeded
-- whether the camera actually changed
-- whether the result was exact or approximate
-- whether typed state was applied directly, virtual events were replayed, or both
-
-So the control flow is:
-
-1. build one `CCameraGoal`
-2. call `applyDetailed(...)`
-3. the solver immediately updates the camera if it can
-4. inspect `apply` if you need status, exactness, or diagnostics
-
-Use `applyDetailed(...)` when you want that report.
-Use `apply(...)` when you only need a plain success/failure boolean.
-
-**Question: How is this different from `composeTransformMatrix(...)` plus `camera->setPose(...)`?**
-
-`setPose` carries one rigid pose request:
-
-- position
-- orientation
-
-That is enough when the job is "try to place the runtime camera at this pose now".
-
-`CCameraGoal` can carry more than one rigid pose:
-
-- pose
-- target-relative state
-- path state
-- dynamic perspective state
-- source metadata used by tooling
-
-So the two paths are different:
-
-- `setPose(...)` asks the runtime camera to project one rigid pose request onto its own state
-- `CCameraGoal` asks the solver to apply one typed camera state, using direct typed hooks when available and virtual-event replay when needed
-
-For `Free` and often `FPS`, both paths may end up close to the same result.
-
-For constrained families they are not equivalent, because one rigid pose does not fully describe family-specific state such as:
-
-- target position
-- orbit angles plus distance
-- `PathState`
-- dynamic perspective parameters
-
-Rule of thumb:
-
-- use `setPose(...)` for one runtime rigid pose request now
-- use `CCameraGoal` for one typed camera state that should be stored, compared, serialized, replayed, or applied later
-
-### 6. Set one absolute camera-family state
+### 5. Set one absolute camera-family state
 
 Use this when you do not want a generic rigid pose and instead want to write the native state of one camera family.
 
@@ -435,67 +358,6 @@ Use this path when you already have:
 - target-relative state
 - path-rig state
 - one other family-specific typed fragment exposed by `ICamera`
-
-### 7. Capture a camera and restore it later
-
-Use this when you want explicit camera state instead of one-frame runtime input.
-
-```cpp
-core::CCameraGoalSolver solver;
-
-auto capture = solver.captureDetailed(camera.get());
-if (capture.canUseGoal())
-{
-    auto apply = solver.applyDetailed(camera.get(), capture.goal);
-}
-```
-
-What happens here:
-
-1. the solver reads runtime camera state
-2. the solver writes that state into one `CCameraGoal`
-3. the solver later applies that goal back to a camera
-
-### 8. Save a named camera state
-
-Use this when one camera state needs a user-facing name or identifier.
-
-```cpp
-core::CCameraGoalSolver solver;
-
-auto capture = solver.captureDetailed(camera.get());
-if (capture.canUseGoal())
-{
-    core::CCameraPreset preset;
-    preset.name = "Overview";
-    preset.identifier = "overview";
-    core::CCameraPresetUtilities::assignGoalToPreset(preset, capture.goal);
-}
-```
-
-### 9. Make a camera follow a moving target
-
-Use this when one tracked subject should drive camera behavior.
-
-```cpp
-core::CTrackedTarget trackedTarget(position, orientation);
-
-core::SCameraFollowConfig follow = {};
-follow.enabled = true;
-follow.mode = core::ECameraFollowMode::LookAtTarget;
-
-core::CCameraGoalSolver solver;
-core::CCameraFollowUtilities::applyFollowToCamera(solver, camera.get(), trackedTarget, follow);
-```
-
-### 10. Build and evaluate scripted runtime payloads
-
-Use this when camera playback is authored as compact camera-domain data and then evaluated through generic per-frame runtime payloads and checks.
-
-```cpp
-core::CCameraScriptedTimeline timeline;
-core::CCameraScriptedRuntimeUtilities::finalizeScriptedTimeline(timeline);
-```
 
 ## Core concepts
 
@@ -609,130 +471,6 @@ Defined in [`SCameraTypes.hpp`](SCameraTypes.hpp), next to `STargetOrbit` and `S
 - world-space orientation
 
 It is the smallest typed pose object reused across the stack.
-
-### `CCameraGoal`
-
-Defined in [`CCameraGoal.hpp`](CCameraGoal.hpp).
-
-`CCameraGoal` is the canonical typed transport for camera state.
-
-You can think of it as:
-
-> one explicit camera-state snapshot used by higher-level tools
-
-It may contain:
-
-- pose
-- target position
-- target-relative distance
-- orbit state
-- path state
-- dynamic perspective state
-- source camera metadata
-
-It is used by:
-
-- capture
-- restore
-- preset flow
-- playback
-- follow
-- scripted checks
-
-It is not:
-
-- a live input object
-- a replacement for `manipulate(...)`
-- a promise that every camera can represent every arbitrary pose exactly
-
-For constrained cameras, the solver may project the goal onto legal camera-family state before or during apply.
-
-### `CCameraGoalSolver`
-
-Defined in [`CCameraGoalSolver.hpp`](CCameraGoalSolver.hpp).
-
-`CCameraGoalSolver` converts between typed camera state and runtime cameras.
-
-It captures runtime cameras into `CCameraGoal`, analyzes whether a target camera can represent that goal directly, and applies the result either through typed state or through runtime replay when needed.
-
-If you want to restore one absolute camera state and you are not sure which family-specific hook to call, use `CCameraGoalSolver`.
-
-### `CCameraPreset`
-
-Defined in [`CCameraPreset.hpp`](CCameraPreset.hpp).
-
-`CCameraPreset` is a named saved `CCameraGoal`.
-
-It contains:
-
-- `name`
-- `identifier`
-- `goal`
-
-### `CCameraKeyframeTrack`
-
-Defined in [`CCameraKeyframeTrack.hpp`](CCameraKeyframeTrack.hpp).
-
-`CCameraKeyframeTrack` is a sequence of time-stamped presets.
-
-Each keyframe contains:
-
-- one preset
-- one authored time
-
-### `CCameraPlaybackTimeline`
-
-Defined in [`CCameraPlaybackTimeline.hpp`](CCameraPlaybackTimeline.hpp).
-
-`CCameraPlaybackTimeline` stores playback cursor state over time-based camera data.
-
-It tracks things such as:
-
-- current time
-- direction
-- looping
-- paused or playing state
-
-### `CTrackedTarget`
-
-Defined in [`CCameraFollowUtilities.hpp`](CCameraFollowUtilities.hpp).
-
-`CTrackedTarget` is the reusable tracked subject used by follow.
-
-It owns its own gimbal.
-It is not a mesh id and not a scene-node handle.
-
-### `CCameraSequenceScript`
-
-Defined in [`CCameraSequenceScript.hpp`](CCameraSequenceScript.hpp).
-
-`CCameraSequenceScript` is the compact authored format for camera sequences.
-
-It stores camera-domain data such as:
-
-- targeted camera
-- projection presentation requests
-- camera keyframes
-- tracked-target keyframes
-- continuity settings
-- capture fractions
-
-It does not store frame-by-frame low-level input.
-
-### `CCameraScriptedRuntime`
-
-Defined in [`CCameraScriptedRuntime.hpp`](CCameraScriptedRuntime.hpp).
-
-`CCameraScriptedRuntime` is the expanded executable form used during scripted playback and validation.
-
-It stores runtime payloads such as:
-
-- low-level input events
-- goal and tracked-target events
-- per-frame checks
-- capture scheduling
-
-Consumer-specific UI actions stay outside this shared runtime payload.
 
 ### `Path Rig`
 
@@ -964,42 +702,8 @@ If a camera must store completely unconstrained 6DOF pose as its native state, u
 - [`CDollyZoomCamera.hpp`](CDollyZoomCamera.hpp) extends the target-relative family with dynamic perspective state `baseFov` and `referenceDistance`.
 - [`CPathCamera.hpp`](CPathCamera.hpp) uses the parametric path-state seam described above together with limits `minU`, `minDistance`, and `maxDistance`.
 
-## Typed tooling
-
-Use the typed layer when camera state must outlive the current frame or be exchanged between tools:
-
-1. `SCameraRigPose` is the smallest typed pose fragment.
-2. `CCameraGoal` is the canonical typed transport for camera state.
-3. `CCameraGoalSolver` captures runtime cameras into goals and applies goals back to runtime cameras.
-4. `CCameraPreset` gives one goal a stable user-facing identity.
-5. `CCameraKeyframeTrack` stores presets over authored time.
-6. `CCameraPlaybackTimeline` stores playback cursor state while a track is being evaluated.
-
-## Follow
-
-Follow lives in [`CCameraFollowUtilities.hpp`](CCameraFollowUtilities.hpp) and [`CCameraFollowRegressionUtilities.hpp`](CCameraFollowRegressionUtilities.hpp). It combines one `CTrackedTarget`, one follow mode, and one follow configuration, then builds the resulting camera goal and applies it through the shared goal solver. Available modes are `OrbitTarget`, `LookAtTarget`, `KeepWorldOffset`, and `KeepLocalOffset`.
-
-## Scripting
-
-### Compact authored format
-
-[`CCameraSequenceScript.hpp`](CCameraSequenceScript.hpp) and [`CCameraSequenceScriptPersistence.hpp`](CCameraSequenceScriptPersistence.hpp) store authored camera-domain data.
-
-### Expanded runtime format
-
-[`CCameraScriptedRuntime.hpp`](CCameraScriptedRuntime.hpp) and [`CCameraScriptedCheckRunner.hpp`](CCameraScriptedCheckRunner.hpp) store executable per-frame runtime payloads and validation checks.
-
-Common flow:
-
-```text
-compact authored sequence
-  -> compile or expand
-  -> scripted runtime payload
-  -> execute against runtime camera state
-```
-
 ## Projection and presentation helpers
 
 Projection types live in [`IProjection.hpp`](IProjection.hpp), [`ILinearProjection.hpp`](ILinearProjection.hpp), [`IPerspectiveProjection.hpp`](IPerspectiveProjection.hpp), [`IPlanarProjection.hpp`](IPlanarProjection.hpp), [`CLinearProjection.hpp`](CLinearProjection.hpp), [`CPlanarProjection.hpp`](CPlanarProjection.hpp), and [`CCubeProjection.hpp`](CCubeProjection.hpp).
 
-Camera-facing presentation helpers live in [`CCameraPresentationUtilities.hpp`](CCameraPresentationUtilities.hpp), [`CCameraProjectionUtilities.hpp`](CCameraProjectionUtilities.hpp), [`CCameraTextUtilities.hpp`](CCameraTextUtilities.hpp), [`CCameraViewportOverlayUtilities.hpp`](CCameraViewportOverlayUtilities.hpp), [`CCameraControlPanelUiUtilities.hpp`](CCameraControlPanelUiUtilities.hpp), and [`CCameraScriptVisualDebugOverlayUtilities.hpp`](CCameraScriptVisualDebugOverlayUtilities.hpp).
+Camera-facing presentation helpers live in [`CCameraProjectionUtilities.hpp`](CCameraProjectionUtilities.hpp). The goal-, preset-, follow- and script-facing presentation helpers moved to the 61_UI example.

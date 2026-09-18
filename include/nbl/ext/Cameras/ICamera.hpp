@@ -263,6 +263,12 @@ public:
         return goal_state_flags_t(getGoalStateMask()).hasFlags(goalState);
     }
 
+    // TODO: the typed goal-state hooks below have no consumer left inside this extension. They were read and
+    // written only by the goal solver and the follow regression checks, which now live in the 61_UI example under
+    // `examples_tests/61_UI/include/camera/`. They exist so one rig's state can be pulled out and pushed onto a
+    // different rig, which is the part of that design under review. Either they follow the tooling out, or they
+    // are redesigned with it around each rig's own state instead of a shared union.
+
     /// @brief Query the current spherical-target state when the camera exposes it.
     virtual bool tryGetSphericalTargetState(SphericalTargetState& out) const
     {
