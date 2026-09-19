@@ -5,21 +5,6 @@ This directory contains the reusable Nabla camera stack.
 It is the runtime face: moving cameras during a frame, and reading or writing the state a camera owns.
 It is centered on [`ICamera.hpp`](ICamera.hpp).
 
-## Camera tooling lives in the 61_UI example
-
-The layer that captured one camera's state into a `CCameraGoal` and applied it to another camera, plus
-everything built on it (presets, keyframe tracks, playback, persistence, follow, sequence scripts, the
-scripted runtime and its checks), now lives in
-[`examples_tests/61_UI/include/camera/`](../../../../examples_tests/61_UI/include/camera/).
-
-It moved because that example was its only user and because the design is under review: a goal is the union
-of every rig's internal state, so each new camera kind has to answer for fragments it does not own. The
-README in that folder explains what has to be true before any of it comes back.
-
-A few small helpers followed later for the same reason, 61_UI being their only user: syncing a dynamic
-perspective FOV into a projection entry (`CCameraProjectionUtilities`), whole-file read/write (`CFileUtilities`)
-and the stable string names of key codes and mouse buttons (`CInputCodeNames`).
-
 ## TL;DR
 
 If you want to know which type to touch first, use this table.
@@ -659,3 +644,18 @@ If a camera must store completely unconstrained 6DOF pose as its native state, u
 Projection types live in [`IProjection.hpp`](IProjection.hpp), [`ILinearProjection.hpp`](ILinearProjection.hpp), [`IPlanarProjection.hpp`](IPlanarProjection.hpp) and [`CPlanarProjection.hpp`](CPlanarProjection.hpp).
 
 `CDollyZoomCamera` derives its FOV from its distance, so a projection paired with it has to be told the new FOV. The extension exposes the value through `ICamera::tryGetDynamicPerspectiveFov(...)` and leaves the push into `IPlanarProjection::CProjection::setPerspective(...)` to the application; 61_UI does it in `CCameraProjectionUtilities`.
+
+## Camera tooling lives in the 61_UI example
+
+The layer that captured one camera's state into a `CCameraGoal` and applied it to another camera, plus
+everything built on it (presets, keyframe tracks, playback, persistence, follow, sequence scripts, the
+scripted runtime and its checks), now lives in
+[`examples_tests/61_UI/include/camera/`](../../../../examples_tests/61_UI/include/camera/).
+
+It moved because that example was its only user and because the design is under review: a goal is the union
+of every rig's internal state, so each new camera kind has to answer for fragments it does not own. The
+README in that folder explains what has to be true before any of it comes back.
+
+A few small helpers followed later for the same reason, 61_UI being their only user: syncing a dynamic
+perspective FOV into a projection entry (`CCameraProjectionUtilities`), whole-file read/write (`CFileUtilities`)
+and the stable string names of key codes and mouse buttons (`CInputCodeNames`).
