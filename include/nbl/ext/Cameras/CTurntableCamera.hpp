@@ -68,8 +68,9 @@ protected:
         return updateGimbal();
     }
 
-private:
-    static inline constexpr double MaxPitch = SCameraViewRigDefaults::TurntablePitchLimitRad;
+public:
+    /// @brief Pitch limit in radians. It stops 1 deg short of straight up and down so the up axis never becomes singular.
+    static inline constexpr double MaxPitch = 89.0 * (hlsl::numbers::pi<double> / 180.0);
     static inline constexpr double MinPitch = -MaxPitch;
 };
 

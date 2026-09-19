@@ -84,6 +84,9 @@ public:
     }
 
 protected:
+    /// @brief World-space length below which a planar delta or a distance counts as zero.
+    static inline constexpr hlsl::float64_t ZeroTolerance = 1e-9;
+
     /// @brief Move the target in the view plane of the pose currently committed to the gimbal.
     ///
     /// The camera position is derived from the target, so it follows and the scene slides across the screen.
@@ -91,7 +94,7 @@ protected:
     /// does in a DCC. It should scale with `m_orbit.distance`.
     inline void applyPlanarTargetTranslation(const hlsl::float64_t3& deltaTranslation)
     {
-        if (!CCameraMathUtilities::hasPlanarDeltaXY(deltaTranslation, static_cast<hlsl::float64_t>(SCameraToolingThresholds::TinyScalarEpsilon)))
+        if (!CCameraMathUtilities::hasPlanarDeltaXY(deltaTranslation, ZeroTolerance))
             return;
 
         const auto basis = m_gimbal.getBasis();

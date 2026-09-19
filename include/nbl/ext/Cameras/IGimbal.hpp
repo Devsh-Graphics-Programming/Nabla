@@ -53,13 +53,14 @@ namespace nbl::ext::cameras
             return countManipulation(positionChanged || orientationChanged);
         }
 
-        /// @brief Decompose one rigid world-space transform (basis in the columns, translation in the last
-        /// column) and store it as the pose.
-        /// @return whether `rigidTransform` was rigid and therefore applied; a rejected transform leaves the pose untouched.
+        /// @brief Decompose one world-space transform (basis in the columns, translation in the last column) and store
+        /// it as the pose. A positive scale is dropped.
+        /// @return whether `rigidTransform` decomposed and was therefore applied; a sheared, mirrored or degenerate
+        /// transform is rejected and leaves the pose untouched.
         inline bool setPose(const hlsl::float64_t4x4& rigidTransform)
         {
             SCameraRigPose pose = {};
-            if (!CCameraMathUtilities::tryExtractRigidPoseFromTransform(rigidTransform, pose.position, pose.orientation))
+            if (!CCameraMathUtilities::tryExtractPositionAndQuaternionFromTransform(rigidTransform, pose.position, pose.orientation))
                 return false;
 
             setPose(pose);

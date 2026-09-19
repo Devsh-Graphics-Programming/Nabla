@@ -65,9 +65,11 @@ protected:
         return updateGimbal();
     }
 
-private:
-    static inline constexpr double IsoYaw = SCameraViewRigDefaults::IsometricYawRad;
-    static inline const double IsoPitch = SCameraViewRigDefaults::IsometricPitchRad;
+public:
+    /// @brief The canonical isometric azimuth, half of a right angle, in radians.
+    static inline constexpr double IsoYaw = 45.0 * (hlsl::numbers::pi<double> / 180.0);
+    /// @brief The canonical isometric pitch, `atan(1 / sqrt(2))`, in radians.
+    static inline const double IsoPitch = std::atan(1.0 / hlsl::numbers::sqrt2<double>);
 };
 
 }

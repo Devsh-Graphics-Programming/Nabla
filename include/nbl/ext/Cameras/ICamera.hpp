@@ -11,7 +11,6 @@
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/util/bitflag.h"
-#include "SCameraToolingThresholds.hpp"
 #include "CCameraGimbal.hpp"
 #include "SCameraControls.hpp"
 
@@ -184,12 +183,12 @@ public:
     /// @return whether `pose` was accepted.
     virtual bool setPose(const SCameraRigPose& pose) = 0;
 
-    /// @brief Decompose one rigid world-space transform (basis in the columns, translation in the last
-    /// column) and apply it as a pose. Rejects non-rigid and degenerate input.
+    /// @brief Decompose one world-space transform (basis in the columns, translation in the last column) and apply
+    /// it as a pose. A positive scale is dropped; sheared, mirrored and degenerate input is rejected.
     inline bool setPose(const hlsl::float64_t4x4& rigidFrame)
     {
         SCameraRigPose pose = {};
-        if (!CCameraMathUtilities::tryExtractRigidPoseFromTransform(rigidFrame, pose.position, pose.orientation))
+        if (!CCameraMathUtilities::tryExtractPositionAndQuaternionFromTransform(rigidFrame, pose.position, pose.orientation))
             return false;
 
         return setPose(pose);

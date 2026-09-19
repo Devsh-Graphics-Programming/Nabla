@@ -41,7 +41,7 @@ public:
     {
         const auto distance = hlsl::length(pose.position - m_orbit.target);
         if (!CCameraMathUtilities::isFiniteScalar(distance) ||
-            distance <= static_cast<hlsl::float64_t>(SCameraToolingThresholds::TinyScalarEpsilon))
+            distance <= ZeroTolerance)
         {
             return false;
         }
@@ -76,26 +76,32 @@ private:
     /// @brief Recover the yaw a top-down orientation encodes, falling back when the pose carries none.
     ///
     /// TODO: this derivation assumes an elevation of +90 deg, while `TopDownPitch` is -90 (see the TODO on
-    /// `SCameraViewRigDefaults::TopDownPitchDeg`); fixing that sign fixes the 180 deg error here too.
+    /// `TopDownPitch`); fixing that sign fixes the 180 deg error here too.
     static inline double resolveTopDownYaw(const hlsl::math::quaternion<hlsl::float64_t>& orientation, const double fallbackYaw)
     {
         const auto basis = CCameraMathUtilities::getOrientationBasis(orientation);
         // looking straight down, the camera up vector lies in the ground plane; with +Y up that is the XZ plane,
         // where `makeSphericalUpFromOrbit` gives up = (-sin(yaw), 0, -cos(yaw))
         const auto planarUp = hlsl::float64_t2(basis.up.x, basis.up.z);
-        constexpr auto Epsilon = static_cast<hlsl::float64_t>(SCameraToolingThresholds::TinyScalarEpsilon);
-        if (!CCameraMathUtilities::isNearlyZeroVector(planarUp, Epsilon))
+        if (!CCameraMathUtilities::isNearlyZeroVector(planarUp, ZeroTolerance))
             return hlsl::atan2(-planarUp.x, -planarUp.y);
 
         // the same pose gives right = (-cos(yaw), 0, sin(yaw))
         const auto planarRight = hlsl::float64_t2(basis.right.x, basis.right.z);
-        if (!CCameraMathUtilities::isNearlyZeroVector(planarRight, Epsilon))
+        if (!CCameraMathUtilities::isNearlyZeroVector(planarRight, ZeroTolerance))
             return hlsl::atan2(planarRight.y, -planarRight.x);
 
         return fallbackYaw;
     }
 
-    static inline constexpr double TopDownPitch = SCameraViewRigDefaults::TopDownPitchRad;
+public:
+    /// @brief Elevation of the camera above its target, in radians.
+    ///
+    /// TODO: -90 deg is an elevation of -90, which puts the top-down camera BELOW its target looking up
+    /// (positive elevation is above the target; compare `CIsometricCamera::IsoPitch`, which is positive). The yaw
+    /// recovery in `resolveTopDownYaw` is derived for +90. Fix: +90 deg. Not applied yet because it changes
+    /// visible behaviour.
+    static inline constexpr double TopDownPitch = -90.0 * (hlsl::numbers::pi<double> / 180.0);
 };
 
 }

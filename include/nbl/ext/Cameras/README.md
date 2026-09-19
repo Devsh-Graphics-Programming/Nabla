@@ -206,8 +206,8 @@ Consider this `FPS` example:
 ```cpp
 const auto desiredPosition = hlsl::float64_t3(2.0, 1.0, -3.0);
 const auto desiredOrientation =
-    CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(
-        hlsl::float64_t3(-15.0, 40.0, 25.0));
+    hlsl::math::quaternion<hlsl::float64_t>::createFromYawPitchRoll(
+        hlsl::radians(40.0), hlsl::radians(-15.0), hlsl::radians(25.0));
 ```
 
 The requested rigid pose contains `roll = 25 deg`.

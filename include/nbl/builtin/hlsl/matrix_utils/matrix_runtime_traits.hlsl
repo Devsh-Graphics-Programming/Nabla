@@ -31,7 +31,8 @@ struct RuntimeTraits
     static RuntimeTraits<matrix_t> create(const matrix_t m)
     {
         RuntimeTraits<matrix_t> retval;
-        retval.invertible = !approx::absRelEqual<scalar_t>(hlsl::determinant(m), scalar_t(0.0), scalar_t(1e-5), scalar_t(1e-5));
+        retval.determinant = hlsl::determinant(m);
+        retval.invertible = !approx::absRelEqual<scalar_t>(retval.determinant, scalar_t(0.0), scalar_t(1e-5), scalar_t(1e-5));
         {
             bool orthogonal = true;
             NBL_UNROLL for (uint16_t i = 0; i < N; i++)
@@ -61,6 +62,8 @@ struct RuntimeTraits
         return retval;
     }
     
+    // for an orthogonal matrix the sign tells a rotation (positive) from a mirror (negative)
+    scalar_t determinant;
     bool invertible;
     bool orthogonal;
     scalar_t uniformColumnSqNorm;

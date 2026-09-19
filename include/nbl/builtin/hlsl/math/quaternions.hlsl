@@ -66,10 +66,10 @@ struct quaternion
         return q;
     }
 
-    //! `createFromEulerAnglesXYZ` for callers that already hold the half angle sines and cosines.
-    //! Each argument is `(cos(halfAngle), sin(halfAngle))`; the composition order is the same X * Y * Z.
+    //! `createFromYawPitchRoll` for callers that already hold the half angle cosines and sines.
+    //! Each argument is `(cos(halfAngle), sin(halfAngle))`; the rotation is the same `yaw * pitch * roll`.
     template<typename U=vector<scalar_type,2> NBL_FUNC_REQUIRES(is_same_v<vector<scalar_type,2>,U>)
-    static this_t createFromHalfAngleCosSinXYZ(const U halfPitchCosSin, const U halfYawCosSin, const U halfRollCosSin)
+    static this_t createFromHalfAngleCosSinYawPitchRoll(const U halfYawCosSin, const U halfPitchCosSin, const U halfRollCosSin)
     {
         const scalar_type cp = halfPitchCosSin.x;
         const scalar_type sp = halfPitchCosSin.y;
@@ -89,34 +89,39 @@ struct quaternion
         return q;
     }
 
-    //! Applies pitch about X, then yaw about Y, then roll about Z, i.e. `mul(roll, mul(yaw, mul(pitch, v)))`.
-    //! Angles are in radians. The composition order is in the name because the same three angles composed in a
-    //! different order give a different rotation.
+    //! Rotation from yaw about +Y, pitch about +X and roll about +Z, in radians, each by the right-hand rule: a positive
+    //! yaw turns +Z towards +X, a positive pitch turns +Z towards -Y and a positive roll turns +X towards +Y.
+    //! Composed as `yaw * pitch * roll`: applied to a vector, roll acts first, then pitch, then yaw, all about the fixed
+    //! axes, i.e. `mul(yaw, mul(pitch, mul(roll, v)))`. Read the other way round it is yaw about the up axis, then pitch
+    //! about the turned right axis, then roll about the turned forward axis, so a zero roll keeps the horizon level and
+    //! pitch is the angle above or below it. The same three angles composed in another order give a different rotation.
+    //! This is the rotation `glm::yawPitchRoll` builds.
     template<typename U=scalar_type NBL_FUNC_REQUIRES(is_same_v<scalar_type,U>)
-    static this_t createFromEulerAnglesXYZ(const U pitch, const U yaw, const U roll)
+    static this_t createFromYawPitchRoll(const U yaw, const U pitch, const U roll)
     {
         const scalar_type halfPitch = pitch * scalar_type(0.5);
         const scalar_type halfYaw = yaw * scalar_type(0.5);
         const scalar_type halfRoll = roll * scalar_type(0.5);
 
-        return createFromHalfAngleCosSinXYZ(
-            vector<scalar_type,2>(hlsl::cos(halfPitch), hlsl::sin(halfPitch)),
+        return createFromHalfAngleCosSinYawPitchRoll(
             vector<scalar_type,2>(hlsl::cos(halfYaw), hlsl::sin(halfYaw)),
+            vector<scalar_type,2>(hlsl::cos(halfPitch), hlsl::sin(halfPitch)),
             vector<scalar_type,2>(hlsl::cos(halfRoll), hlsl::sin(halfRoll))
         );
     }
 
     //! Inverse of `_static_cast<matrix<T,3,3>>(q)`, so `_m` has its basis vectors in the COLUMNS and
     //! `mul(_m, v) == q.transformVector(v)`.
-    //! Only orthogonal, uniformly scaled matrices convert. `dontAssertValidMatrix` returns a NaN quaternion
-    //! for anything else instead of asserting.
+    //! Only rotations with a uniform positive scale convert: the matrix has to be orthogonal, its columns equally long
+    //! and its determinant positive. A negative determinant is a mirror, which no quaternion can represent.
+    //! `dontAssertValidMatrix` returns a NaN quaternion for anything else instead of asserting.
     static this_t createFromRotationMatrix(NBL_CONST_REF_ARG(matrix_type) _m, const bool dontAssertValidMatrix=false)
     {
         scalar_type uniformColumnSqNorm;
         {
-            // only orthogonal and uniform scale mats can be converted
+            // only orthogonal, uniformly scaled and not mirrored mats can be converted
             linalg::RuntimeTraits<matrix_type> traits = linalg::RuntimeTraits<matrix_type>::create(_m);
-            bool valid = traits.orthogonal && !hlsl::isnan(traits.uniformColumnSqNorm);
+            bool valid = traits.orthogonal && !hlsl::isnan(traits.uniformColumnSqNorm) && traits.determinant > scalar_type(0.0);
             uniformColumnSqNorm = traits.uniformColumnSqNorm;
 
             if (dontAssertValidMatrix)

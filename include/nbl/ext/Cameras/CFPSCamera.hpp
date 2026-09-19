@@ -28,8 +28,8 @@ public:
     CFPSCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::math::quaternion<hlsl::float64_t>::identity())
         : base_t(), m_gimbal(SCameraRigPose{ .position = position, .orientation = orientation })
     {
-        const auto pitchYaw = CCameraMathUtilities::getPitchYawFromForwardVector(m_gimbal.getForward());
-        m_gimbal.setOrientation(CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(pitchYaw.x, pitchYaw.y, 0.0)));
+        const auto pitchYawRoll = CCameraMathUtilities::getPitchYawRollRadians(m_gimbal.getOrientation());
+        m_gimbal.setOrientation(hlsl::math::quaternion<hlsl::float64_t>::createFromYawPitchRoll(pitchYawRoll.y, pitchYawRoll.x, 0.0));
     }
 	~CFPSCamera() = default;
 
@@ -46,14 +46,14 @@ public:
         if (!CCameraMathUtilities::isFiniteVec3(pose.position))
             return false;
 
-        const auto pitchYaw = CCameraMathUtilities::getPitchYawFromOrientation(pose.orientation);
-        if (!CCameraMathUtilities::isFiniteScalar(pitchYaw.x) || !CCameraMathUtilities::isFiniteScalar(pitchYaw.y))
+        const auto pitchYawRoll = CCameraMathUtilities::getPitchYawRollRadians(pose.orientation);
+        if (!CCameraMathUtilities::isFiniteScalar(pitchYawRoll.x) || !CCameraMathUtilities::isFiniteScalar(pitchYawRoll.y))
             return false;
 
-        const auto pitch = std::clamp<hlsl::float64_t>(pitchYaw.x, MinVerticalAngle, MaxVerticalAngle);
+        const auto pitch = std::clamp<hlsl::float64_t>(pitchYawRoll.x, MinVerticalAngle, MaxVerticalAngle);
         m_gimbal.setPose(SCameraRigPose{
             .position = pose.position,
-            .orientation = CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(pitch, pitchYaw.y, 0.0))
+            .orientation = hlsl::math::quaternion<hlsl::float64_t>::createFromYawPitchRoll(pitchYawRoll.y, pitch, 0.0)
         });
 
         return true;
@@ -81,24 +81,26 @@ protected:
     {
         // a copy, because the pose is replaced below while its orientation still anchors the translation
         const auto anchor = m_gimbal.getPose();
-        const auto pitchYaw = CCameraMathUtilities::getPitchYawFromForwardVector(m_gimbal.getForward());
+        const auto pitchYawRoll = CCameraMathUtilities::getPitchYawRollRadians(m_gimbal.getOrientation());
 
-        const auto newPitch = std::clamp<hlsl::float64_t>(pitchYaw.x + controls.rotate.x, MinVerticalAngle, MaxVerticalAngle);
-        const auto newYaw = pitchYaw.y + controls.rotate.y;
+        const auto newPitch = std::clamp<hlsl::float64_t>(pitchYawRoll.x + controls.rotate.x, MinVerticalAngle, MaxVerticalAngle);
+        const auto newYaw = pitchYawRoll.y + controls.rotate.y;
 
         // the translation is applied in the anchor frame, so it is resolved before the pose is replaced
         const auto newPosition = anchor.position + anchor.orientation.transformVector(controls.translate, true);
         return m_gimbal.setPose(SCameraRigPose{
             .position = newPosition,
-            .orientation = CCameraMathUtilities::makeQuaternionFromEulerRadiansYXZ(hlsl::float64_t3(newPitch, newYaw, 0.0))
+            .orientation = hlsl::math::quaternion<hlsl::float64_t>::createFromYawPitchRoll(newYaw, newPitch, 0.0)
         });
     }
 
+public:
+    /// @brief Pitch limit in radians. It stops 2 deg short of straight up and down.
+    static inline constexpr hlsl::float64_t MaxVerticalAngle = 88.0 * (hlsl::numbers::pi<hlsl::float64_t> / 180.0);
+    static inline constexpr hlsl::float64_t MinVerticalAngle = -MaxVerticalAngle;
+
 private:
     CCameraGimbal m_gimbal;
-
-    static inline constexpr hlsl::float64_t MaxVerticalAngle = SCameraViewRigDefaults::FpsVerticalPitchLimitRad;
-    static inline constexpr hlsl::float64_t MinVerticalAngle = -MaxVerticalAngle;
 };
 
 }

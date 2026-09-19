@@ -72,8 +72,9 @@ protected:
         return updateGimbal();
     }
 
-private:
-    static inline constexpr double MaxPitch = SCameraViewRigDefaults::DollyPitchLimitRad;
+public:
+    /// @brief Pitch limit in radians. It stops 5 deg short of straight up and down.
+    static inline constexpr double MaxPitch = 85.0 * (hlsl::numbers::pi<double> / 180.0);
     static inline constexpr double MinPitch = -MaxPitch;
 };
 

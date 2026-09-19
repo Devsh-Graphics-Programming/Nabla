@@ -66,9 +66,9 @@ struct SCameraCanonicalPathState final
 /// @brief Comparison tolerances used when matching two path states.
 struct SCameraPathComparisonThresholds final
 {
-    double sToleranceDeg = SCameraToolingThresholds::DefaultAngularToleranceDeg;
-    double rollToleranceDeg = SCameraToolingThresholds::DefaultAngularToleranceDeg;
-    double scalarTolerance = SCameraToolingThresholds::ScalarTolerance;
+    double sToleranceDeg = 1e-1;
+    double rollToleranceDeg = 1e-1;
+    double scalarTolerance = 1e-6;
 };
 
 /// @brief Result of updating the path distance while preserving the rest of the path state.
@@ -82,10 +82,10 @@ struct SCameraPathDistanceUpdateResult final
 struct SCameraPathDefaults final
 {
     static constexpr double MinU = static_cast<double>(ICamera::DefaultMinTargetDistance);
-    static constexpr double ScalarTolerance = SCameraToolingThresholds::ScalarTolerance;
-    static constexpr double ExactStateTolerance = SCameraToolingThresholds::TinyScalarEpsilon;
+    static constexpr double ScalarTolerance = SCameraPathComparisonThresholds{}.scalarTolerance;
+    static constexpr double ExactStateTolerance = 1e-9;
     static constexpr double ExactAngleToleranceDeg = ExactStateTolerance * 180.0 / hlsl::numbers::pi<double>;
-    static constexpr double AngleToleranceDeg = SCameraToolingThresholds::DefaultAngularToleranceDeg;
+    static constexpr double AngleToleranceDeg = SCameraPathComparisonThresholds{}.sToleranceDeg;
     static inline constexpr std::string_view Identifier = SCameraPathRigMetadata::Identifier;
     static inline constexpr std::string_view Description = SCameraPathRigMetadata::DefaultModelDescription;
     static inline constexpr ICamera::PathStateLimits Limits = {};

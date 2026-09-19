@@ -81,9 +81,10 @@ protected:
         return updateGimbal();
     }
 
-private:
-    static inline constexpr double MaxPitch = SCameraViewRigDefaults::ChaseMaxPitchRad;
-    static inline constexpr double MinPitch = SCameraViewRigDefaults::ChaseMinPitchRad;
+public:
+    /// @brief Pitch range in radians, narrower than the other rigs so the followed subject stays readable.
+    static inline constexpr double MaxPitch = 70.0 * (hlsl::numbers::pi<double> / 180.0);
+    static inline constexpr double MinPitch = -60.0 * (hlsl::numbers::pi<double> / 180.0);
 };
 
 }
