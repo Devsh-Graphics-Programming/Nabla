@@ -13,7 +13,7 @@ If you want to know which type to touch first, use this table.
 |---|---|
 | move a camera from live input this frame | `ICamera::manipulate(...)` |
 | convert keyboard or mouse input into a control frame | `CCameraMouseKeyboardController` with `CCameraMouseKeyboardPresets` |
-| pair one camera with one or more projection entries | `CPlanarProjection` and `IPlanarProjection::CProjection` |
+| pair one camera with one or more projections | `CCameraWithProjections` holding `CPlanarProjection` entries |
 | apply one absolute rigid pose request at runtime | `camera->setPose(...)` |
 | set exact position or exact orientation on `Free` and `FPS` | `SCameraRigPose` built from `camera->getGimbal()` |
 | capture, store, replay or script camera state | moved to the 61_UI example, see below |
@@ -116,8 +116,9 @@ That is intentional.
 The camera API keeps runtime camera state and projection state separate:
 
 - `ICamera` owns pose and motion state
-- `IProjection` and its derived types own projection state
-- one projection wrapper references one camera when it needs `view`, `MV`, or `MVP`
+- `CPlanarProjection` owns projection state
+- `CCameraWithProjections` pairs one camera with several projections and gives the view, projection and
+  view-projection matrices
 
 This keeps the pairing flexible:
 
@@ -130,21 +131,18 @@ The split looks like this:
 ```cpp
 auto camera = core::make_smart_refctd_ptr<COrbitCamera>(eye, target);
 
-auto planar = CPlanarProjection::create(core::smart_refctd_ptr(camera));
+auto cameraWithProjections = CCameraWithProjections::create(core::smart_refctd_ptr(camera));
 
-planar->getPlanarProjections().push_back(
-    IPlanarProjection::CProjection::create<
-        IPlanarProjection::CProjection::Perspective>(0.1f, 100.0f, 60.0f));
+auto& projections = cameraWithProjections->getProjections();
+projections.push_back(CPlanarProjection::createPerspective(0.1f, 100.0f, 60.0f));
+projections.push_back(CPlanarProjection::createOrthographic(0.1f, 100.0f, 10.0f));
 
-planar->getPlanarProjections().push_back(
-    IPlanarProjection::CProjection::create<
-        IPlanarProjection::CProjection::Orthographic>(0.1f, 100.0f, 10.0f));
+// the matrix is rebuilt from the parameters only here, so call it when the viewport or parameters change
+projections[0].update(leftHanded, aspectRatio);
 
-auto& projection = planar->getPlanarProjections()[0];
-projection.update(leftHanded, aspectRatio);
-
-const auto& view = camera->getGimbal().getViewMatrixLH();
-const auto& proj = projection.getProjectionMatrix();
+const auto view = cameraWithProjections->getViewMatrix();
+const auto proj = cameraWithProjections->getProjectionMatrix(0u);
+const auto viewProj = cameraWithProjections->getViewProjectionMatrix(0u);
 ```
 
 So the camera does not own projection parameters.
@@ -153,13 +151,13 @@ Instead:
 
 - the camera owns `view`
 - the projection entry owns `projection`
-- the wrapper combines both when code needs `MV`, `MVP`, or viewport-local binding state
+- the wrapper combines both into `viewProjection`; multiplying in a model matrix is left to the caller
 
 When you want to change projection state, touch the projection layer:
 
-- `IPlanarProjection::CProjection::setPerspective(...)`
-- `IPlanarProjection::CProjection::setOrthographic(...)`
-- `IPlanarProjection::CProjection::update(...)`
+- `CPlanarProjection::setPerspective(...)`
+- `CPlanarProjection::setOrthographic(...)`
+- `CPlanarProjection::update(...)`
 
 When you want to change pose or camera-family state, touch the camera layer:
 
@@ -641,9 +639,19 @@ If a camera must store completely unconstrained 6DOF pose as its native state, u
 
 ## Projections
 
-Projection types live in [`IProjection.hpp`](IProjection.hpp), [`ILinearProjection.hpp`](ILinearProjection.hpp), [`IPlanarProjection.hpp`](IPlanarProjection.hpp) and [`CPlanarProjection.hpp`](CPlanarProjection.hpp).
+- [`IProjection.hpp`](IProjection.hpp) is the abstract projection: `project`, `unproject` and the family it
+  belongs to.
+- [`CPlanarProjection.hpp`](CPlanarProjection.hpp) is the one implementation, held by value. It is
+  perspective (FOV in degrees), orthographic (width), or `Custom` (a caller-provided matrix), each with near and
+  far planes. Create it with `createPerspective`, `createOrthographic`, `create(SParameters)` or
+  `create(float64_t4x4)`. `update(leftHanded, aspectRatio)` rebuilds the matrix from the parameters; setting
+  parameters alone does not.
+- [`ICameraWithProjections.hpp`](ICameraWithProjections.hpp) and
+  [`CCameraWithProjections.hpp`](CCameraWithProjections.hpp) pair one camera with a list of `CPlanarProjection`
+  entries, for example one per viewport or preset, and return the view, projection and view-projection matrices.
+  The view matrix is the camera's left-handed one.
 
-`CDollyZoomCamera` derives its FOV from its distance, so a projection paired with it has to be told the new FOV. The extension exposes the value through `ICamera::tryGetDynamicPerspectiveFov(...)` and leaves the push into `IPlanarProjection::CProjection::setPerspective(...)` to the application; 61_UI does it in `CCameraProjectionUtilities`.
+`CDollyZoomCamera` derives its FOV from its distance, so a projection paired with it has to be told the new FOV. The extension exposes the value through `ICamera::tryGetDynamicPerspectiveFov(...)` and leaves the push into `CPlanarProjection::setPerspective(...)` to the application; 61_UI does it in `CCameraProjectionUtilities`.
 
 ## Camera tooling lives in the 61_UI example
 
