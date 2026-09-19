@@ -66,7 +66,7 @@ class NBL_API2 CWindowManagerWin32 final : public IWindowManagerWin32, public IC
 			GetCursorPos(&cursorPos);
 			return {
 				((cursorPos.x+0.5f-window->getX())/float(window->getWidth())-0.5f) * 2,
-				((cursorPos.y+0.5f-window->getY())/float(window->getWidth())-0.5f) * 2
+				((cursorPos.y+0.5f-window->getY())/float(window->getHeight())-0.5f) * 2
 			};
 		}
 

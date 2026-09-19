@@ -747,7 +747,7 @@ core::smart_refctd_ptr<ICPUGeometryCollection> CGeometryCreator::createArrow(
 	geometries->push_back({
 		.geometry = cylinder
 	});
-	const auto coneRotation = hlsl::math::quaternion<hlsl::float32_t>::create(hlsl::float32_t3(1.f, 0.f, 0.f), hlsl::numbers::pi<hlsl::float32_t> * -0.5f);
+	const auto coneRotation = hlsl::math::quaternion<hlsl::float32_t>::createFromAxisAngle(hlsl::float32_t3(1.f, 0.f, 0.f), hlsl::numbers::pi<hlsl::float32_t> * -0.5f);
 	const auto coneTransform = hlsl::math::linalg::promote_affine<3, 4>(hlsl::_static_cast<hlsl::float32_t3x3>(coneRotation));
 	geometries->push_back({
 		.transform = hlsl::math::linalg::promote_affine<3, 4>(coneTransform),
