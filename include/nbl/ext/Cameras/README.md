@@ -16,6 +16,10 @@ It moved because that example was its only user and because the design is under 
 of every rig's internal state, so each new camera kind has to answer for fragments it does not own. The
 README in that folder explains what has to be true before any of it comes back.
 
+A few small helpers followed later for the same reason, 61_UI being their only user: syncing a dynamic
+perspective FOV into a projection entry (`CCameraProjectionUtilities`), whole-file read/write (`CFileUtilities`)
+and the stable string names of key codes and mouse buttons (`CInputCodeNames`).
+
 ## TL;DR
 
 If you want to know which type to touch first, use this table.
@@ -141,16 +145,15 @@ The split looks like this:
 ```cpp
 auto camera = core::make_smart_refctd_ptr<COrbitCamera>(eye, target);
 
-using projections_t = std::vector<core::IPlanarProjection::CProjection>;
-auto planar = core::CPlanarProjection<projections_t>::create(core::smart_refctd_ptr(camera));
+auto planar = CPlanarProjection::create(core::smart_refctd_ptr(camera));
 
 planar->getPlanarProjections().push_back(
-    core::IPlanarProjection::CProjection::create<
-        core::IPlanarProjection::CProjection::Perspective>(0.1f, 100.0f, 60.0f));
+    IPlanarProjection::CProjection::create<
+        IPlanarProjection::CProjection::Perspective>(0.1f, 100.0f, 60.0f));
 
 planar->getPlanarProjections().push_back(
-    core::IPlanarProjection::CProjection::create<
-        core::IPlanarProjection::CProjection::Orthographic>(0.1f, 100.0f, 10.0f));
+    IPlanarProjection::CProjection::create<
+        IPlanarProjection::CProjection::Orthographic>(0.1f, 100.0f, 10.0f));
 
 auto& projection = planar->getPlanarProjections()[0];
 projection.update(leftHanded, aspectRatio);
@@ -185,7 +188,7 @@ Use this when you already have one rigid transform and want the camera to consum
 
 ```cpp
 const auto rigidFrame =
-    hlsl::CCameraMathUtilities::composeTransformMatrix(desiredPosition, desiredOrientation);
+    CCameraMathUtilities::composeTransformMatrix(desiredPosition, desiredOrientation);
 
 if (camera->setPose(rigidFrame))
 {
@@ -220,7 +223,7 @@ Consider this `FPS` example:
 ```cpp
 const auto desiredPosition = hlsl::float64_t3(2.0, 1.0, -3.0);
 const auto desiredOrientation =
-    hlsl::CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(
+    CCameraMathUtilities::makeQuaternionFromEulerDegreesYXZ(
         hlsl::float64_t3(-15.0, 40.0, 25.0));
 ```
 
@@ -270,7 +273,7 @@ const auto newPosition = desiredPosition;
 const auto keepOrientation = gimbal.getOrientation();
 
 const auto rigidFrame =
-    hlsl::CCameraMathUtilities::composeTransformMatrix(newPosition, keepOrientation);
+    CCameraMathUtilities::composeTransformMatrix(newPosition, keepOrientation);
 
 camera->setPose(rigidFrame);
 ```
@@ -282,7 +285,7 @@ const auto keepPosition = gimbal.getPosition();
 const auto newOrientation = desiredOrientation;
 
 const auto rigidFrame =
-    hlsl::CCameraMathUtilities::composeTransformMatrix(keepPosition, newOrientation);
+    CCameraMathUtilities::composeTransformMatrix(keepPosition, newOrientation);
 
 camera->setPose(rigidFrame);
 ```
@@ -307,7 +310,7 @@ camera->trySetSphericalDistance(distance);
 Path camera:
 
 ```cpp
-core::ICamera::PathState path = {
+ICamera::PathState path = {
     .s = desiredS,
     .u = desiredU,
     .v = desiredV,
@@ -646,13 +649,13 @@ If a camera must store completely unconstrained 6DOF pose as its native state, u
 
 ## Camera families
 
-- `Free` cameras in [`CFPSCamera.hpp`](CFPSCamera.hpp) and [`CFreeLockCamera.hpp`](CFreeLockCamera.hpp) store world-space position plus free or FPS-constrained orientation.
+- [`CFreeCamera.hpp`](CFreeCamera.hpp) and [`CFPSCamera.hpp`](CFPSCamera.hpp) store world-space position plus free or FPS-constrained orientation.
 - Target-relative cameras are built on [`CSphericalTargetCamera.hpp`](CSphericalTargetCamera.hpp) and include [`COrbitCamera.hpp`](COrbitCamera.hpp), [`CArcballCamera.hpp`](CArcballCamera.hpp), [`CTurntableCamera.hpp`](CTurntableCamera.hpp), [`CTopDownCamera.hpp`](CTopDownCamera.hpp), [`CIsometricCamera.hpp`](CIsometricCamera.hpp), [`CChaseCamera.hpp`](CChaseCamera.hpp), [`CDollyCamera.hpp`](CDollyCamera.hpp), and [`CDollyZoomCamera.hpp`](CDollyZoomCamera.hpp). They store target position, `orbitUv`, and distance instead of arbitrary free pose.
 - [`CDollyZoomCamera.hpp`](CDollyZoomCamera.hpp) extends the target-relative family with dynamic perspective state `baseFov` and `referenceDistance`.
 - [`CPathCamera.hpp`](CPathCamera.hpp) uses the parametric path-state seam described above together with limits `minU`, `minDistance`, and `maxDistance`.
 
-## Projection and presentation helpers
+## Projections
 
-Projection types live in [`IProjection.hpp`](IProjection.hpp), [`ILinearProjection.hpp`](ILinearProjection.hpp), [`IPerspectiveProjection.hpp`](IPerspectiveProjection.hpp), [`IPlanarProjection.hpp`](IPlanarProjection.hpp), [`CLinearProjection.hpp`](CLinearProjection.hpp), [`CPlanarProjection.hpp`](CPlanarProjection.hpp), and [`CCubeProjection.hpp`](CCubeProjection.hpp).
+Projection types live in [`IProjection.hpp`](IProjection.hpp), [`ILinearProjection.hpp`](ILinearProjection.hpp), [`IPlanarProjection.hpp`](IPlanarProjection.hpp) and [`CPlanarProjection.hpp`](CPlanarProjection.hpp).
 
-Camera-facing presentation helpers live in [`CCameraProjectionUtilities.hpp`](CCameraProjectionUtilities.hpp). The goal-, preset-, follow- and script-facing presentation helpers moved to the 61_UI example.
+`CDollyZoomCamera` derives its FOV from its distance, so a projection paired with it has to be told the new FOV. The extension exposes the value through `ICamera::tryGetDynamicPerspectiveFov(...)` and leaves the push into `IPlanarProjection::CProjection::setPerspective(...)` to the application; 61_UI does it in `CCameraProjectionUtilities`.

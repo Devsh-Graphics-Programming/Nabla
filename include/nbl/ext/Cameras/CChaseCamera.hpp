@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _C_CHASE_CAMERA_HPP_
 #define _C_CHASE_CAMERA_HPP_
 
@@ -78,8 +82,8 @@ protected:
     }
 
 private:
-    static inline constexpr double MaxPitch = SCameraTargetRelativeRigDefaults::ChaseMaxPitchRad;
-    static inline constexpr double MinPitch = SCameraTargetRelativeRigDefaults::ChaseMinPitchRad;
+    static inline constexpr double MaxPitch = SCameraViewRigDefaults::ChaseMaxPitchRad;
+    static inline constexpr double MinPitch = SCameraViewRigDefaults::ChaseMinPitchRad;
 };
 
 }

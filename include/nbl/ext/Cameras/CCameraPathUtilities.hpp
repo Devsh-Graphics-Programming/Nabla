@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _C_CAMERA_PATH_UTILITIES_HPP_
 #define _C_CAMERA_PATH_UTILITIES_HPP_
 
@@ -9,7 +13,6 @@
 #include <vector>
 
 #include "CCameraPathMetadata.hpp"
-#include "CCameraTargetRelativeUtilities.hpp"
 #include "ICamera.hpp"
 
 namespace nbl::ext::cameras
