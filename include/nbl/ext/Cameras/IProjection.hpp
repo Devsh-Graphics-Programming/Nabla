@@ -13,15 +13,11 @@ namespace nbl::ext::cameras
 /// @brief Base interface for any reusable projection model in the camera stack.
 ///
 /// A projection transforms vectors between some input space and the projection
-/// space understood by a concrete viewport or projection consumer. Specialized
-/// interfaces such as `ILinearProjection` and `IPlanarProjection` refine this
-/// abstraction with additional structure.
+/// space understood by a concrete viewport or projection consumer. `CPlanarProjection`
+/// is the one implementation today.
 class IProjection
 {
 public:
-    /// @brief Common vector type used by projection and unprojection operations.
-    using projection_vector_t = hlsl::float64_t4;
-
     /// @brief Stable runtime classification of supported projection families.
     enum class ProjectionType
     {
@@ -50,7 +46,7 @@ public:
     ///
     /// @param vecToProjectionSpace Vector to transform into projection space.
     /// @param output Result vector in projection space.
-    virtual void project(const projection_vector_t& vecToProjectionSpace, projection_vector_t& output) const = 0;
+    virtual void project(const hlsl::float64_t4& vecToProjectionSpace, hlsl::float64_t4& output) const = 0;
 
     /// @brief Transform a vector from projection space back to the original space.
     ///
@@ -59,7 +55,7 @@ public:
     /// @param vecFromProjectionSpace Vector in projection space.
     /// @param output Result vector in the original space.
     /// @return `true` when the inverse transform succeeded, otherwise `false`.
-    virtual bool unproject(const projection_vector_t& vecFromProjectionSpace, projection_vector_t& output) const = 0;
+    virtual bool unproject(const hlsl::float64_t4& vecFromProjectionSpace, hlsl::float64_t4& output) const = 0;
 
     /// @brief Return the specific projection family implemented by the concrete instance.
     ///
@@ -72,4 +68,4 @@ public:
 
 } // namespace nbl::ext::cameras
 
-#endif // _NBL_IPROJECTION_HPP_
+#endif // _NBL_I_PROJECTION_HPP_
