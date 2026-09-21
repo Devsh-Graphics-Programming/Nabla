@@ -21,10 +21,18 @@ class ImageRegionIterator
             IPhysicalDevice::SQueueFamilyProperties queueFamilyProps,
             const void* srcData,
             asset::E_FORMAT srcImageFormat,
-            video::IGPUImage* const dstImage,
+            const video::IGPUImage* const dstImage,
             size_t optimalRowPitchAlignment
         );
     
+        // ! Same chopping of `copyRegions`, but without any data to copy into the staging buffer, @see `advance`
+        ImageRegionIterator(
+            const std::span<const asset::IImage::SBufferCopy> copyRegions,
+            IPhysicalDevice::SQueueFamilyProperties queueFamilyProps,
+            const video::IGPUImage* const image,
+            size_t optimalRowPitchAlignment
+        );
+
         // ! Memory you need to allocate to transfer the remaining regions in one submit.
         // ! WARN: It's okay to use less memory than the return value of this function for your staging memory, in that usual case more than 1 copy regions will be needed to transfer the remaining regions.
         size_t getMemoryNeededForRemainingRegions() const;
@@ -35,6 +43,9 @@ class ImageRegionIterator
         // ! updates `stagingBufferOffset` based on consumed memory and alignment requirements
         // ! this function may do format conversions when copying from `srcData` to `stagingBuffer` if srcImageFormat != dstImage->getCreationParams().format passed as constructor parameters
         bool advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset, void* stagingBufferPointer);
+
+        // ! Same as `advanceAndCopyToStagingBuffer` except no data is written into the staging buffer
+        bool advance(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset);
 
         // ! returns true when there is no more regions left over to copy
         bool isFinished() const { return currentRegion == regions.size(); }
@@ -53,6 +64,8 @@ class ImageRegionIterator
         }
 
     private:
+        bool advance_impl(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset, void* stagingBufferPointer);
+
         const std::span<const asset::IImage::SBufferCopy> regions;
 
         // Mock CPU Images used to copy cpu buffer to staging buffer
@@ -68,8 +81,8 @@ class ImageRegionIterator
 
         asset::E_FORMAT srcImageFormat;
         const asset::E_FORMAT dstImageFormat;
-        const void* const srcData;
-        video::IGPUImage* const dstImage;
+        const void* srcData;
+        const video::IGPUImage* const dstImage;
     
         // Block Offsets 
         uint16_t currentBlockInRow = 0u;

@@ -6,17 +6,15 @@ namespace nbl::video
 ImageRegionIterator::ImageRegionIterator(
     const std::span<const asset::IImage::SBufferCopy> copyRegions,
     IPhysicalDevice::SQueueFamilyProperties queueFamilyProps,
-    const void* srcData,
-    asset::E_FORMAT srcImageFormat,
-    video::IGPUImage* const dstImage,
+    const video::IGPUImage* const image,
     size_t optimalRowPitchAlignment
 )
     : regions(copyRegions)
     , minImageTransferGranularity(queueFamilyProps.minImageTransferGranularity)
-    , srcImageFormat(srcImageFormat)
-    , dstImageFormat(dstImage->getCreationParameters().format)
-    , srcData(srcData)
-    , dstImage(dstImage)
+    , srcImageFormat(image->getCreationParameters().format)
+    , dstImageFormat(image->getCreationParameters().format)
+    , srcData(nullptr)
+    , dstImage(image)
     , currentBlockInRow(0u)
     , currentRowInSlice(0u)
     , currentSliceInLayer(0u)
@@ -24,8 +22,6 @@ ImageRegionIterator::ImageRegionIterator(
     , currentRegion(0u)
     , optimalRowPitchAlignment(optimalRowPitchAlignment)
 {
-    if(srcImageFormat == asset::EF_UNKNOWN)
-        srcImageFormat = dstImageFormat;
     asset::TexelBlockInfo dstImageTexelBlockInfo(dstImageFormat);
 
     // bufferOffsetAlignment:
@@ -45,6 +41,23 @@ ImageRegionIterator::ImageRegionIterator(
     // Queues supporting graphics and/or compute operations must report (1,1,1) in minImageTransferGranularity, meaning that there are no additional restrictions on the granularity of image transfer operations for these queues.
     // Other queues supporting image transfer operations are only required to support whole mip level transfers, thus minImageTransferGranularity for queues belonging to such queue families may be (0,0,0)
     canTransferMipLevelsPartially = !(minImageTransferGranularity.width == 0 && minImageTransferGranularity.height == 0 && minImageTransferGranularity.depth == 0);
+}
+
+ImageRegionIterator::ImageRegionIterator(
+    const std::span<const asset::IImage::SBufferCopy> copyRegions,
+    IPhysicalDevice::SQueueFamilyProperties queueFamilyProps,
+    const void* srcData,
+    asset::E_FORMAT srcImageFormat,
+    const video::IGPUImage* const dstImage,
+    size_t optimalRowPitchAlignment
+)
+    : ImageRegionIterator(copyRegions, queueFamilyProps, dstImage, optimalRowPitchAlignment)
+{
+    this->srcData = srcData;
+    this->srcImageFormat = srcImageFormat;
+
+    if(srcImageFormat == asset::EF_UNKNOWN)
+        srcImageFormat = dstImageFormat;
 
     auto dstImageParams = dstImage->getCreationParameters();
 
@@ -269,6 +282,17 @@ bool performIntermediateCopy(
 
 bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset, void* stagingBufferPointer)
 {
+    assert(srcData);
+    return advance_impl(regionToCopyNext, availableMemory, stagingBufferOffset, stagingBufferPointer);
+}
+
+bool ImageRegionIterator::advance(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset)
+{
+    return advance_impl(regionToCopyNext, availableMemory, stagingBufferOffset, nullptr);
+}
+
+bool ImageRegionIterator::advance_impl(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset, void* stagingBufferPointer)
+{
     if(isFinished())
         return false;
         
@@ -418,12 +442,16 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         regionToCopyNext.imageExtent.depth    = mainRegion.imageExtent.depth;
         regionToCopyNext.imageSubresource.layerCount = uploadableArrayLayers;
 
-        core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
-        core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
-        createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, layersToUploadMemorySize);
+        bool copySuccess = true;
+        if(stagingBufferPointer)
+        {
+            core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
+            core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
+            createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, layersToUploadMemorySize);
 
-        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
-        bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
+            const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
+            copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
+        }
 
         if(copySuccess)
         {
@@ -457,12 +485,16 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         regionToCopyNext.imageExtent.depth    = core::min(uploadableSlices * texelBlockDim.z, mainRegion.imageExtent.depth);
         regionToCopyNext.imageSubresource.layerCount = 1u;
             
-        core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
-        core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
-        createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, slicesToUploadMemorySize);
+        bool copySuccess = true;
+        if(stagingBufferPointer)
+        {
+            core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
+            core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
+            createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, slicesToUploadMemorySize);
 
-        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
-        bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
+            const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
+            copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
+        }
 
         if(copySuccess)
         {
@@ -496,12 +528,16 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         regionToCopyNext.imageExtent.depth    = core::min(1u * texelBlockDim.z, mainRegion.imageExtent.depth);
         regionToCopyNext.imageSubresource.layerCount = 1u;
             
-        core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
-        core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
-        createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, rowsToUploadMemorySize);
+        bool copySuccess = true;
+        if(stagingBufferPointer)
+        {
+            core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
+            core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
+            createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, rowsToUploadMemorySize);
 
-        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
-        bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
+            const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
+            copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
+        }
 
         if(copySuccess)
         {
@@ -536,12 +572,16 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         regionToCopyNext.imageExtent.depth    = core::min(1u * texelBlockDim.z, mainRegion.imageExtent.depth);
         regionToCopyNext.imageSubresource.layerCount = 1u;
 
-        core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
-        core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
-        createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, blocksToUploadMemorySize);
+        bool copySuccess = true;
+        if(stagingBufferPointer)
+        {
+            core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
+            core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
+            createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, blocksToUploadMemorySize);
 
-        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
-        bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
+            const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
+            copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
+        }
 
         if(copySuccess)
         {

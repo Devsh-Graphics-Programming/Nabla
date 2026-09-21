@@ -777,6 +777,35 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         // --------------
         // downloadImageViaStagingBuffer
         // --------------
+        //! Records the commands needed to copy `regions` of `srcImage` into the staging buffer, and copies the staged data into `dest` once it arrives.
+        //! The result is equivalent to a single `copyImageToBuffer` of `regions` into a buffer backing `dest`: every region's texels land at
+        //! `region.bufferOffset` laid out according to `region.bufferRowLength`/`bufferImageHeight` (0 meaning tightly packed), in region order.
+        //! No format conversion is performed, the data is laid out in `srcImage`'s format.
+        //! If the allocation from staging memory fails due to large image size or fragmentation then this function may need to submit the command buffer
+        //! on the `nextSubmit.queue` and then signal the scratch semaphore.
+        //! * IMPORTANT: The copies into `dest` happen asynchronously, so `dest` must stay alive and `IUtility::getDefaultDownStreamingBuffer()->cull_frees()`
+        //!   must be called after the `nextSubmit.scratchSemaphore` is signaled, otherwise `dest` will not be written.
+        //! Every recorded copy is followed by a `COPY_BIT/TRANSFER_WRITE_BIT` to `HOST_BIT/HOST_READ_BIT` memory barrier, so the caller does not need one for the staging reads.
+        //! Returns:
+        //!     True on successful recording of copy commands and handling of overflows if any, and false on failure for any reason.
+        //!     Make sure to submit with `nextSubmit.popSubmit()` after this function returns.
+        //!     On false, earlier chunks may already be recorded into the scratch command buffer with staging memory latched on the scratch semaphore,
+        //!     the caller must still signal that semaphore (by submitting or from the host) for the memory to be released.
+        //! Parameters:
+        //!     - nextSubmit:
+        //!         Is the SubmitInfo you intended to submit your command buffers with, it will be modified if overflow occurred @see SIntendedSubmitInfo
+        //!     - srcImage: source image to copy the regions from
+        //!     - currentSrcImageLayout: the image layout `srcImage` will be in at the time of submission of the copy commands
+        //!     - dest: destination to copy the regions to
+        //!     - regions: regions of `srcImage` to copy
+        //! Valid Usage:
+        //!     * nextSubmit must be valid (see `SIntendedSubmitInfo::valid()`)
+        //!     * srcImage must point to a valid IGPUImage created with the `EUF_TRANSFER_SRC_BIT` usage flag
+        //!     * currentSrcImageLayout must be GENERAL or TRANSFER_SRC_OPTIMAL
+        //!     * dest must not be nullptr and must be large enough for every region's `bufferOffset` plus its extent under its own strides
+        //!     * regions.size() must be > 0 and every region must be valid for the `nextSubmit.queue`'s `minImageTransferGranularity`
+        //!     * the largest region row, padded to `optimalBufferCopyRowPitchAlignment`, must fit the download staging buffer
+        //!     * depth and stencil formats are not supported, the byte sizes used for staging are per format rather than per aspect
         bool downloadImageViaStagingBuffer(
             SIntendedSubmitInfo& nextSubmit, const IGPUImage* srcImage, const IGPUImage::LAYOUT currentSrcImageLayout,
             void* dest, const std::span<const asset::IImage::SBufferCopy> regions
@@ -787,6 +816,19 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         inline bool downloadImageViaStagingBuffer(SIntendedSubmitInfo&& nextSubmit, Args&&... args)
         {
             return downloadImageViaStagingBuffer(nextSubmit,std::forward<Args>(args)...);
+        }
+
+        //! Auto-Submit utility, additionally waits for the submit to complete and drains the callbacks that write into `dest`
+        //! WARNING: This function blocks CPU and stalls the GPU!
+        template<typename IntendedSubmitInfo, typename... Args> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
+        inline bool downloadImageViaStagingBufferAutoSubmit(IntendedSubmitInfo&& submit, Args&&... args)
+        {
+            if (autoSubmit(submit,[&](SIntendedSubmitInfo& nextSubmit)->bool{return downloadImageViaStagingBuffer(nextSubmit,std::forward<Args>(args)...);}).copy<IQueue::RESULT>()!=IQueue::RESULT::SUCCESS)
+                return false;
+
+            //! NOTE this method cannot be turned into a pure autoSubmitAndBlock + lambda because there's stuff to do AFTER the semaphore wait~!
+            m_defaultDownloadBuffer->cull_frees();
+            return true;
         }
 
     protected:
