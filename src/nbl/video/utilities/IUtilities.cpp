@@ -305,13 +305,14 @@ bool IUtilities::downloadImageViaStagingBuffer(
                 break;
         }
 
+        bool copyRecorded = false;
         bool recorded = false;
         if (regionsToCopy.empty())
             m_logger.log("Allocation of %u bytes cannot hold the smallest transferable unit, check the queue family's `minImageTransferGranularity`, cannot `downloadImageViaStagingBuffer`.",system::ILogger::ELL_ERROR,allocationSize);
         else
         {
-            recorded = scratch->cmdbuf->copyImageToBuffer(srcImage, currentSrcImageLayout, m_defaultDownloadBuffer->getBuffer(), regionsToCopy.size(), regionsToCopy.data());
-            if (recorded)
+            copyRecorded = scratch->cmdbuf->copyImageToBuffer(srcImage, currentSrcImageLayout, m_defaultDownloadBuffer->getBuffer(), regionsToCopy.size(), regionsToCopy.data());
+            if (copyRecorded)
             {
                 const asset::SMemoryBarrier hostRead = {
                     .srcStageMask = asset::PIPELINE_STAGE_FLAGS::COPY_BIT,
@@ -326,7 +327,11 @@ bool IUtilities::downloadImageViaStagingBuffer(
         }
         if (!recorded)
         {
-            m_defaultDownloadBuffer->multi_deallocate(1u,&localOffset,&allocationSize);
+            // the copy may already be recorded, so the block can only be reused once the scratch semaphore signals
+            if (copyRecorded)
+                m_defaultDownloadBuffer->multi_deallocate(1u,&localOffset,&allocationSize,intendedNextSubmit.getFutureScratchSemaphore());
+            else
+                m_defaultDownloadBuffer->multi_deallocate(1u,&localOffset,&allocationSize);
             intendedNextSubmit.scratchSemaphore.stageMask = oldScratchStage;
             return false;
         }

@@ -806,6 +806,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * regions.size() must be > 0 and every region must be valid for the `nextSubmit.queue`'s `minImageTransferGranularity`
         //!     * the largest region row, padded to `optimalBufferCopyRowPitchAlignment`, must fit the download staging buffer
         //!     * depth and stencil formats are not supported, the byte sizes used for staging are per format rather than per aspect
+        //!     * block compressed regions whose extent is not a multiple of the block size are not supported, `ImageRegionIterator` clamps edge chunks against the full extent
         bool downloadImageViaStagingBuffer(
             SIntendedSubmitInfo& nextSubmit, const IGPUImage* srcImage, const IGPUImage::LAYOUT currentSrcImageLayout,
             void* dest, const std::span<const asset::IImage::SBufferCopy> regions
