@@ -23,9 +23,10 @@ nbl_create_ext_library_project(
     ""
 )
 
-nbl_install_file_spec(
-    "${NBL_ROOT_PATH}/include/nbl/ext/Cameras/README.md"
-    "nbl/ext/Cameras"
+# installed from src/nbl as the "Cameras" component of the Nabla package
+set_target_properties(${LIB_NAME} PROPERTIES
+    EXPORT_NAME "ext::Cameras"
+    PUBLIC_HEADER "${NBL_EXT_CAMERAS_HEADERS};${NBL_ROOT_PATH}/include/nbl/ext/Cameras/README.md"
 )
 
 add_library(Nabla::ext::Cameras ALIAS ${LIB_NAME})
