@@ -35,6 +35,10 @@
 #include "nbl/asset/interchange/CImageLoaderJPG.h"
 #endif
 
+#ifdef _NBL_COMPILE_WITH_AVIF_LOADER_
+#include "nbl/asset/interchange/CImageLoaderAVIF.h"
+#endif
+
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
 #include "nbl/asset/interchange/CImageLoaderPNG.h"
 #endif
@@ -142,6 +146,9 @@ void IAssetManager::addLoadersAndWriters()
 #endif
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
+#endif
+#ifdef _NBL_COMPILE_WITH_AVIF_LOADER_
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderAVIF>());
 #endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>(this));
