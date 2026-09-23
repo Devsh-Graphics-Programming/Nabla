@@ -433,8 +433,6 @@ public:
 
 	inline void update()
 	{
-		static std::chrono::microseconds previousEventTimestamp{};
-
 		m_inputSystem->getDefaultMouse(&mouse);
 		m_inputSystem->getDefaultKeyboard(&keyboard);
 
@@ -450,10 +448,6 @@ public:
 		{
 			for (const auto& e : events)
 			{
-				if (e.timeStamp < previousEventTimestamp)
-					continue;
-
-				previousEventTimestamp = e.timeStamp;
 				capturedEvents.mouse.emplace_back(e);
 			}
 		}, m_logger.get());
@@ -462,10 +456,6 @@ public:
 		{
 			for (const auto& e : events)
 			{
-				if (e.timeStamp < previousEventTimestamp)
-					continue;
-
-				previousEventTimestamp = e.timeStamp;
 				capturedEvents.keyboard.emplace_back(e);
 			}
 		}, m_logger.get());
