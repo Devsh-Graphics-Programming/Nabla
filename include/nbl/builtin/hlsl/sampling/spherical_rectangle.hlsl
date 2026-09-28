@@ -68,25 +68,7 @@ struct SphericalRectangle
    // need the shapes::SphericalRectangle + solidAngle(observer) roundtrip.
    static SphericalRectangle<T, UseRealSinCos> create(const matrix3x3_type _basis, const vector3_type _r0, const vector2_type _extents)
    {
-      // Same math as shapes::SphericalRectangle::solidAngle() but without
-      // the mul(basis, origin - observer) step since we already have r0.
-      typename shapes::SphericalRectangle<T>::solid_angle_type sa;
-      sa.r0 = _r0;
-
-      const scalar_type zSq         = _r0.z * _r0.z;
-      const vector4_type denorm_n_z = vector4_type(-_r0.y, _r0.x + _extents.x, _r0.y + _extents.y, -_r0.x);
-      sa.n_z                        = denorm_n_z * hlsl::rsqrt<vector4_type>(hlsl::promote<vector4_type>(zSq) + denorm_n_z * denorm_n_z);
-      sa.cosGamma                   = vector4_type(
-         -sa.n_z[0] * sa.n_z[1], -sa.n_z[1] * sa.n_z[2],
-         -sa.n_z[2] * sa.n_z[3], -sa.n_z[3] * sa.n_z[0]);
-
-      math::sincos_accumulator<scalar_type> acc = math::sincos_accumulator<scalar_type>::create(sa.cosGamma[0]);
-      acc.addCosine(sa.cosGamma[1]);
-      acc.addCosine(sa.cosGamma[2]);
-      acc.addCosine(sa.cosGamma[3]);
-      sa.value = acc.getSumOfArccos() - _static_cast<scalar_type>(2.0) * numbers::pi<scalar_type>;
-
-      return create(_basis, sa, _extents);
+      return create(_basis, shapes::SphericalRectangle<T>::solidAngleFromLocal(_r0, _extents), _extents);
    }
 
    // shared core of generate and generateSurfaceOffset

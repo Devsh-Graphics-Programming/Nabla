@@ -4,6 +4,9 @@
 #ifndef _NBL_BUILTIN_HLSL_SHAPES_OBB_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHAPES_OBB_INCLUDED_
 
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
+
 namespace nbl
 {
 namespace hlsl
@@ -90,12 +93,13 @@ struct OBBView
 		return minCorner + scalar_t(0.5) * (columns[0] + columns[1] + columns[2]);
 	}
 
+	// selects, not branches: i is a runtime corner index and diverges across lanes
 	vec3_t getVertex(uint32_t i) NBL_CONST_MEMBER_FUNC
 	{
 		vec3_t p = minCorner;
-		if (i & 1u) p += columns[0];
-		if (i & 2u) p += columns[1];
-		if (i & 4u) p += columns[2];
+		p = nbl::hlsl::select((i & 1u) != 0u, p + columns[0], p);
+		p = nbl::hlsl::select((i & 2u) != 0u, p + columns[1], p);
+		p = nbl::hlsl::select((i & 4u) != 0u, p + columns[2], p);
 		return p;
 	}
 
@@ -104,9 +108,9 @@ struct OBBView
 	scalar_t getVertexZ(uint32_t i) NBL_CONST_MEMBER_FUNC
 	{
 		scalar_t pz = minCorner.z;
-		if (i & 1u) pz += columns[0].z;
-		if (i & 2u) pz += columns[1].z;
-		if (i & 4u) pz += columns[2].z;
+		pz = nbl::hlsl::select((i & 1u) != 0u, pz + columns[0].z, pz);
+		pz = nbl::hlsl::select((i & 2u) != 0u, pz + columns[1].z, pz);
+		pz = nbl::hlsl::select((i & 4u) != 0u, pz + columns[2].z, pz);
 		return pz;
 	}
 

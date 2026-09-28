@@ -38,8 +38,8 @@ namespace sampling
 //                        single transaction per subgroup. Build with
 //                        sampling::buildEytzinger<T>().
 //
-// Satisfies TractableSampler and ResamplableSampler (not BackwardTractableSampler:
-// the mapping is discrete).
+// Satisfies BackwardTractableSampler and ResamplableSampler, but not BijectiveSampler:
+// infinitely many u map to the same bucket, so there is no generateInverse.
 enum CumulativeProbabilityMode : uint32_t
 {
 	TRACKING  = 0u,

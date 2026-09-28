@@ -19,66 +19,41 @@ namespace hlsl
 namespace sampling
 {
 
-// Builds the alias table from an array of non-negative weights.
-//
-// When `weights.size()` is a power of two, the builder transparently appends
-// one zero-weight dummy bucket so the GPU-facing table size is N+1 (odd),
-// which breaks PoT-periodic address patterns that alias memory channels /
-// cache sets on most GPUs. The sampled distribution is unchanged, the dummy
-// has stayProb = 0 and always redirects to a real donor.
-//
-// Output vectors are `resize`d by the builder to the final table size, so
-// the caller just passes (possibly empty) vectors and reads back the
-// returned size. That returned value is what to pass to the sampler's
-// `_size` argument and to use when packing / uploading.
+// Builds the alias table from an array of non-negative weights. Output vectors are resized to N, which is also returned.
 template<typename T>
 struct AliasTableBuilder
 {
-   // Ugly but much faster: we better ensure the table size is not a power of
-   // two, so we pad with +1 zero-weight dummy bucket when needed. PoT-sized
-   // alias tables hit GPU memory channel / cache set aliasing that can be
-   // wildly (sometimes 2x+) slower than a nearby non-PoT size. Builder owns
-   // all the sizing (resizes the output vectors, allocates its own scratch),
-   // so the caller can't get it wrong.
    static uint32_t build(std::span<const T> weights, std::vector<T>& outProbability, std::vector<uint32_t>& outAlias, std::vector<T>& outPdf)
    {
-      const uint32_t userN  = static_cast<uint32_t>(weights.size());
-      const uint32_t tableN = (userN > 1u && (userN & (userN - 1u)) == 0u) ? (userN + 1u) : userN;
+      const uint32_t N = static_cast<uint32_t>(weights.size());
 
-      outProbability.resize(tableN);
-      outAlias.resize(tableN);
-      outPdf.resize(tableN);
-      std::vector<uint32_t> workspace(tableN);
+      outProbability.resize(N);
+      outAlias.resize(N);
+      outPdf.resize(N);
+      std::vector<uint32_t> workspace(N);
 
       T totalWeight = T(0);
-      for (uint32_t i = 0; i < userN; i++)
+      for (uint32_t i = 0; i < N; i++)
          totalWeight += weights[i];
 
       const T rcpTotalWeight = T(1) / totalWeight;
 
       // Compute PDFs, scaled probabilities, and partition into small/large in one pass
       uint32_t smallEnd   = 0u;
-      uint32_t largeBegin = tableN;
-      for (uint32_t i = 0; i < userN; i++)
+      uint32_t largeBegin = N;
+      for (uint32_t i = 0; i < N; i++)
       {
          outPdf[i]         = weights[i] * rcpTotalWeight;
-         outProbability[i] = outPdf[i] * T(tableN);
+         outProbability[i] = outPdf[i] * T(N);
 
          if (outProbability[i] < T(1))
             workspace[smallEnd++] = i;
          else
             workspace[--largeBegin] = i;
       }
-      // PoT dodge tail: one zero-weight dummy at index userN, always in the small list.
-      if (tableN != userN)
-      {
-         outPdf[userN]         = T(0);
-         outProbability[userN] = T(0);
-         workspace[smallEnd++] = userN;
-      }
 
       // Pair small and large entries
-      while (smallEnd > 0u && largeBegin < tableN)
+      while (smallEnd > 0u && largeBegin < N)
       {
          const uint32_t s = workspace[--smallEnd];
          const uint32_t l = workspace[largeBegin];
@@ -104,14 +79,14 @@ struct AliasTableBuilder
          outProbability[s] = T(1);
          outAlias[s]       = s;
       }
-      while (largeBegin < tableN)
+      while (largeBegin < N)
       {
          const uint32_t l  = workspace[largeBegin++];
          outProbability[l] = T(1);
          outAlias[l]       = l;
       }
 
-      return tableN;
+      return N;
    }
 
    // Pack (target, stayProb) into a single 32-bit word with Log2N bits for

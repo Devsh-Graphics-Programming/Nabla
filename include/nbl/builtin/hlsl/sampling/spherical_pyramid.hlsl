@@ -28,11 +28,7 @@ inline SphericalRectangle<float32_t> buildInner(float32_t3x3 basis, float32_t2 r
 template<bool UsePdfAsWeight>
 inline ProjectedSphericalRectangle<float32_t, UsePdfAsWeight> buildInner(float32_t3x3 basis, float32_t2 r0, float32_t2 ext, ProjectedSphericalRectangle<float32_t, UsePdfAsWeight> /*tag*/)
 {
-   shapes::CompressedSphericalRectangle<float32_t> compressed;
-   compressed.origin = basis[0] * r0.x + basis[1] * r0.y + basis[2];
-   compressed.right  = basis[0] * ext.x;
-   compressed.up     = basis[1] * ext.y;
-   return ProjectedSphericalRectangle<float32_t, UsePdfAsWeight>::create(compressed, float32_t3(0.0f, 0.0f, 0.0f), float32_t3(0.0f, 0.0f, 1.0f), false);
+   return ProjectedSphericalRectangle<float32_t, UsePdfAsWeight>::create(basis, float32_t3(r0, 1.0f), ext, float32_t3(0.0f, 0.0f, 1.0f), false);
 }
 
 // Spherical Pyramid: gnomonic bounding rectangle for silhouette sampling.
@@ -53,7 +49,9 @@ inline ProjectedSphericalRectangle<float32_t, UsePdfAsWeight> buildInner(float32
 // rectR0/rectExtents are returned out-params from createFromVertices and not
 // stored on the pyramid (the inner sampler keeps its own copy). The local
 // vertex array dies at end-of-create-scope; only the inner sampler persists.
-template<bool UseCaliper, typename InnerSampler>
+//
+// SilhouetteTest=false: no per-sample polygon test (7 float3 fewer live), the caller's shadow ray rejects misses.
+template<bool UseCaliper, typename InnerSampler, bool SilhouetteTest = true>
 struct SphericalPyramid
 {
    using scalar_type   = float32_t;
@@ -74,6 +72,7 @@ struct SphericalPyramid
 
    float32_t3 axis1;
    float32_t3 axis2; // axis3 reconstructed via getAxis3() = cross(axis1, axis2)
+   float32_t3 horizon; // shading-plane normal in the silhouette's frame, (0,0,1) for a tangent-frame silhouette
 
    // Per-edge cross products in world space. Populated during Pass 1's
    // centroid accumulation (also cached for caliper scoring), used by
@@ -96,8 +95,9 @@ struct SphericalPyramid
       const float32_t3 vI = vertices[I];
       const float32_t3 vJ = vertices[J];
 
-      const float32_t3 c            = cross(vI, vJ);
-      silEdgeNormals.edgeNormals[I] = c;
+      const float32_t3 c = cross(vI, vJ);
+      if (SilhouetteTest)
+         silEdgeNormals.edgeNormals[I] = c;
       unnormCentroid += c;
 
       if (!UseCaliper)
@@ -165,11 +165,11 @@ struct SphericalPyramid
    // so we reuse cached n0. Larger score = smaller bounding lune. max(.,1e-30f)
    // keeps rsqrt finite on collapsed edges (they lose on numerator anyway).
    template<uint32_t I, uint32_t J>
-   static void evalCandidate(float32_t3 vertices[shapes::MaxOBBSilhouetteVertices], uint32_t count, NBL_CONST_REF_ARG(shapes::SilEdgeNormals) sen, NBL_REF_ARG(float32_t) bestScore, NBL_REF_ARG(float32_t3) bestEdge3d, NBL_REF_ARG(uint32_t) bestEdge)
+   static void evalCandidate(float32_t3 vertices[shapes::MaxOBBSilhouetteVertices], uint32_t count, NBL_REF_ARG(float32_t) bestScore, NBL_REF_ARG(float32_t3) bestEdge3d, NBL_REF_ARG(uint32_t) bestEdge)
    {
       const float32_t3 vI     = vertices[I];
       const float32_t3 vJ     = vertices[J];
-      const float32_t3 n0     = sen.edgeNormals[I];
+      const float32_t3 n0     = cross(vI, vJ);
       const float32_t3 edge3d = vJ - vI;
 
       const float32_t3 precross = cross(edge3d, n0);
@@ -225,12 +225,14 @@ struct SphericalPyramid
 
    // Pyramid from pre-materialized verts; (rectR0, rectExtents) returned as
    // out-params (not stored on the pyramid).
-   static SphericalPyramid<UseCaliper, InnerSampler> createFromVertices(float32_t3 vertices[shapes::MaxOBBSilhouetteVertices], uint32_t count, NBL_REF_ARG(float32_t2) outRectR0, NBL_REF_ARG(float32_t2) outRectExtents)
+   static SphericalPyramid<UseCaliper, InnerSampler, SilhouetteTest> createFromVertices(float32_t3 vertices[shapes::MaxOBBSilhouetteVertices], uint32_t count, NBL_REF_ARG(float32_t2) outRectR0, NBL_REF_ARG(float32_t2) outRectExtents)
    {
-      SphericalPyramid<UseCaliper, InnerSampler> self;
+      SphericalPyramid<UseCaliper, InnerSampler, SilhouetteTest> self;
+      self.horizon = float32_t3(0.0f, 0.0f, 1.0f);
       // Sentinel-init so unused slots (count..6) produce dot(dir,(0,0,-1)) < 0
       // for the sign-bit AND in shapes::SilEdgeNormals::isInside.
-      self.silEdgeNormals = shapes::SilEdgeNormals::initSentinel();
+      if (SilhouetteTest)
+         self.silEdgeNormals = shapes::SilEdgeNormals::initSentinel();
 
       // Tiny z-bias seed so symmetric shapes don't normalize(0) to NaN; the
       // cross sum dominates for any non-degenerate silhouette.
@@ -284,37 +286,37 @@ struct SphericalPyramid
       {
          float32_t bestScore = -2.0f;
 
-         evalCandidate<0, 1>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
-         evalCandidate<1, 2>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
+         evalCandidate<0, 1>(vertices, count, bestScore, bestEdge3d, bestEdge);
+         evalCandidate<1, 2>(vertices, count, bestScore, bestEdge3d, bestEdge);
          if (count == 3)
          {
-            evalCandidate<2, 0>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
+            evalCandidate<2, 0>(vertices, count, bestScore, bestEdge3d, bestEdge);
          }
          else
          {
-            evalCandidate<2, 3>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
+            evalCandidate<2, 3>(vertices, count, bestScore, bestEdge3d, bestEdge);
             if (count == 4)
             {
-               evalCandidate<3, 0>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
+               evalCandidate<3, 0>(vertices, count, bestScore, bestEdge3d, bestEdge);
             }
             else
             {
-               evalCandidate<3, 4>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
+               evalCandidate<3, 4>(vertices, count, bestScore, bestEdge3d, bestEdge);
                if (count == 5)
                {
-                  evalCandidate<4, 0>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
+                  evalCandidate<4, 0>(vertices, count, bestScore, bestEdge3d, bestEdge);
                }
                else
                {
-                  evalCandidate<4, 5>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
+                  evalCandidate<4, 5>(vertices, count, bestScore, bestEdge3d, bestEdge);
                   if (count == 6)
                   {
-                     evalCandidate<5, 0>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
+                     evalCandidate<5, 0>(vertices, count, bestScore, bestEdge3d, bestEdge);
                   }
                   else // count == 7
                   {
-                     evalCandidate<5, 6>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
-                     evalCandidate<6, 0>(vertices, count, self.silEdgeNormals, bestScore, bestEdge3d, bestEdge);
+                     evalCandidate<5, 6>(vertices, count, bestScore, bestEdge3d, bestEdge);
+                     evalCandidate<6, 0>(vertices, count, bestScore, bestEdge3d, bestEdge);
                   }
                }
             }
@@ -347,7 +349,8 @@ struct SphericalPyramid
       // Pre-rotate edge normals into local frame so per-sample inside test
       // can use the cheaper 2D form (2 muls + 2 adds + n.z per edge instead
       // of 3 muls + 2 adds). Amortized once per build; saves 7 muls/sample.
-      self.silEdgeNormals.transformToLocal(self.axis1, self.axis2, axis3);
+      if (SilhouetteTest)
+         self.silEdgeNormals.transformToLocal(self.axis1, self.axis2, axis3);
 
       return self;
    }
@@ -356,19 +359,26 @@ struct SphericalPyramid
    // from the silhouette, build the pyramid, then construct the InnerSampler
    // via tag-dispatched buildInner. Local rect data dies at end-of-scope; only
    // the inner sampler retains a copy.
-   static SphericalPyramid<UseCaliper, InnerSampler> create(NBL_CONST_REF_ARG(shapes::ClippedSilhouette) silhouette, NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view)
+   // _horizon = shading-plane normal in the view's frame, as passed to ClippedSilhouette::create(view, planeN)
+   static SphericalPyramid<UseCaliper, InnerSampler, SilhouetteTest> create(NBL_CONST_REF_ARG(shapes::ClippedSilhouette) silhouette, NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view, const float32_t3 _horizon)
    {
       float32_t3 vertices[shapes::MaxOBBSilhouetteVertices];
-      silhouette.materialize(view, vertices);
+      silhouette.materialize(view, _horizon, vertices);
 
       float32_t2 rectR0, rectExtents;
-      SphericalPyramid<UseCaliper, InnerSampler> self = createFromVertices(vertices, silhouette.count, rectR0, rectExtents);
+      SphericalPyramid<UseCaliper, InnerSampler, SilhouetteTest> self = createFromVertices(vertices, silhouette.count, rectR0, rectExtents);
+      self.horizon                                                     = _horizon;
 
       // tag's value is unread; only its type selects the overload.
       const float32_t3x3 basis = float32_t3x3(self.axis1, self.axis2, self.getAxis3());
       InnerSampler tag;
       self.inner = buildInner(basis, rectR0, rectExtents, tag);
       return self;
+   }
+
+   static SphericalPyramid<UseCaliper, InnerSampler, SilhouetteTest> create(NBL_CONST_REF_ARG(shapes::ClippedSilhouette) silhouette, NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view)
+   {
+      return create(silhouette, view, float32_t3(0.0f, 0.0f, 1.0f));
    }
 
    // Generate via inner.generateNormalizedLocal so we can recover gnomonic
@@ -382,7 +392,7 @@ struct SphericalPyramid
       const codomain_type  dir      = localDir.x * axis1 + localDir.y * axis2 + localDir.z * getAxis3();
       const scalar_type    localX   = localDir.x * hitDist;
       const scalar_type    localY   = localDir.y * hitDist;
-      const bool           valid    = dir.z > 0.0f && silEdgeNormals.isInsideLocal(localX, localY);
+      const bool           valid    = dot(dir, horizon) > 0.0f && (!SilhouetteTest || silEdgeNormals.isInsideLocal(localX, localY));
       cache.pdf                     = hlsl::select(valid, inner.forwardPdf(u, cache.inner), 0.0f);
       return dir;
    }
@@ -405,6 +415,8 @@ struct SphericalPyramid
       const scalar_type   pz    = dot(dir, axis3);
       if (!(pz > scalar_type(0)))
          return false;
+      if (!SilhouetteTest)
+         return true;
       const scalar_type rcpZ   = scalar_type(1) / pz;
       const scalar_type localX = dot(dir, axis1) * rcpZ;
       const scalar_type localY = dot(dir, axis2) * rcpZ;

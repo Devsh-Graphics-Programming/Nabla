@@ -65,43 +65,47 @@ static const uint32_t silhouettes[27][7] = {
 // bits 29-31 hold the vertex count. Hot-path uses this; LUT (silhouettes[27][7])
 // above is reference.
 //
-
-static const uint32_t binSilhouettes[27] = {
-   0b11000000000000101100110010011001u,
-   0b11000000000000011111101100110010u,
-   0b11000000000000010011111101100000u,
-   0b11000000000000101100110111011001u,
-   0b10000000000000000000110111101100u,
-   0b11000000000000010110111101100000u,
-   0b11000000000000100110111011001000u,
-   0b11000000000000100110111101001000u,
-   0b11000000000000010110111101001000u,
-   0b11000000000000101111110010011001u,
-   0b10000000000000000000011111110010u,
-   0b11000000000000010011111110100000u,
-   0b10000000000000000000101111011001u,
-   0b11000000000000010011111110100000u,
-   0b10000000000000000000010110100000u,
-   0b11000000000000100101111011001000u,
-   0b10000000000000000000100101001000u,
-   0b11000000000000010110100101001000u,
-   0b11000000000000001101111110010000u,
-   0b11000000000000001011111110010000u,
-   0b11000000000000001011111110100000u,
-   0b11000000000000001101111011010000u,
-   0b10000000000000000000001011010000u,
-   0b11000000000000001011010110100000u,
-   0b11000000000000100101111011010000u,
-   0b11000000000000100101001011010000u,
-   0b11000000000000011010110100101001u, // case 26
-};
+// A switch, not a `static const` array: DXC lowers a runtime-indexed array to per-thread Function memory.
+inline uint32_t binSilhouette(const uint32_t configIndex)
+{
+   switch (configIndex)
+   {
+      case 0u: return 0b11000000000000101100110010011001u;
+      case 1u: return 0b11000000000000011111101100110010u;
+      case 2u: return 0b11000000000000010011111101100000u;
+      case 3u: return 0b11000000000000101100110111011001u;
+      case 4u: return 0b10000000000000000000110111101100u;
+      case 5u: return 0b11000000000000010110111101100000u;
+      case 6u: return 0b11000000000000100110111011001000u;
+      case 7u: return 0b11000000000000100110111101001000u;
+      case 8u: return 0b11000000000000010110111101001000u;
+      case 9u: return 0b11000000000000101111110010011001u;
+      case 10u: return 0b10000000000000000000011111110010u;
+      case 11u: return 0b11000000000000010011111110100000u;
+      case 12u: return 0b10000000000000000000101111011001u;
+      case 13u: return 0b11000000000000010011111110100000u;
+      case 14u: return 0b10000000000000000000010110100000u;
+      case 15u: return 0b11000000000000100101111011001000u;
+      case 16u: return 0b10000000000000000000100101001000u;
+      case 17u: return 0b11000000000000010110100101001000u;
+      case 18u: return 0b11000000000000001101111110010000u;
+      case 19u: return 0b11000000000000001011111110010000u;
+      case 20u: return 0b11000000000000001011111110100000u;
+      case 21u: return 0b11000000000000001101111011010000u;
+      case 22u: return 0b10000000000000000000001011010000u;
+      case 23u: return 0b11000000000000001011010110100000u;
+      case 24u: return 0b11000000000000100101111011010000u;
+      case 25u: return 0b11000000000000100101001011010000u;
+      default: return 0b11000000000000011010110100101001u; // case 26
+   }
+}
 
 struct BinSilhouette
 {
    static BinSilhouette create(uint32_t configIndex)
    {
       BinSilhouette s;
-      s.data = binSilhouettes[configIndex];
+      s.data = binSilhouette(configIndex);
       return s;
    }
 
@@ -130,8 +134,20 @@ struct ClippedSilhouette
    uint32_t   positiveCount; // # of positive-z OBB corners after rotation
    uint32_t   count; // total emitted vertex count consumers cascade on
 
-   static ClippedSilhouette create(NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view)
+   // Corner i's height above the clip plane from (hMin, hCol0, hCol1, hCol2); selects, since i is runtime.
+   static float32_t cornerHeight(const float32_t4 heights, const uint32_t i)
    {
+      float32_t h = heights.x;
+      h += hlsl::select((i & 1u) != 0u, heights.y, 0.0f);
+      h += hlsl::select((i & 2u) != 0u, heights.z, 0.0f);
+      h += hlsl::select((i & 4u) != 0u, heights.w, 0.0f);
+      return h;
+   }
+
+   // planeN = clip-plane normal in the view's frame, (0,0,1) for a tangent-frame view
+   static ClippedSilhouette create(NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view, const float32_t3 planeN)
+   {
+      const float32_t4 heights = float32_t4(dot(view.minCorner, planeN), dot(view.columns[0], planeN), dot(view.columns[1], planeN), dot(view.columns[2], planeN));
       // compare against [0, |col_i|^2] for branchless 27-config classify.
       const float32_t3 toMin    = view.minCorner;
       float32_t3       sqScales = float32_t3(dot(view.columns[0], view.columns[0]), dot(view.columns[1], view.columns[1]), dot(view.columns[2], view.columns[2]));
@@ -171,7 +187,7 @@ struct ClippedSilhouette
       uint32_t clipMask  = 0u;
       NBL_UNROLL
       for (uint32_t i = 0; i < 6; i++)
-         clipMask |= (hlsl::select(view.getVertexZ(sil.getVertexIndex(i)) < 0.0f, 1u, 0u)) << i;
+         clipMask |= (hlsl::select(cornerHeight(heights, sil.getVertexIndex(i)) < 0.0f, 1u, 0u)) << i;
       clipMask &= validMask;
 
       uint32_t clipCount    = countbits(clipMask);
@@ -197,6 +213,8 @@ struct ClippedSilhouette
       return self;
    }
 
+   static ClippedSilhouette create(NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view) { return create(view, float32_t3(0.0f, 0.0f, 1.0f)); }
+
    uint32_t cornerIndex(uint32_t k) NBL_CONST_MEMBER_FUNC { return (silData >> (3u * k)) & 0x7u; }
 
    uint32_t  getVertexCount() NBL_CONST_MEMBER_FUNC { return (silData >> 29u) & 0x7u; }
@@ -217,7 +235,7 @@ struct ClippedSilhouette
    // view.getVertex(...) - shadingPoint), so direction-from-shading-point
    // reductions in consumers (cross/dot, gnomonic projection, horizon clip
    // to z=0) are correct.
-   void materialize(NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view, out float32_t3 vertices[MaxOBBSilhouetteVertices]) NBL_CONST_MEMBER_FUNC
+   void materialize(NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view, const float32_t3 planeN, NBL_REF_ARG(float32_t3) vertices[MaxOBBSilhouetteVertices]) NBL_CONST_MEMBER_FUNC
    {
       // Zero the unused tail; some consumers (DCE sinks) read
       // the full 7-wide array.
@@ -260,49 +278,49 @@ struct ClippedSilhouette
          const float32_t3 vFirstNeg = view.getVertex(cornerIndex(positiveCount));
          const float32_t3 vLastNeg  = view.getVertex(cornerIndex(silSize - 1u));
          const float32_t3 vFirstPos = vertices[0];
+         const float32_t  hFirstNeg = dot(vFirstNeg, planeN);
+         const float32_t  hLastNeg  = dot(vLastNeg, planeN);
+         const float32_t  tB        = hLastNeg / (hLastNeg - dot(vFirstPos, planeN));
 
          if (positiveCount == 1)
          {
             const float32_t3 vLastPos = vertices[0];
-            const float32_t  tA       = vLastPos.z / (vLastPos.z - vFirstNeg.z);
-            vertices[1]               = lerp(vLastPos, vFirstNeg, tA);
-            const float32_t tB        = vLastNeg.z / (vLastNeg.z - vFirstPos.z);
+            const float32_t  hLastPos = dot(vLastPos, planeN);
+            vertices[1]               = lerp(vLastPos, vFirstNeg, hLastPos / (hLastPos - hFirstNeg));
             vertices[2]               = lerp(vLastNeg, vFirstPos, tB);
          }
          else if (positiveCount == 2)
          {
             const float32_t3 vLastPos = vertices[1];
-            const float32_t  tA       = vLastPos.z / (vLastPos.z - vFirstNeg.z);
-            vertices[2]               = lerp(vLastPos, vFirstNeg, tA);
-            const float32_t tB        = vLastNeg.z / (vLastNeg.z - vFirstPos.z);
+            const float32_t  hLastPos = dot(vLastPos, planeN);
+            vertices[2]               = lerp(vLastPos, vFirstNeg, hLastPos / (hLastPos - hFirstNeg));
             vertices[3]               = lerp(vLastNeg, vFirstPos, tB);
          }
          else if (positiveCount == 3)
          {
             const float32_t3 vLastPos = vertices[2];
-            const float32_t  tA       = vLastPos.z / (vLastPos.z - vFirstNeg.z);
-            vertices[3]               = lerp(vLastPos, vFirstNeg, tA);
-            const float32_t tB        = vLastNeg.z / (vLastNeg.z - vFirstPos.z);
+            const float32_t  hLastPos = dot(vLastPos, planeN);
+            vertices[3]               = lerp(vLastPos, vFirstNeg, hLastPos / (hLastPos - hFirstNeg));
             vertices[4]               = lerp(vLastNeg, vFirstPos, tB);
          }
          else if (positiveCount == 4)
          {
             const float32_t3 vLastPos = vertices[3];
-            const float32_t  tA       = vLastPos.z / (vLastPos.z - vFirstNeg.z);
-            vertices[4]               = lerp(vLastPos, vFirstNeg, tA);
-            const float32_t tB        = vLastNeg.z / (vLastNeg.z - vFirstPos.z);
+            const float32_t  hLastPos = dot(vLastPos, planeN);
+            vertices[4]               = lerp(vLastPos, vFirstNeg, hLastPos / (hLastPos - hFirstNeg));
             vertices[5]               = lerp(vLastNeg, vFirstPos, tB);
          }
          else // positiveCount == 5; positiveCount == 6 -> count == 8 > 7, impossible
          {
             const float32_t3 vLastPos = vertices[4];
-            const float32_t  tA       = vLastPos.z / (vLastPos.z - vFirstNeg.z);
-            vertices[5]               = lerp(vLastPos, vFirstNeg, tA);
-            const float32_t tB        = vLastNeg.z / (vLastNeg.z - vFirstPos.z);
+            const float32_t  hLastPos = dot(vLastPos, planeN);
+            vertices[5]               = lerp(vLastPos, vFirstNeg, hLastPos / (hLastPos - hFirstNeg));
             vertices[6]               = lerp(vLastNeg, vFirstPos, tB);
          }
       }
    }
+
+   void materialize(NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view, out float32_t3 vertices[MaxOBBSilhouetteVertices]) NBL_CONST_MEMBER_FUNC { materialize(view, float32_t3(0.0f, 0.0f, 1.0f), vertices); }
 
    // materialize + per-vertex normalize. Cascaded for literal slot indices.
    void materializeNormalized(NBL_CONST_REF_ARG(shapes::OBBView<float32_t>) view, out float32_t3 vertices[MaxOBBSilhouetteVertices]) NBL_CONST_MEMBER_FUNC

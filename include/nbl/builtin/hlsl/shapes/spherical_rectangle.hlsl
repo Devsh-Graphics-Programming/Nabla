@@ -109,13 +109,14 @@ struct SphericalRectangle
         return retval;
     }
 
-    solid_angle_type solidAngle(const vector3_type observer) NBL_CONST_MEMBER_FUNC
+    // r0 is the rectangle origin in the rectangle's own frame, i.e. mul(basis, origin - observer)
+    static solid_angle_type solidAngleFromLocal(const vector3_type r0, const vector2_type _extents)
     {
         solid_angle_type result;
-        result.r0 = hlsl::mul(basis, origin - observer);
+        result.r0 = r0;
 
-        const vector4_type denorm_n_z = vector4_type(-result.r0.y, result.r0.x + extents.x, result.r0.y + extents.y, -result.r0.x);
-        const vector4_type rcpLen_denorm_n_z = hlsl::rsqrt<vector4_type>(hlsl::promote<vector4_type>(result.r0.z * result.r0.z) + denorm_n_z * denorm_n_z);
+        const vector4_type denorm_n_z = vector4_type(-r0.y, r0.x + _extents.x, r0.y + _extents.y, -r0.x);
+        const vector4_type rcpLen_denorm_n_z = hlsl::rsqrt<vector4_type>(hlsl::promote<vector4_type>(r0.z * r0.z) + denorm_n_z * denorm_n_z);
         result.n_z = denorm_n_z * rcpLen_denorm_n_z;
         result.cosGamma = vector4_type(
             -result.n_z[0] * result.n_z[1],
@@ -129,6 +130,11 @@ struct SphericalRectangle
         angle_adder.addCosine(result.cosGamma[3]);
         result.value = angle_adder.getSumOfArccos() - scalar_type(2.0) * numbers::pi<scalar_type>;
         return result;
+    }
+
+    solid_angle_type solidAngle(const vector3_type observer) NBL_CONST_MEMBER_FUNC
+    {
+        return solidAngleFromLocal(hlsl::mul(basis, origin - observer), extents);
     }
 
     // Kelvin-Stokes theorem: signed projected solid angle = integral_{rect} (n . omega) d_omega

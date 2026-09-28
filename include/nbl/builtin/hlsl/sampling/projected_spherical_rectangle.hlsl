@@ -87,21 +87,14 @@ struct ProjectedSphericalRectangle
       return create(shape, sa, bxdfPdfAtVertex, _receiverNormal);
    }
 
-   // Shouldn't produce NAN if all corners have 0 proj solid angle due to min density adds/clamps in the linear sampler
-   static ProjectedSphericalRectangle<T, UsePdfAsWeight> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) shape, const vector3_type observer, const vector3_type _receiverNormal, const bool _receiverWasBSDF)
+   // dot(normalize(corner_i), n) in the rectangle frame, one rsqrt<vec4> for all 4; bilinear order v00, v10, v01, v11
+   static vector4_type __cornerCosines(const vector3_type r0, const vector2_type extents, const vector3_type n, const bool _receiverWasBSDF)
    {
-      // Local-frame path: unnormalized dot(corner_i, n) with n = basis * receiverNormal, then
-      // a single rsqrt<vec4>(lenSq) for all 4 corner normalizations at once.
-      const vector3_type n                                              = hlsl::mul(shape.basis, _receiverNormal);
-      const typename shapes::SphericalRectangle<T>::solid_angle_type sa = shape.solidAngle(observer);
-      const vector3_type r0                                             = sa.r0;
-
-      // All 4 corners share r0.z; x is r0.x or r0.x+ex, y is r0.y or r0.y+ey
-      const scalar_type r1x      = r0.x + shape.extents.x;
-      const scalar_type r1y      = r0.y + shape.extents.y;
+      const scalar_type r1x      = r0.x + extents.x;
+      const scalar_type r1y      = r0.y + extents.y;
       const scalar_type base_dot = hlsl::dot(r0, n);
-      const scalar_type dx       = shape.extents.x * n.x;
-      const scalar_type dy       = shape.extents.y * n.y;
+      const scalar_type dx       = extents.x * n.x;
+      const scalar_type dy       = extents.y * n.y;
       const vector4_type dots    = vector4_type(base_dot, base_dot + dx, base_dot + dy, base_dot + dx + dy);
 
       const scalar_type r0zSq  = r0.z * r0.z;
@@ -112,13 +105,28 @@ struct ProjectedSphericalRectangle
                                     r1x * r1x + r1y * r1y) +
          hlsl::promote<vector4_type>(r0zSq);
 
-      // dot(normalize(corner), n) = dot(corner, n) * rsqrt(lenSq). Bilinear corners: [0]=v00 [1]=v10 [2]=v01 [3]=v11
       const scalar_type minimumProjSolidAngle = _static_cast<scalar_type>(0.0);
-      const vector4_type bxdfPdfAtVertex      = math::conditionalAbsOrMax(_receiverWasBSDF,
-         dots * hlsl::rsqrt<vector4_type>(lenSq),
-         hlsl::promote<vector4_type>(minimumProjSolidAngle));
+      return math::conditionalAbsOrMax(_receiverWasBSDF, dots * hlsl::rsqrt<vector4_type>(lenSq), hlsl::promote<vector4_type>(minimumProjSolidAngle));
+   }
 
-      return create(shape, sa, bxdfPdfAtVertex, _receiverNormal);
+   // Shouldn't produce NAN if all corners have 0 proj solid angle due to min density adds/clamps in the linear sampler
+   static ProjectedSphericalRectangle<T, UsePdfAsWeight> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) shape, const vector3_type observer, const vector3_type _receiverNormal, const bool _receiverWasBSDF)
+   {
+      const vector3_type n                                              = hlsl::mul(shape.basis, _receiverNormal);
+      const typename shapes::SphericalRectangle<T>::solid_angle_type sa = shape.solidAngle(observer);
+      return create(shape, sa, __cornerCosines(sa.r0, shape.extents, n, _receiverWasBSDF), _receiverNormal);
+   }
+
+   // Orthonormal basis + local r0 (observer at 0) straight in: no normalize/cross round-trip through CompressedSphericalRectangle
+   static ProjectedSphericalRectangle<T, UsePdfAsWeight> create(NBL_CONST_REF_ARG(matrix<T, 3, 3>) basis, const vector3_type r0, const vector2_type extents, const vector3_type _receiverNormal, const bool _receiverWasBSDF)
+   {
+      shapes::SphericalRectangle<T> shape;
+      shape.origin  = hlsl::promote<vector3_type>(_static_cast<scalar_type>(0.0));
+      shape.basis   = basis;
+      shape.extents = extents;
+      const vector3_type n                                              = hlsl::mul(basis, _receiverNormal);
+      const typename shapes::SphericalRectangle<T>::solid_angle_type sa = shapes::SphericalRectangle<T>::solidAngleFromLocal(r0, extents);
+      return create(shape, sa, __cornerCosines(r0, extents, n, _receiverWasBSDF), _receiverNormal);
    }
 
    // returns a normalized 3D direction in the local frame
