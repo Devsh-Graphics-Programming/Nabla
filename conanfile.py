@@ -18,7 +18,7 @@ class NablaConan(ConanFile):
     def requirements(self):
         self.requires("argparse/[>3.0]")
         self.requires("blake3/1.8.5", options={"shared": False})
-        self.requires("boost/[>=1.91.0]", options={"shared": False, "without_test": True, "without_cobalt": True})
+        self.requires("boost/[>=1.91.0]", options={"shared": False, "magic_autolink": True, "without_test": True, "without_cobalt": True})
         self.requires("bzip2/1.0.8", options={"shared": False})
         self.requires("freetype/[>2.14.1]", options={"shared": False})
         self.requires("greg7mdp-gtl/1.2.0")
@@ -49,7 +49,7 @@ class NablaConan(ConanFile):
 
         # vulkan libs all have related dependencies
         self.requires("vulkan-headers/1.4.357.0")
-        self.requires("volk/1.4.357.0")
+        self.requires("nabla_volk/1.4.357.0")
         self.requires("glslang/1.4.357.0", options={"shared": False})
         self.requires("shaderc/2026.4", options={"shared": False})
         self.requires("spirv-tools/1.4.357.0", options={"shared": False})
@@ -71,3 +71,7 @@ class NablaConan(ConanFile):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
+
+    def package(self):
+        cmake = CMake(self)
+        cmake.install()
