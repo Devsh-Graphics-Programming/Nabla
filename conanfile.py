@@ -1,3 +1,5 @@
+import os
+
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMakeConfigDeps, CMake, cmake_layout
 from conan.tools.files import copy
@@ -61,11 +63,11 @@ class NablaConan(ConanFile):
         self.options["libtiff"].jpeg = "libjpeg-turbo"
 
     def generate(self):
-        deps = CMakeConfigDeps(self)
-        deps.generate()
-
         tc = CMakeToolchain(self)
         tc.generate()
+        
+        deps = CMakeConfigDeps(self)
+        deps.generate()
 
     def build(self):
         cmake = CMake(self)

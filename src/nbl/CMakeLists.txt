@@ -327,13 +327,8 @@ endif()
 set(PUBLIC_BUILD_INCLUDE_DIRS
 	${NBL_ROOT_PATH}/include
 	${CMAKE_CURRENT_BINARY_DIR}/include
-	${THIRD_PARTY_SOURCE_DIR}
-# 	${THIRD_PARTY_SOURCE_DIR}/imath/src
-# 	${THIRD_PARTY_SOURCE_DIR}/gtl/include
-# 	${THIRD_PARTY_SOURCE_DIR}/glm
+	${THIRD_PARTY_SOURCE_DIR}				# TODO: should remove when conan migration complete
 	${THIRD_PARTY_SOURCE_DIR}/renderdoc 		# for renderdoc api header
-# 	${CMAKE_BINARY_DIR}/3rdparty/zlib 			# for dynamically generated zconf.h
-# 	${PNG_STATIC_BINARY_DIR} 					# for dynamically generated jconfig.h
 	${CONFIG_DIRECTORY}						# Nabla config directory
 )
 
@@ -498,7 +493,7 @@ target_link_libraries(Nabla PRIVATE BZip2::BZip2)
 find_package(Boost CONFIG REQUIRED)
 target_link_libraries(Nabla PRIVATE boost::boost)
 
-#glm
+# glm
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(Nabla PRIVATE glm::glm)
 
