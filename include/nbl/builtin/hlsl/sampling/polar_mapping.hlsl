@@ -32,7 +32,7 @@ struct PolarMapping
 	static codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
 	{
 		const scalar_type r = hlsl::sqrt<scalar_type>(u.x);
-		const scalar_type phi = scalar_type(2) * numbers::pi<scalar_type> * u.y;
+		const scalar_type phi = _static_cast<scalar_type>(2) * numbers::pi<scalar_type> * u.y;
 		return vector2_type(r * hlsl::cos<scalar_type>(phi), r * hlsl::sin<scalar_type>(phi));
 	}
 
@@ -46,8 +46,8 @@ struct PolarMapping
 	{
 		const scalar_type r2 = p.x * p.x + p.y * p.y;
 		scalar_type phi = hlsl::atan2(p.y, p.x);
-		phi += hlsl::mix(scalar_type(0), scalar_type(2) * numbers::pi<scalar_type>, phi < scalar_type(0));
-		return vector2_type(r2, phi * (scalar_type(0.5) * numbers::inv_pi<scalar_type>));
+		phi += hlsl::mix(_static_cast<scalar_type>(0), _static_cast<scalar_type>(2) * numbers::pi<scalar_type>, phi < _static_cast<scalar_type>(0));
+		return vector2_type(r2, phi * (_static_cast<scalar_type>(0.5) * numbers::inv_pi<scalar_type>));
 	}
 
 	static density_type forwardPdf(const domain_type u, cache_type cache) { return numbers::inv_pi<scalar_type>; }

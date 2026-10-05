@@ -84,6 +84,7 @@ smart_refctd_ptr<IGPUGraphicsPipeline> ProtoPipeline::createPipeline(
 	const IGPURenderpass* renderpass,
 	const uint32_t subpassIx,
 	SBlendParams blendParams,
+	asset::SRasterizationParams rasterizationParams,
 	const hlsl::SurfaceTransform::FLAG_BITS swapchainTransform,
 	IGPUPipelineCache* pipelineCache)
 {
@@ -94,11 +95,6 @@ smart_refctd_ptr<IGPUGraphicsPipeline> ProtoPipeline::createPipeline(
 
 	smart_refctd_ptr<IGPUGraphicsPipeline> m_retval;
 	{
-		constexpr SRasterizationParams defaultRasterParams = {
-			.faceCullingMode = EFCM_NONE,
-			.depthWriteEnable = false,
-			.depthCompareOp = ECO_ALWAYS
-		};
 		const auto orientationAsUint32 = static_cast<uint32_t>(swapchainTransform);
 
 		IGPUPipelineBase::SShaderEntryMap specConstants;
@@ -111,7 +107,7 @@ smart_refctd_ptr<IGPUGraphicsPipeline> ProtoPipeline::createPipeline(
 		params[0].cached = {
 			.vertexInput = {}, // The Full Screen Triangle doesn't use any HW vertex input state
 			.primitiveAssembly = {},
-			.rasterization = defaultRasterParams,
+			.rasterization = rasterizationParams,
 			.blend = blendParams,
 			.subpassIx = subpassIx
 		};

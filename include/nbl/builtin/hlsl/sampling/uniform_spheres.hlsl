@@ -35,10 +35,11 @@ struct UniformHemisphere
 
 	static codomain_type generate(const domain_type u)
 	{
-		typename ConcentricMapping<T>::cache_type cmCache;
+		typename ConcentricMapping<scalar_type>::cache_type cmCache;
 		const vector_t2 p = ConcentricMapping<T>::generate(u, cmCache);
-		const T z = T(1.0) - cmCache.r2;
-		const T xyScale = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(2.0) - cmCache.r2));
+		assert(cmCache.r2 <= _static_cast<scalar_type>(1.0));
+		const T z = _static_cast<T>(1.0) - cmCache.r2;
+		const T xyScale = hlsl::sqrt<scalar_type>(_static_cast<scalar_type>(2.0) - cmCache.r2);
 		return vector_t3(p.x * xyScale, p.y * xyScale, z);
 	}
 
@@ -50,30 +51,30 @@ struct UniformHemisphere
 	static domain_type generateInverse(const codomain_type v)
 	{
 		// r_disk / r_xy = sqrt(1-z) / sqrt(1-z^2) = 1/sqrt(1+z)
-		const T scale = T(1.0) / hlsl::sqrt<T>(T(1.0) + v.z);
+		const scalar_type scale = hlsl::rsqrt<T>(_static_cast<T>(1.0) + v.z);
 		return ConcentricMapping<T>::generateInverse(vector_t2(v.x * scale, v.y * scale));
 	}
 
 	static density_type forwardPdf(const domain_type u, const cache_type cache)
 	{
-		return T(0.5) * numbers::inv_pi<T>;
+		return _static_cast<scalar_type>(0.5) * numbers::inv_pi<T>;
 	}
 
 	static weight_type forwardWeight(const domain_type u, const cache_type cache)
 	{
-		return T(0.5) * numbers::inv_pi<T>;
+		return _static_cast<T>(0.5) * numbers::inv_pi<T>;
 	}
 
 	static density_type backwardPdf(const codomain_type v)
 	{
 		assert(v.z > 0);
-		return T(0.5) * numbers::inv_pi<T>;
+		return _static_cast<T>(0.5) * numbers::inv_pi<T>;
 	}
 
 	static weight_type backwardWeight(const codomain_type v)
 	{
 		assert(v.z > 0);
-		return T(0.5) * numbers::inv_pi<T>;
+		return _static_cast<T>(0.5) * numbers::inv_pi<T>;
 	}
 
 };
@@ -96,7 +97,7 @@ struct UniformSphere
 
 	static codomain_type generate(const domain_type u)
 	{
-		const T tmp = u.x * T(2.0) - T(1.0);
+		const T tmp = u.x * _static_cast<T>(2.0) - _static_cast<T>(1.0);
 		const codomain_type L = hemisphere_t::generate(vector_t2(hlsl::abs<T>(tmp), u.y));
 		return vector_t3(L.x, L.y, L.z * hlsl::sign(tmp));
 	}
@@ -108,29 +109,29 @@ struct UniformSphere
 
 	static domain_type generateInverse(const codomain_type v)
 	{
-		const T dir = hlsl::sign(v.z) * T(0.5);
+		const T dir = hlsl::sign(v.z) * _static_cast<T>(0.5);
 		const domain_type hemiU = hemisphere_t::generateInverse(vector_t3(v.x, v.y, hlsl::abs<T>(v.z)));
-		return vector_t2(hemiU.x * dir + T(0.5), hemiU.y);
+		return vector_t2(hemiU.x * dir + _static_cast<T>(0.5), hemiU.y);
 	}
 
 	static density_type forwardPdf(const domain_type u, const cache_type cache)
 	{
-		return T(0.5) * hemisphere_t::forwardPdf(u, cache);
+		return _static_cast<T>(0.5) * hemisphere_t::forwardPdf(u, cache);
 	}
 
 	static weight_type forwardWeight(const domain_type u, const cache_type cache)
 	{
-		return T(0.5) * hemisphere_t::forwardWeight(u, cache);
+		return _static_cast<T>(0.5) * hemisphere_t::forwardWeight(u, cache);
 	}
 
 	static density_type backwardPdf(const codomain_type v)
 	{
-		return T(0.25) * numbers::inv_pi<T>;
+		return _static_cast<T>(0.25) * numbers::inv_pi<T>;
 	}
 
 	static weight_type backwardWeight(const codomain_type v)
 	{
-		return T(0.25) * numbers::inv_pi<T>;
+		return _static_cast<T>(0.25) * numbers::inv_pi<T>;
 	}
 
 };

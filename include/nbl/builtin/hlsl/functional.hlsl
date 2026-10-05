@@ -89,10 +89,21 @@ struct reference_wrapper : enable_if_t<
         return lhs OP rhs; \
     }
 
+#define ALIAS_STD_CMP(NAME,OP) template<typename T NBL_STRUCT_CONSTRAINABLE > struct NAME { \
+    using type_t = T; \
+    \
+    bool operator()(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) \
+    { \
+        return lhs OP rhs; \
+    }
+
 
 #else // CPP
 
 #define ALIAS_STD(NAME,OP) template<typename T> struct NAME : std::NAME<T> { \
+    using type_t = T;
+
+#define ALIAS_STD_CMP(NAME,OP) template<typename T> struct NAME : std::NAME<T> { \
     using type_t = T;
 
 #endif
@@ -136,14 +147,15 @@ ALIAS_STD(divides,/)
 };
 
 
-ALIAS_STD(equal_to, ==) };
-ALIAS_STD(not_equal_to, !=) };
-ALIAS_STD(greater, >) };
-ALIAS_STD(less, <) };
-ALIAS_STD(greater_equal, >=) };
-ALIAS_STD(less_equal, <=) };
+ALIAS_STD_CMP(equal_to, ==) };
+ALIAS_STD_CMP(not_equal_to, !=) };
+ALIAS_STD_CMP(greater, >) };
+ALIAS_STD_CMP(less, <) };
+ALIAS_STD_CMP(greater_equal, >=) };
+ALIAS_STD_CMP(less_equal, <=) };
 
 #undef ALIAS_STD
+#undef ALIAS_STD_CMP
 
 // The above comparison operators return bool on STD, but in HLSL they're supposed to yield bool vectors, so here's a specialization so that they return `vector<bool, N>` for vectorial types
 
