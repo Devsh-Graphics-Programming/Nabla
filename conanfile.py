@@ -65,7 +65,7 @@ class NablaConan(ConanFile):
     def generate(self):
         tc = CMakeToolchain(self)
         tc.generate()
-        
+
         deps = CMakeConfigDeps(self)
         deps.generate()
 

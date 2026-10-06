@@ -1268,7 +1268,7 @@ struct DeviceConfigCaps
 			-no-nbl-builtins
 			-isystem "${NBL_ROOT_PATH}/include"
 			-isystem "${NBL_ROOT_PATH}/3rdparty/dxc/dxc/external/SPIRV-Headers/include"
-			-isystem "${NBL_ROOT_PATH}/3rdparty/boost/superproject/libs/preprocessor/include"
+			-isystem "${Boost_INCLUDE_DIRS}"
 			-isystem "${NBL_ROOT_PATH_BINARY}/src/nbl/device/include"
 		)
 	endif()
