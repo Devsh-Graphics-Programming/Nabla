@@ -634,7 +634,7 @@ endif()
 # TODO: remove and replace with target in tree
 add_custom_target(dxcompiler 
 	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -j${_NBL_JOBS_AMOUNT_}
-	BYPRODUCTS "${DXC_LIB}" "${DXC_DLL}"
+	BYPRODUCTS "$<REMOVE_DUPLICATES:${DXC_LIB};${DXC_DLL}>" # on ELF platforms the import library and the shared object are the same file
 	VERBATIM
 	COMMAND_EXPAND_LISTS
 )
@@ -755,6 +755,20 @@ list(APPEND INTERFACE_BUILD_DEFINITIONS
 # git version tracking
 # TODO: private
 target_link_libraries(Nabla PUBLIC $<BUILD_INTERFACE:gtml>)
+
+# libstdc++ implements the parallel `std::execution` policies on top of oneTBB whenever <tbb/tbb.h> is found,
+# then everything instantiating them (Nabla and its consumers) has to link TBB
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU" AND NOT ANDROID AND NOT APPLE)
+	include(CheckCXXSourceCompiles)
+	block()
+		set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY) # compile only, the point is that it won't link without TBB
+		check_cxx_source_compiles("#if !__has_include(<tbb/tbb.h>)\n#error no TBB\n#endif\nint main() {return 0;}" NBL_STDLIB_USES_TBB_PAR_BACKEND)
+	endblock()
+	if(NBL_STDLIB_USES_TBB_PAR_BACKEND)
+		find_package(TBB REQUIRED CONFIG)
+		target_link_libraries(Nabla PUBLIC TBB::tbb)
+	endif()
+endif()
 
 # vulkaninfo
 if (NBL_STATIC_BUILD)
@@ -905,6 +919,13 @@ nbl_install_dir_spec(../../include/nbl/application_templates nbl)
 # note: order important, keep after install rules due to NBL_3RDPARTY_DXC_NS_PACKAGE_RUNTIME_DLL_DIR_PATH property
 get_property(_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_ GLOBAL PROPERTY NBL_3RDPARTY_DXC_NS_PACKAGE_RUNTIME_DLL_DIR_PATH)
 get_target_property(_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_ Nabla NBL_PACKAGE_RUNTIME_DLL_DIR_PATH)
+# the installed Nabla shared object must find DXC next to it (an executable's RUNPATH doesn't apply to its dependencies),
+# it gets installed as a plain file copy of the build output so the entry goes into the build RPATH
+if(UNIX AND NOT APPLE AND NOT ANDROID AND NOT NBL_STATIC_BUILD)
+	cmake_path(RELATIVE_PATH _NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_ BASE_DIRECTORY "${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_}" OUTPUT_VARIABLE _NBL_DXC_DIR_REL_TO_NABLA_)
+	set_property(TARGET Nabla APPEND PROPERTY BUILD_RPATH "$ORIGIN/${_NBL_DXC_DIR_REL_TO_NABLA_}")
+	set_property(TARGET Nabla APPEND PROPERTY INSTALL_RPATH "$ORIGIN/${_NBL_DXC_DIR_REL_TO_NABLA_}")
+endif()
 set(_NBL_CONSUMER_BIN_DIR_GE_
 	"$<PATH:NORMAL_PATH,$<PATH:APPEND,$<TARGET_PROPERTY:BINARY_DIR>,$<CONFIG>>>"
 )
