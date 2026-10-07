@@ -346,9 +346,9 @@ class CWeightFunction1D final : public impl::IWeightFunction1D<decltype(std::dec
 		}
 
 		// Integral of `weight(x) dx` from -INF to +INF
-		inline base_t::value_t energy() const
+		inline typename base_t::value_t energy() const
 		{
-			if constexpr(sizeof(function_t::k_energy)/sizeof(base_t::value_t)>k_derivative)
+			if constexpr(sizeof(function_t::k_energy)/sizeof(typename base_t::value_t)>k_derivative)
 			{
 				// normally it would be `scale*invStretch^(derivative+1)*k_energy[k_derivative]`
 				// but `scale` already contains precomputed `invStretch^derivative` factor when we call `stretch`

@@ -15,7 +15,7 @@ core::smart_refctd_ptr<IShader> CCompilerSet::compileToSPIRV(const IShader* shad
 		{
 			case IShader::E_CONTENT_TYPE::ECT_HLSL:
 				{
-#ifdef _NBL_PLATFORM_WINDOWS_
+#if defined(_NBL_PLATFORM_WINDOWS_) || defined(_NBL_PLATFORM_LINUX_) // DXC is available on both
 					const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
 					outSpirvShader = m_HLSLCompiler->compileToSPIRV(code, options);
 #endif
@@ -45,7 +45,7 @@ core::smart_refctd_ptr<IShader> CCompilerSet::preprocessShader(const IShader* sh
 		{
 			case IShader::E_CONTENT_TYPE::ECT_HLSL:
 				{
-#ifdef _NBL_PLATFORM_WINDOWS_
+#if defined(_NBL_PLATFORM_WINDOWS_) || defined(_NBL_PLATFORM_LINUX_) // DXC is available on both
 					const char* code = reinterpret_cast<const char*>(shader->getContent()->getPointer());
 					auto resolvedCode = m_HLSLCompiler->preprocessShader(code, stage, preprocessOptions);
 					return core::make_smart_refctd_ptr<IShader>(resolvedCode.c_str(), IShader::E_CONTENT_TYPE::ECT_HLSL, std::string(shader->getFilepathHint()));

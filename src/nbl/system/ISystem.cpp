@@ -390,8 +390,11 @@ bool ISystem::isDebuggerAttached()
         return false;
 
     char buf[bufSize];
-    const size_t numRead = read(status, static_cast<void*>(buf), bufSize - 1);
+    const ssize_t bytesRead = read(status, static_cast<void*>(buf), bufSize - 1);
     close(status);
+    if (bytesRead <= 0)
+        return false;
+    const size_t numRead = static_cast<size_t>(bytesRead);
 
     buf[numRead] = '\0';
     const auto offset = strstr(buf, debuggerPidStr);
@@ -402,7 +405,7 @@ bool ISystem::isDebuggerAttached()
     auto isSpace = [](const char c) { return c == ' ' || c == '\t'; };
     auto isDigit = [](const char c) { return c >= '0' && c <= '9'; };
 
-    for (const char* cPtr = offset + sizeof(debuggerPidStr) - 1; cPtr <= buf + numRead; cPtr++)
+    for (const char* cPtr = offset + sizeof(debuggerPidStr) - 1; cPtr < buf + numRead; cPtr++)
     {
         if (isSpace(*cPtr))
             continue;

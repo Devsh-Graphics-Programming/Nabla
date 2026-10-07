@@ -49,17 +49,17 @@ class CMemoryPool final : public Uncopyable
 		template<typename T> requires (!std::is_const_v<T>)
 		inline T* deref(typed_pointer_type<T> p)
 		{
-			return m_block_alctr.deref<T>(p);
+			return m_block_alctr.template deref<T>(p);
 		}
 		template<typename T>
 		inline const T* deref(typed_pointer_type<T> p) const
 		{
-			return m_block_alctr.deref<const T>(p);
+			return m_block_alctr.template deref<const T>(p);
 		}
 		template<typename T, typename U>
 		inline typed_pointer_type<T> _dynamic_cast(const typed_pointer_type<U> h) const
 		{
-			return m_block_alctr._dynamic_cast<T,U>(h);
+			return m_block_alctr.template _dynamic_cast<T,U>(h);
 		}
     
         //

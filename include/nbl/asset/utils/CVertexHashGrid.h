@@ -182,7 +182,7 @@ private:
 		const auto skipListBound = std::visit([&](auto& sorter)
 		{
 			auto hashBound = sorter.getMostSignificantRadixBound(hash);
-			return std::pair<collection_t::const_iterator, collection_t::const_iterator>(m_vertices.begin() + hashBound.first, m_vertices.begin() + hashBound.second);
+			return std::pair<typename collection_t::const_iterator, typename collection_t::const_iterator>(m_vertices.begin() + hashBound.first, m_vertices.begin() + hashBound.second);
 		}, m_sorter);
 
 		auto begin = std::lower_bound(

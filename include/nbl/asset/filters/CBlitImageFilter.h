@@ -539,7 +539,7 @@ class CBlitImageFilter :
 
 								auto sample = lineBuffer+i*ChannelCount;
 
-								base_t::template onDecode(inFormat, state, srcPix, sample, blockLocalTexelCoord.x, blockLocalTexelCoord.y, ChannelCount);
+								base_t::onDecode(inFormat, state, srcPix, sample, blockLocalTexelCoord.x, blockLocalTexelCoord.y, ChannelCount);
 
 								if (nonPremultBlendSemantic)
 								{
@@ -610,7 +610,7 @@ class CBlitImageFilter :
 					// we'll only get here if we have to do coverage adjustment
 					if (needsNormalization && lastPass)
 					{
-						state->normalization.finalize<value_t>();
+						state->normalization.template finalize<value_t>();
 						storeToImage(core::rational<int64_t>(cvg_num,cvg_den),axis,outOffsetLayer);
 					}
 				};

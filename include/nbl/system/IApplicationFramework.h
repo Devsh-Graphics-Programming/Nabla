@@ -11,6 +11,8 @@
 #include "nbl/system/CColoredStdoutLoggerWin32.h"
 #elif defined(_NBL_PLATFORM_ANDROID_)
 #include "nbl/system/CStdoutLoggerAndroid.h"
+#elif defined(_NBL_PLATFORM_LINUX_)
+#include <dlfcn.h>
 #endif
 #include "nbl/system/CSystemAndroid.h"
 #include "nbl/system/CSystemLinux.h"
@@ -67,9 +69,31 @@ class IApplicationFramework : public core::IReferenceCounted
                     if (FAILED(hook))
                         return false;
                 }
-                #else           
-                // nothing else needs to be done cause we have RPath 
-                // TODO: to be checked when time comes
+                #elif defined(_NBL_PLATFORM_LINUX_)
+                // modules linked at build time are already mapped by the dynamic linker through RUNPATH,
+                // otherwise fall back to the lookup paths (build tree or install layout)
+                std::string soName(moduleName);
+                if (soName.rfind("lib",0)!=0)
+                    soName = "lib"+soName;
+                soName += ".so";
+
+                if (not dlopen(soName.c_str(),RTLD_LAZY|RTLD_NOLOAD))
+                {
+                    bool loaded = false;
+                    for (const auto& dir : searchPaths)
+                    {
+                        if (dir.empty())
+                            continue;
+                        const auto candidate = dir/soName;
+                        if (std::filesystem::exists(candidate) && dlopen(candidate.string().c_str(),RTLD_NOW|RTLD_GLOBAL))
+                        {
+                            loaded = true;
+                            break;
+                        }
+                    }
+                    if (not loaded)
+                        return false;
+                }
                 #endif
 
                 return true;
@@ -115,6 +139,8 @@ class IApplicationFramework : public core::IReferenceCounted
                 return nbl::core::make_smart_refctd_ptr<CSystemWin32>();
             #elif defined(_NBL_PLATFORM_ANDROID_)
                 return nullptr;
+            #elif defined(_NBL_PLATFORM_LINUX_)
+                return nbl::core::make_smart_refctd_ptr<CSystemLinux>();
             #endif
             return nullptr;
         }
