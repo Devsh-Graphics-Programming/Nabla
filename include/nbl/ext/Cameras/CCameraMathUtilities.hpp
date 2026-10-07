@@ -84,8 +84,9 @@ struct CCameraMathUtilities final
         return hlsl::approx::absRelEqual<T>(value, T(0), epsilon, T(0));
     }
 
-    template<typename T, uint32_t N>
-    static inline bool isNearlyZeroVector(const hlsl::vector<T, N>& value, const T epsilon)
+    // `hlsl::vector` is an alias of `glm::vec<length_t, T>`, so a `uint32_t N` parameter can't be deduced through it
+    template<typename Vec, typename T>
+    static inline bool isNearlyZeroVector(const Vec& value, const T epsilon)
     {
         return hlsl::approx::absRelEqual<T>(hlsl::length(value), T(0), epsilon, T(0));
     }

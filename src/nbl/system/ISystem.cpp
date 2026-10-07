@@ -257,7 +257,8 @@ core::smart_refctd_ptr<IFileArchive> ISystem::openFileArchive(core::smart_refctd
 
 ISystem::FoundArchiveFile ISystem::findFileInArchive(const system::path& absolutePath) const
 {
-    system::path path = std::filesystem::exists(absolutePath) ? std::filesystem::canonical(absolutePath.parent_path()):absolutePath.parent_path();
+    // a relative path to an existing file (e.g. `a.hlsl`) has an empty parent, and canonical("") throws in libstdc++
+    system::path path = std::filesystem::exists(absolutePath) ? std::filesystem::canonical(std::filesystem::absolute(absolutePath).parent_path()):absolutePath.parent_path();
     // going up the directory tree
     while (!path.empty() && path.parent_path()!=path)
     {

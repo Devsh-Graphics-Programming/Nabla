@@ -79,6 +79,13 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	nbl_adjust_flags(TARGET ${EXECUTABLE_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)	
 	nbl_adjust_definitions()
 
+	# executables reuse PCHs of static libraries (e.g. the examples API), which are built -fPIC in a shared
+	# build, and Clang rejects a -fPIC PCH in an -fPIE translation unit; after nbl_adjust_flags, it resets the options
+	if(NOT WIN32 AND NOT ANDROID AND CMAKE_POSITION_INDEPENDENT_CODE)
+		set_target_properties(${EXECUTABLE_NAME} PROPERTIES POSITION_INDEPENDENT_CODE OFF)
+		target_compile_options(${EXECUTABLE_NAME} PRIVATE -fPIC)
+	endif()
+
 	add_compile_options(${_EXTRA_OPTIONS})
 	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS) # TODO: wipe when we finally make Nabla PCH work as its supposed to
 	set_target_properties(${EXECUTABLE_NAME} PROPERTIES

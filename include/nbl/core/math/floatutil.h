@@ -7,6 +7,7 @@
 
 #include <float.h>
 #include <stdint.h>
+#include <cstring>
 #include <cmath>
 #include <algorithm>
 
