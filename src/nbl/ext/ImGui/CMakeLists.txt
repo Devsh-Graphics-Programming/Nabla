@@ -21,7 +21,10 @@ nbl_create_ext_library_project(
     ""
 )
 
-target_link_libraries(${LIB_NAME} PUBLIC imtestengine imguizmo)
+# target_link_libraries(${LIB_NAME} PUBLIC imtestengine imguizmo)
+find_package(nabla_imgui CONFIG REQUIRED)
+target_link_libraries(${LIB_NAME} PUBLIC nabla_imgui::imtestengine nabla_imgui::imguizmo)
+
 find_package(glm CONFIG REQUIRED)
 find_package(gtl CONFIG REQUIRED)
 find_package(Imath CONFIG REQUIRED)

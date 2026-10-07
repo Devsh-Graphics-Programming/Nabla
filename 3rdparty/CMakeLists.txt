@@ -59,119 +59,6 @@ NBL_GENERATE_GIT_TRACKING_META()
 # NGFX
 include(ngfx/ngfx.cmake)
 
-if(NBL_BUILD_IMGUI)
-	set(NBL_IMGUI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
-	set(NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT "${THIRD_PARTY_SOURCE_DIR}/imgui_test_engine")
-	set(NBL_IMGUI_TEST_ENGINE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_engine")
-	set(NBL_IMGUI_TEST_SUITE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_suite")
-	set(NBL_IMPLOT_ROOT "${NBL_IMGUI_TEST_SUITE_ROOT}/thirdparty/implot")
-
-	add_library(imgui STATIC
-		"${NBL_IMGUI_ROOT}/imconfig.h"
-		"${NBL_IMGUI_ROOT}/imgui_demo.cpp"
-		"${NBL_IMGUI_ROOT}/imgui_draw.cpp"
-		"${NBL_IMGUI_ROOT}/imgui_internal.h"
-		"${NBL_IMGUI_ROOT}/imgui_tables.cpp"
-		"${NBL_IMGUI_ROOT}/imgui_widgets.cpp"
-		"${NBL_IMGUI_ROOT}/imgui.cpp"
-		"${NBL_IMGUI_ROOT}/misc/freetype/imgui_freetype.cpp"
-		"${NBL_IMGUI_ROOT}/imgui.h"
-		"${NBL_IMGUI_ROOT}/misc/cpp/imgui_stdlib.cpp"
-		"${NBL_IMGUI_ROOT}/misc/cpp/imgui_stdlib.h"
-		"${NBL_IMGUI_ROOT}/imstb_rectpack.h"
-		"${NBL_IMGUI_ROOT}/imstb_textedit.h"
-		"${NBL_IMGUI_ROOT}/imstb_truetype.h"
-	)
-	
-	# freetype
-	find_package(freetype CONFIG REQUIRED)
-	target_link_libraries(imgui PUBLIC Freetype::Freetype)
-	
-	target_include_directories(imgui PUBLIC 
-		"${NBL_IMGUI_ROOT}"
-		"${NBL_IMGUI_ROOT}/misc/cpp"
-		"${NBL_IMGUI_ROOT}/backends"
-		"${NBL_IMGUI_TEST_SUITE_ROOT}"
-		# $<TARGET_PROPERTY:freetype,INCLUDE_DIRECTORIES>
-	)
-
-	add_library(implot STATIC
-		"${NBL_IMPLOT_ROOT}/implot.h"
-		"${NBL_IMPLOT_ROOT}/implot_internal.h"
-		"${NBL_IMPLOT_ROOT}/implot.cpp"
-		"${NBL_IMPLOT_ROOT}/implot_items.cpp"
-		"${NBL_IMPLOT_ROOT}/implot_demo.cpp"
-	)
-	
-	target_include_directories(implot
-		PUBLIC $<TARGET_PROPERTY:imgui,INCLUDE_DIRECTORIES>
-		PUBLIC "${NBL_IMPLOT_ROOT}"
-	)
-	
-	target_link_libraries(implot PUBLIC imgui)
-	target_compile_definitions(implot PUBLIC IMPLOT_DEBUG IMPLOT_DLL_EXPORT)
-	set_target_properties(implot PROPERTIES CXX_STANDARD 20)
-	
-	if(MSVC)
-		target_compile_options(implot PRIVATE /MT /W4 /WX /arch:AVX2 /fp:fast /permissive-) 
-	else()
-		target_compile_options(implot PRIVATE -Wall -Wextra -pedantic -Werror -mavx2 -Ofast)
-	endif()
-
-	file(GLOB_RECURSE NBL_TEST_SUITE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_SUITE_ROOT}/imgui_test*.cpp")
-	file(GLOB_RECURSE NBL_TEST_SUITE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_SUITE_ROOT}/imgui_test*.cpp")
-
-	add_library(imtestsuite STATIC
-		${NBL_TEST_SUITE_SOURCES}
-	)
-	
-	target_include_directories(imtestsuite PUBLIC
-		"${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}"
-		"${NBL_IMGUI_TEST_ENGINE_ROOT}"
-		"${NBL_IMGUI_TEST_SUITE_ROOT}"
-		$<TARGET_PROPERTY:imgui,INCLUDE_DIRECTORIES>
-		$<TARGET_PROPERTY:implot,INCLUDE_DIRECTORIES>
-	)
-	
-	set_target_properties(imtestsuite PROPERTIES CXX_STANDARD 14) # NOTE! THOSE TESTS DO NOT COMPILE WITH HIGHER STANDARDS SO WE WRAP SOURCES INTO LIBRARY COMPILED WITH LOWER ONE
-	target_link_libraries(imtestsuite PUBLIC implot)
-	
-	file(GLOB_RECURSE NBL_TEST_ENGINE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_ENGINE_ROOT}/*.cpp")
-	
-	add_library(imtestengine STATIC
-		${NBL_TEST_ENGINE_SOURCES}
-	)
-	
-	target_include_directories(imtestengine PUBLIC
-		$<TARGET_PROPERTY:imtestsuite,INCLUDE_DIRECTORIES>
-	)
-	
-	target_link_libraries(imtestengine PUBLIC imtestsuite)
-	
-	# imguizmo
-	add_library(imguizmo 
-		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/GraphEditor.cpp"
-		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImCurveEdit.cpp"
-		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImGradient.cpp"
-		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImGuizmo.cpp"
-		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImSequencer.cpp"
-	)
-
-	target_include_directories(imguizmo PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/imguizmo>)
-	target_link_libraries(imguizmo PUBLIC imgui)
-
-	# note we override imgui config with our own
-	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_ROOT}/nabla_imconfig.h")
-
-	if(NOT EXISTS "${NBL_IMGUI_USER_CONFIG_FILEPATH}")
-		message(FATAL_ERROR "\"${NBL_IMGUI_USER_CONFIG_FILEPATH}\" doesn't exist!")
-	endif()
-	
-	target_compile_definitions(imgui PUBLIC
-		IMGUI_USER_CONFIG="${NBL_IMGUI_USER_CONFIG_FILEPATH}"
-	)
-endif()
-
 add_library(aesGladman OBJECT
 	aesGladman/aes_ni.c
 	aesGladman/aescrypt.c
@@ -201,11 +88,6 @@ set(NBL_3RDPARTY_TARGETS
 				vulkaninfo
 				${NBL_MSDFGEN_TARGETS}
 )
-
-#TODO insert more targets that are conditionally built
-if (NBL_BUILD_IMGUI)
-	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imtestsuite imtestengine imguizmo)
-endif()
 
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:DLL>")

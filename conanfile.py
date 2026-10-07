@@ -38,16 +38,12 @@ class NablaConan(ConanFile):
         self.requires("simdjson/[>1.0.0]", options={"shared": False})
         self.requires("zlib/[>=1.3.2]", options={"shared": False})
 
-        
         # glm and dependencies
         self.requires("glm/[>=1.0.3]", options={"shared": False}, override=True)
         self.requires("gli/cci.20210515")
 
-        # imgui libs all have related dependencies
-        # TODO: use submodules for now, we need our recipe for imgui to set custom config in IMGUI_USER_CONFIG
-        # self.requires("imgui/1.91.8", options={"shared": False, "enable_test_engine": True}, force=True)
-        # self.requires("implot/0.17", options={"shared": False})
-        # self.requires("imguizmo/cci.20231114", options={"shared": False})
+        # imgui libs (from nabla conan index)
+        self.requires("nabla_imgui/1.91.8")
 
         # vulkan libs all have related dependencies
         self.requires("vulkan-headers/1.4.357.0")
