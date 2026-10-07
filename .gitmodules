@@ -18,21 +18,9 @@
 	path = 3rdparty/dxc/dxc
 	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git
 	branch = unroll-devshFixes
-[submodule "3rdparty/imgui"]
-	path = 3rdparty/imgui
-	url = git@github.com:Devsh-Graphics-Programming/imgui.git
-[submodule "3rdparty/implot"]
-	path = 3rdparty/implot
-	url = git@github.com:Devsh-Graphics-Programming/implot.git
 [submodule "tests"]
 	path = tests
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
-[submodule "3rdparty/imguizmo"]
-	path = 3rdparty/imguizmo
-	url = git@github.com:Devsh-Graphics-Programming/ImGuizmo.git
-[submodule "3rdparty/imgui_test_engine"]
-	path = 3rdparty/imgui_test_engine
-	url = git@github.com:ocornut/imgui_test_engine.git
 [submodule "3rdparty/git-version-tracking"]
 	path = 3rdparty/git-version-tracking
 	url = git@github.com:Devsh-Graphics-Programming/cmake-git-version-tracking.git
