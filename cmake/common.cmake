@@ -1264,6 +1264,7 @@ struct DeviceConfigCaps
 	endif()
 
 	if(_NBL_NSC_USE_HOST_BUILTINS)
+		find_package(Boost CONFIG REQUIRED)
 		list(APPEND REQUIRED_OPTIONS
 			-no-nbl-builtins
 			-isystem "${NBL_ROOT_PATH}/include"
