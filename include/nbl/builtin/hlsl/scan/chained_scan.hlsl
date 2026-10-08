@@ -61,7 +61,7 @@ struct WorkgroupDataProxy
     uint32_t workgroupID;
 };
 
-template<class Config, class BinOp, bool Exclusive, class device_capabilities>  // TODO: Config is same as workgroup2 stuff?
+template<class Config, class BinOp, bool Exclusive, class device_capabilities>
 struct Scan
 {
     using scalar_t = typename BinOp::type_t;
@@ -75,6 +75,9 @@ struct Scan
     
     NBL_CONSTEXPR_STATIC_INLINE uint16_t Flag_Shift = 2;
 
+    // IMPORTANT NOTE: for binary operations scalar precision, we reserve two bits for packing extra flags
+    // thus, the user will only get 30-bit precision if they use uint32_t
+
     NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = 1u << Config::WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvoc = uint16_t(Config::VirtualWorkgroupSize / WorkgroupSize);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t MaxSpinCount = uint16_t(4u);
@@ -83,7 +86,7 @@ struct Scan
     void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction, NBL_REF_ARG(WorkgroupCounter) workgroupCounter)
     {        
         const uint16_t invocIx = workgroup::SubgroupContiguousIndex();
-        if (!invocIx)
+        if (invocIx == 0u)
         {
             const uint32_t id = workgroupCounter.atomicAdd(0u, 1u);
             scratchAccessor.template set<uint32_t, uint32_t>(0u, id);
@@ -93,7 +96,6 @@ struct Scan
 
         uint16_t workgroupId;
         scratchAccessor.template get<uint32_t, uint32_t>(0u, workgroupId);
-        scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
         binop_t binop;
         using wg_data_proxy_t = WorkgroupDataProxy<Config::WorkgroupSizeLog2,Config::VirtualWorkgroupSize,Config::ItemsPerInvocation_0>;
@@ -115,27 +117,27 @@ struct Scan
                 workgroup2::inclusive_scan<Config,BinOp,device_capabilities>::template __call<wg_data_proxy_t, ScratchAccessor>(wgDataAccessor, scratchAccessor);
             scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
-            currGroupReduction = wgDataAccessor.preloaded[wg_data_proxy_t::PreloadedDataCount-1u][Config::ItemsPerInvocation_0-1u];
-            if (Exclusive)
-                currGroupReduction = binop(currGroupReduction, lastElem);
             if (invocIx == lastInvocIx)
+            {
+                currGroupReduction = wgDataAccessor.preloaded[wg_data_proxy_t::PreloadedDataCount-1u][Config::ItemsPerInvocation_0-1u];
+                if (Exclusive)
+                    currGroupReduction = binop(currGroupReduction, lastElem);
                 scratchAccessor.template set<scalar_t, uint32_t>(0u, currGroupReduction);
+            }
             scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
             scratchAccessor.template get<scalar_t, uint32_t>(0u, currGroupReduction);
         }
-        scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
-        if (!invocIx)
+        if (invocIx == 0u)
         {
             const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, workgroupId > 0u) | currGroupReduction << Flag_Shift;
             workgroupReduction.atomicExchange(workgroupId, storeVal);
         }
 
-        if (workgroupId)
+        if (workgroupId > 0u)
         {
             bool locked = sIsLocked;
-            scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
             scalar_t prevReduction = 0u;
             uint16_t lookbackIx = workgroupId - uint16_t(1u);
@@ -143,7 +145,7 @@ struct Scan
             while (locked)
             {
                 // lookback: try to get reduction from previous workgroups
-                if (!invocIx)
+                if (invocIx == 0u)
                 {
                     uint16_t spinCount = uint16_t(0u);
                     [loop]
@@ -178,7 +180,8 @@ struct Scan
                 scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
                 locked = sIsLocked;
-                scratchAccessor.workgroupExecutionAndMemoryBarrier();
+                // Fallback path: we spun to MaxSpinCount, but no previous workgroup had their global reduction ready (Flag_Inclusive).
+                // So we try to do reduction for all previous work groups one by one until we find a Flag_Inclusive
                 if (locked)
                 {
                     // do reduction for lookbackIx workgroup
@@ -188,9 +191,8 @@ struct Scan
                     wg_data_proxy_t fallbackDataAccessor = wg_data_proxy_t::create(dataAccessor.getInputBufAddr(), dataAccessor.getOutputBufAddr(), fallbackGroupId);
                     fallbackDataAccessor.preload();
                     scalar_t fallbackReduction = workgroup2::reduction<Config,BinOp,device_capabilities>::template __call<wg_data_proxy_t, ScratchAccessor>(fallbackDataAccessor, scratchAccessor);
-                    scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
-                    if (!invocIx)
+                    if (invocIx == 0u)
                     {
                         const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, fallbackGroupId > 0u) | (fallbackReduction << Flag_Shift);
                         const scalar_t fallbackPayload = workgroupReduction.atomicMax(fallbackGroupId, storeVal);
@@ -209,7 +211,6 @@ struct Scan
                     scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
                     locked = sIsLocked;
-                    scratchAccessor.workgroupExecutionAndMemoryBarrier();
                 }
             }
         }
