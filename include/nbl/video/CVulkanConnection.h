@@ -6,6 +6,8 @@
 
 #if defined(_NBL_PLATFORM_WINDOWS_)
 #   include "nbl/ui/IWindowWin32.h"
+#elif defined(_NBL_PLATFORM_LINUX_)
+#   include "nbl/ui/IWindowXcb.h"
 #endif
 
 #include <volk/volk.h>

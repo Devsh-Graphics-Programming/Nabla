@@ -157,6 +157,8 @@ set(NBL_SYSTEM_SOURCES
 set(NBL_UI_SOURCES
 	ui/CWindowWin32.cpp
 	ui/CWindowManagerWin32.cpp
+	ui/CWindowXcb.cpp
+	ui/CWindowManagerXcb.cpp
 	ui/CWindowManagerAndroid.cpp
 	ui/CGraphicalApplicationAndroid.cpp
 )
@@ -655,6 +657,11 @@ if (UNIX AND NOT ANDROID AND NOT APPLE)
 		${X11_Xrandr_INCLUDE_PATH}
 		${X11_xf86vmode_INCLUDE_PATH}
 	)
+	# CWindowManagerXcb, and the VK_KHR_xcb_surface types in the public Vulkan headers
+	if(NOT X11_xcb_FOUND)
+		message(FATAL_ERROR "libxcb development files are required for the X11 window manager (libxcb1-dev)")
+	endif()
+	target_link_libraries(Nabla PRIVATE X11::xcb)
 endif()
 
 # Vulkan
@@ -664,7 +671,10 @@ list(APPEND PUBLIC_BUILD_INCLUDE_DIRS
 )
 target_link_libraries(Nabla PRIVATE volk)
 # volk is part of public interface headers in Nabla
-target_compile_definitions(Nabla PUBLIC $<$<PLATFORM_ID:Windows>:VK_USE_PLATFORM_WIN32_KHR>)
+target_compile_definitions(Nabla PUBLIC
+	$<$<PLATFORM_ID:Windows>:VK_USE_PLATFORM_WIN32_KHR>
+	$<$<PLATFORM_ID:Linux>:VK_USE_PLATFORM_XCB_KHR>
+)
 
 list(APPEND PUBLIC_BUILD_INCLUDE_DIRS
 	# this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
@@ -981,3 +991,8 @@ source_group(TREE "${NBL_ROOT_PATH}"
     PREFIX "Source Files"
     FILES  ${NABLA_SOURCE_FILES}
 )
+
+# XCB window manager regression test (NAB-9)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	add_subdirectory(ui/test)
+endif()
