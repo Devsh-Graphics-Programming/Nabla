@@ -64,7 +64,7 @@
 	branch = main
 [submodule "examples_tests"]
 	path = examples_tests
-	url = git@github.com:raydelto/Nabla-Examples-and-Tests.git
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
 [submodule "3rdparty/dxc/dxc"]
 	path = 3rdparty/dxc/dxc
 	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git
@@ -80,7 +80,7 @@
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
 [submodule "3rdparty/boost/superproject"]
 	path = 3rdparty/boost/superproject
-	url = git@github.com:Devsh-Graphics-Programming/boost.git
+	url = ../boost.git
 [submodule "3rdparty/argparse"]
 	path = 3rdparty/argparse
 	url = git@github.com:p-ranav/argparse.git
@@ -113,7 +113,7 @@
 	url = git@github.com:Devsh-Graphics-Programming/glm.git
 [submodule "docker/msvc-winsdk"]
 	path = docker/msvc-winsdk
-	url = git@github.com:Devsh-Graphics-Programming/docker-nanoserver-msvc-winsdk.git
+	url = ../docker-nanoserver-msvc-winsdk
 [submodule "3rdparty/gtl"]
 	path = 3rdparty/gtl
 	url = https://github.com/greg7mdp/gtl.git
