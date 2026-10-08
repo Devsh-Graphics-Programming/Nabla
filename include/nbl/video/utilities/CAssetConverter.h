@@ -492,11 +492,13 @@ class CAssetConverter : public core::IReferenceCounted
 
 			private:
 				//
+				// no default member initializers, Clang can't use them while `CHashCache` is incomplete (the hash maps below
+				// get instantiated during its definition) and silently drops every `HashEquals::operator()` taking a `key_t`
 				template<asset::Asset AssetType>
 				struct key_t
 				{
-					core::smart_refctd_ptr<const AssetType> asset = {};
-					patch_t<AssetType> patch = {};
+					core::smart_refctd_ptr<const AssetType> asset;
+					patch_t<AssetType> patch;
 				};
 				template<asset::Asset AssetType>
 				struct HashEquals
@@ -541,12 +543,12 @@ class CAssetConverter : public core::IReferenceCounted
 				template<asset::Asset AssetType>
 				inline container_t<AssetType>::iterator find(const lookup_t<AssetType>& assetAndPatch)
 				{
-					return std::get<container_t<AssetType>>(m_containers).find<lookup_t<AssetType>>(assetAndPatch);
+					return std::get<container_t<AssetType>>(m_containers).template find<lookup_t<AssetType>>(assetAndPatch);
 				}
 				template<asset::Asset AssetType>
 				inline container_t<AssetType>::const_iterator find(const lookup_t<AssetType>& assetAndPatch) const
 				{
-					return std::get<container_t<AssetType>>(m_containers).find<lookup_t<AssetType>>(assetAndPatch);
+					return std::get<container_t<AssetType>>(m_containers).template find<lookup_t<AssetType>>(assetAndPatch);
 				}
 				template<asset::Asset AssetType>
 				inline container_t<AssetType>::const_iterator end() const
@@ -1138,9 +1140,13 @@ class CAssetConverter : public core::IReferenceCounted
 					inline void setBuildFlags(const build_f _flags) {buildFlags = static_cast<uint16_t>(_flags);}
 					inline build_f getBuildFlags() const {return static_cast<build_f>(buildFlags);}
 
-					core::smart_refctd_ptr<const CPUAccelerationStructure> canonical = nullptr;
-					uint64_t scratchSize : 47 = 0;
-					uint64_t buildFlags : 16 = 0;
+					// a constructor instead of default member initializers, Clang can't use those while `SReserveResult` is incomplete
+					// (its maps of this type get instantiated during its definition) and silently drops code that default constructs us
+					inline SConvReqAccelerationStructure() : canonical(nullptr), scratchSize(0), buildFlags(0), compact(0), buildSize(0) {}
+
+					core::smart_refctd_ptr<const CPUAccelerationStructure> canonical;
+					uint64_t scratchSize : 47;
+					uint64_t buildFlags : 16;
 					uint64_t compact : 1;
 					// scratch + input size also accounting for worst case padding due to alignment
 					uint64_t buildSize;

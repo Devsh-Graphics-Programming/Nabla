@@ -53,6 +53,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline system::ILogger* getLogger() const {return m_logger.get();}
 
         inline const IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
+        // out of line because `IPhysicalDevice` is incomplete here and templates below need it
+        bool supportsAccelerationStructureVertexFormat(const asset::E_FORMAT format) const;
 
         inline const SPhysicalDeviceFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
 
@@ -451,7 +453,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                         NBL_LOG_ERROR("Primitive type is Triangles but build flag says BLAS build is AABBs");
                         return {};
                     }
-                    if (!getPhysicalDevice()->getBufferFormatUsages()[geom.vertexFormat].accelerationStructureVertex)
+                    if (!supportsAccelerationStructureVertexFormat(geom.vertexFormat))
                     {
                         NBL_LOG_ERROR("Vertex Format %d not supported as Acceleration Structure Vertex Position Input on this Device",geom.vertexFormat);
                         return {};
@@ -580,7 +582,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                             auto tlas = set.first;
                             // we know the build is completed immediately after performing it, so we get our pending stamp then
                             // ideally we should get our build version when the work of the deferred op gets executed for the first time
-                            const auto buildVer = tlas->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({set.second.begin()},{set.second.end()});
+                            const auto buildVer = tlas->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({set.second.begin()},set.second.size());
                             tlas->clearTrackedBLASes(buildVer);
                         }
                     }
@@ -681,8 +683,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                                 // we know the build is completed immediately after performing it, so we get our pending stamp then
                                 // ideally we should get the BLAS set from the Source TLAS when the work of the deferred op gets executed for the first time
                                 const auto* pSrcBLASes = src->getPendingBuildTrackedBLASes(src->getPendingBuildVer());
-                                const std::span<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> emptySpan = {};
-                                buildVer = pSrcBLASes ? dst->pushTrackedBLASes(pSrcBLASes->begin(),pSrcBLASes->end()):dst->pushTrackedBLASes(emptySpan.begin(),emptySpan.end());
+                                buildVer = pSrcBLASes ? dst->pushTrackedBLASes(pSrcBLASes->begin(),pSrcBLASes->size()):dst->pushTrackedBLASes<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(nullptr,0);
                             }
                             dst->clearTrackedBLASes(buildVer);
                         }
@@ -788,7 +789,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                         // upon completion set the BLASes tracked
                         inline void operator()(IDeferredOperation*) const
                         {
-                            const auto buildVer = dst->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({src->begin()},{src->end()});
+                            const auto buildVer = dst->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({src.begin()},src.size());
                             dst->clearTrackedBLASes(buildVer);
                         }
 

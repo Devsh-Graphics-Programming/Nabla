@@ -79,6 +79,13 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	nbl_adjust_flags(TARGET ${EXECUTABLE_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)	
 	nbl_adjust_definitions()
 
+	# executables reuse PCHs of static libraries (e.g. the examples API), which are built -fPIC in a shared
+	# build, and Clang rejects a -fPIC PCH in an -fPIE translation unit; after nbl_adjust_flags, it resets the options
+	if(NOT WIN32 AND NOT ANDROID AND CMAKE_POSITION_INDEPENDENT_CODE)
+		set_target_properties(${EXECUTABLE_NAME} PROPERTIES POSITION_INDEPENDENT_CODE OFF)
+		target_compile_options(${EXECUTABLE_NAME} PRIVATE -fPIC)
+	endif()
+
 	add_compile_options(${_EXTRA_OPTIONS})
 	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS) # TODO: wipe when we finally make Nabla PCH work as its supposed to
 	set_target_properties(${EXECUTABLE_NAME} PROPERTIES
@@ -195,6 +202,13 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 			PRIVATE "-DNBL_CPACK_PACKAGE_NABLA_DLL_DIR=\"${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\"" 
 			PRIVATE	"-DNBL_CPACK_PACKAGE_DXC_DLL_DIR=\"${_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\""
 		)
+		# ELF has no delay loading, the installed executable finds Nabla and DXC through its RUNPATH
+		if(UNIX AND NOT APPLE AND NOT ANDROID)
+			set_property(TARGET ${EXECUTABLE_NAME} APPEND PROPERTY INSTALL_RPATH
+				"$ORIGIN/${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}"
+				"$ORIGIN/${_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}"
+			)
+		endif()
 	endif()
 
 	nbl_project_process_test_module()
@@ -297,11 +311,20 @@ function(nbl_install_program_spec _TRGT _RELATIVE_DESTINATION)
 	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/${_RELATIVE_DESTINATION}")
 	
 	if (TARGET ${_TRGT})
+		get_target_property(_TYPE_ ${_TRGT} TYPE)
 		foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
-			install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+			# a plain file copy keeps the build RPATH (absolute build tree paths) of an ELF/Mach-O shared object,
+			# install(TARGETS) swaps it for INSTALL_RPATH
+			if(NOT WIN32 AND _TYPE_ MATCHES "^(SHARED|MODULE)_LIBRARY$")
+				install(TARGETS ${_TRGT} LIBRARY DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+			else()
+				install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+			endif()
 		endforeach()
 	
-		install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes) # TODO: write cmake script with GE to detect if target in configuration has PDB files generated then add install rule
+		if(MSVC) # PDBs only exist with MSVC-style linkers, $<TARGET_PDB_FILE> is an error elsewhere
+			install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes) # TODO: write cmake script with GE to detect if target in configuration has PDB files generated then add install rule
+		endif()
 		
 		get_property(_DEFINED_PROPERTY_
             TARGET ${_TRGT}
@@ -362,9 +385,11 @@ function(nbl_install_exe_spec _TARGETS _RELATIVE_DESTINATION)
 	
 	install(TARGETS ${_TARGETS} ${_EXPORT_ARGS} RUNTIME DESTINATION ${_DEST_GE_} COMPONENT ${_COMPONENT})
 
-	foreach(_TRGT IN LISTS _TARGETS)
-		install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT ${_COMPONENT})
-	endforeach()
+	if(MSVC) # PDBs only exist with MSVC-style linkers
+		foreach(_TRGT IN LISTS _TARGETS)
+			install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/exe/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT ${_COMPONENT})
+		endforeach()
+	endif()
 	
 	foreach(_TRGT IN LISTS _TARGETS)
 		get_property(_DEFINED_PROPERTY_

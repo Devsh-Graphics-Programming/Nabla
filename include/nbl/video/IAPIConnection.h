@@ -25,7 +25,7 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
         //  for example you need to enable E_SWAPCHAIN_MODE::ESM_SURFACE in order for the physical device to report support in SPhysicalDeviceFeatures::swapchainMode
         struct SFeatures
         {
-            // VK_KHR_surface, VK_KHR_win32_surface, VK_KHR_display(TODO)
+            // VK_KHR_surface, VK_KHR_win32_surface or VK_KHR_xcb_surface, VK_KHR_display(TODO)
             core::bitflag<E_SWAPCHAIN_MODE> swapchainMode = E_SWAPCHAIN_MODE::ESM_NONE;
             
             // VK_LAYER_KHRONOS_validation (instance layer) 

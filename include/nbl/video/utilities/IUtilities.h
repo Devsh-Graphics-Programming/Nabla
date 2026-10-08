@@ -712,7 +712,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             {
                 return downloadBufferRangeViaStagingBuffer(default_data_consumption_callback_t(data),nextSubmit,srcBufferRange);
             };
-            if (autoSubmit(submit,lambda).copy<IQueue::RESULT>()!=IQueue::RESULT::SUCCESS)
+            if (autoSubmit(submit,lambda).template copy<IQueue::RESULT>()!=IQueue::RESULT::SUCCESS)
                 return false;
 
             //! NOTE this method cannot be turned into a pure autoSubmitAndBlock + lambda because there's stuff to do AFTER the semaphore wait~! 

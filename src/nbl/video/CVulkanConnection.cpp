@@ -171,6 +171,8 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
         // TODO: https://github.com/Devsh-Graphics-Programming/Nabla/issues/508
     #if defined(_NBL_PLATFORM_WINDOWS_)
         insertToFeatureSetIfAvailable(VK_KHR_WIN32_SURFACE_EXTENSION_NAME, "Win32 implementation/support for KHR_surface");
+    #elif defined(_NBL_PLATFORM_LINUX_)
+        insertToFeatureSetIfAvailable(VK_KHR_XCB_SURFACE_EXTENSION_NAME, "XCB implementation/support for KHR_surface");
     #endif
     }
     SFeatures enabledFeatures = featuresToEnable;

@@ -82,7 +82,7 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 					return true;
 				};
 				CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
-				state->normalization.finalize<encodeBufferType>();
+				state->normalization.template finalize<encodeBufferType>();
 			}
 		}
 };
@@ -216,8 +216,8 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 						constexpr auto maxChannels = 4;
 						double decodeBuffer[maxChannels] = {};
 						
-						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
-						base_t::template onEncode(outFormat, state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+						base_t::onDecode(inFormat, state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
+						base_t::onEncode(outFormat, state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);
@@ -290,7 +290,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 						constexpr auto maxChannels = 4;
 						double decodeBuffer[maxChannels] = {};
 
-						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
+						base_t::onDecode(inFormat, state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
 						base_t::template onEncode<outFormat>(state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
@@ -366,7 +366,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 							decodeBufferType decodeBuffer[maxChannels] = {};
 
 							base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
-							base_t::template onEncode(outFormat, state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
+							base_t::onEncode(outFormat, state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 						}
 				};
 				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);

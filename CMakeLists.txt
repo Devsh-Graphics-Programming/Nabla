@@ -60,6 +60,8 @@ else()
 	if(NOT NBL_COMPILER_DYNAMIC_RUNTIME)
 		message(FATAL_ERROR "Turn NBL_COMPILER_DYNAMIC_RUNTIME on! For dynamic Nabla builds dynamic runtime is mandatory!")
 	endif()
+	# static 3rdparty archives get linked into the Nabla shared object, ELF needs them position independent (no-op for PE/COFF)
+	set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
 
 find_package(Vulkan)

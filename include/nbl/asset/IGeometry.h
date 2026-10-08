@@ -363,7 +363,7 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
             
             //
             template<typename V, typename Index=uint32_t, typename U=BufferType> requires (hlsl::concepts::Vector<V> && std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
-            inline void encodeElement(const Index elIx, const V& v)
+            inline bool encodeElement(const Index elIx, const V& v)
             {
                 if (!composed.isFormatted())
                     return false;
@@ -417,14 +417,15 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
                 inline void* getPointer(const Index elIx=0)
                 {
                     if (_this)
-                        return _this->getPointer<Index,BufferType>(elIx);
+                        return _this->template getPointer<Index,BufferType>(elIx);
                     return nullptr;
                 }
                 template<typename V, typename Index=uint32_t> requires hlsl::concepts::Vector<V>
-                inline void encodeElement(const Index elIx, const V& v)
+                inline bool encodeElement(const Index elIx, const V& v)
                 {
                     if (_this)
-                        _this->encodeElement<V,Index,BufferType>(elIx,v);
+                        return _this->template encodeElement<V,Index,BufferType>(elIx,v);
+                    return false;
                 }
         };
         //

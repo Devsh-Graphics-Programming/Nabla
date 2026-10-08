@@ -8,6 +8,9 @@
 
 #include "BuildConfigOptions.h"
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/decl/smart_refctd_ptr.h"
+
+#include <memory_resource>
 
 
 namespace nbl::core

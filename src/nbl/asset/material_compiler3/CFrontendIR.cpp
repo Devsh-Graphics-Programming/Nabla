@@ -1398,5 +1398,5 @@ auto CFrontendIR::CCookTorrance::createIRNode(const bool forBTDF, const CFronten
 	return retval;
 }
 
-template class CTrueIR::CSpectralVariable<CFrontendIR::ISpectralVariableExpr>;
+// explicitly instantiated in the header already, a second one in the same TU is ill-formed (Clang rejects it)
 }

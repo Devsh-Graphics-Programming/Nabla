@@ -154,7 +154,7 @@ public:
 	virtual ~ICamera() = default;
 
     /// @brief Return the gimbal holding the runtime camera pose.
-	virtual const CCameraGimbal& getGimbal() = 0u;
+	virtual const CCameraGimbal& getGimbal() = 0;
 
     /// @brief Apply one frame of physical deltas on top of the pose currently held by the gimbal.
     ///
@@ -195,7 +195,7 @@ public:
     }
 
     /// @brief Return the `ECameraControlAxis` mask this rig applies. Every other axis must be zero in a frame passed to `manipulate(...)`.
-    virtual uint32_t getAcceptedControls() const = 0u;
+    virtual uint32_t getAcceptedControls() const = 0;
 
     /// @brief Return the stable camera-family identifier for this concrete runtime camera.
     virtual CameraKind getKind() const = 0;
@@ -213,7 +213,7 @@ public:
     }
 
     /// @brief Return the stable human-readable identifier for this concrete camera instance.
-    virtual std::string_view getIdentifier() const = 0u;
+    virtual std::string_view getIdentifier() const = 0;
 
     /// @brief Check whether the camera exposes the requested optional capability.
     inline bool hasCapability(CameraCapability capability) const

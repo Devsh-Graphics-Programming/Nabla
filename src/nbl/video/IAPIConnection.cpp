@@ -129,10 +129,10 @@ renderdoc_api_t* IAPIConnection::loadRenderdoc()
         RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)GetProcAddress(mod,"RENDERDOC_GetAPI");
 #elif defined(_NBL_PLATFORM_ANDROID_)
     if (void* mod=dlopen("libVkLayer_GLES_RenderDoc.so",RTLD_NOW|RTLD_NOLOAD); mod)
-        pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod,"RENDERDOC_GetAPI");
+        RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod,"RENDERDOC_GetAPI");
 #elif defined(_NBL_PLATFORM_LINUX_)
     if (void* mod=dlopen("librenderdoc.so",RTLD_NOW|RTLD_NOLOAD); mod)
-        pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod,"RENDERDOC_GetAPI");
+        RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(mod,"RENDERDOC_GetAPI");
 #else
 #error "Nabla Unsupported Platform!"
 #endif

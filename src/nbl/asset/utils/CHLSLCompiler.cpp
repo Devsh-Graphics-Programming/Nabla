@@ -8,7 +8,7 @@
 #include "spirv/builtin/CArchive.h"
 #endif // NBL_EMBED_BUILTIN_RESOURCES
 
-#ifdef _NBL_PLATFORM_WINDOWS_
+#if defined(_NBL_PLATFORM_WINDOWS_) || defined(_NBL_PLATFORM_LINUX_) // DXC is available on both
 
 
 
@@ -16,14 +16,28 @@
 #include <iterator>
 #include <codecvt>
 #include <filesystem>
+#include <sstream>
+#ifdef _NBL_PLATFORM_WINDOWS_
 #include <wrl.h>
 #include <combaseapi.h>
-#include <sstream>
 #include <dxc/dxcapi.h>
+using Microsoft::WRL::ComPtr;
+#else
+// DXC's WinAdapter provides the COM types on other platforms, give its `CComPtr` the bits of WRL's `ComPtr` used here
+#include <dxc/WinAdapter.h>
+#include <dxc/dxcapi.h>
+template<class T>
+struct ComPtr : CComPtr<T>
+{
+    using CComPtr<T>::CComPtr;
+    using CComPtr<T>::operator=;
+    inline T* Get() const {return this->p;}
+    inline T** GetAddressOf() {return &this->p;}
+};
+#endif
 
 using namespace nbl;
 using namespace nbl::asset;
-using Microsoft::WRL::ComPtr;
 
 static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_8";
 static const wchar_t* ShaderStageToString(asset::IShader::E_SHADER_STAGE stage) {
@@ -69,9 +83,9 @@ struct DXC
 
 struct DxcCompilationResult
 {
-    Microsoft::WRL::ComPtr<IDxcBlobEncoding> errorMessages;
-    Microsoft::WRL::ComPtr<IDxcBlob> objectBlob;
-    Microsoft::WRL::ComPtr<IDxcResult> compileResult;
+    ComPtr<IDxcBlobEncoding> errorMessages;
+    ComPtr<IDxcBlob> objectBlob;
+    ComPtr<IDxcResult> compileResult;
 
     std::string GetErrorMessagesString()
     {

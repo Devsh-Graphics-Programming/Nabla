@@ -4,6 +4,7 @@
 
 
 #include "nbl/core/alloc/refctd_memory_resource.h"
+#include "nbl/core/def/smart_refctd_ptr.h"
 
 #include <memory_resource>
 

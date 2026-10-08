@@ -214,8 +214,10 @@ class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 
     protected:
 
+        // separate overload because Clang can't evaluate `SCreationParams`'s default member initializers in a default argument here
+        inline IDeviceMemoryAllocation(const ILogicalDevice* originDevice) : IDeviceMemoryAllocation(originDevice,SCreationParams{}) {}
         IDeviceMemoryAllocation(
-            const ILogicalDevice* originDevice, SCreationParams&& params = {})
+            const ILogicalDevice* originDevice, SCreationParams&& params)
             : m_originDevice(originDevice)
             , m_params(std::move(params))
             , m_mappedPtr(nullptr)

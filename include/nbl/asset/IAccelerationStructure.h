@@ -158,7 +158,6 @@ class IBottomLevelAccelerationStructure : public IAccelerationStructure
 		using AABB_t = core::aabbox3d<float>;
 
 	protected:
-		using base_build_flags_t = IAccelerationStructure::BUILD_FLAGS;
 		using IAccelerationStructure::IAccelerationStructure;
 		virtual ~IBottomLevelAccelerationStructure() = default;
 

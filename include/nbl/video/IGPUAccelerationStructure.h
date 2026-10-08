@@ -684,13 +684,13 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			switch (instance.getType())
 			{
 				case INSTANCE_TYPE::SRT_MOTION:
-					retval = convertInstance(std::get<IGPUTopLevelAccelerationStructure::SRTMotionInstance>(instance.instance),gpuBLAS);
+					retval = convertInstance(std::get<asset::ICPUTopLevelAccelerationStructure::SRTMotionInstance>(instance.instance),gpuBLAS);
 					break;
 				case INSTANCE_TYPE::MATRIX_MOTION:
-					retval = convertInstance(std::get<IGPUTopLevelAccelerationStructure::MatrixMotionInstance>(instance.instance),gpuBLAS);
+					retval = convertInstance(std::get<asset::ICPUTopLevelAccelerationStructure::MatrixMotionInstance>(instance.instance),gpuBLAS);
 					break;
 				default:
-					retval = convertInstance(std::get<IGPUTopLevelAccelerationStructure::StaticInstance>(instance.instance),gpuBLAS);
+					retval = convertInstance(std::get<asset::ICPUTopLevelAccelerationStructure::StaticInstance>(instance.instance),gpuBLAS);
 					break;
 			}
 			return retval;
@@ -764,6 +764,16 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		const uint32_t m_maxInstanceCount;
 
 	private:
+		struct DynamicUpCastingSpanIterator
+		{
+			inline bool operator!=(const DynamicUpCastingSpanIterator& other) const {return ptr!=other.ptr;}
+
+			inline DynamicUpCastingSpanIterator operator++() {return {++ptr};}
+
+			inline blas_smart_ptr_t operator*() const {return core::smart_refctd_ptr_dynamic_cast<const IGPUBottomLevelAccelerationStructure>(*ptr);}
+
+			std::span<const core::smart_refctd_ptr<const core::IReferenceCounted>>::iterator ptr;
+		};
 		friend class ILogicalDevice;
 		friend class IQueue;
 
