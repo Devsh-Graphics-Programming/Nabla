@@ -1,0 +1,282 @@
+// Copyright (C) 2018-2026 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef _C_CAMERA_PATH_UTILITIES_HPP_
+#define _C_CAMERA_PATH_UTILITIES_HPP_
+
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <limits>
+#include <string_view>
+#include <vector>
+
+#include "CCameraPathMetadata.hpp"
+#include "ICamera.hpp"
+
+namespace nbl::ext::cameras
+{
+
+/// @brief Shared helpers for the reusable `PathRig` camera kind.
+struct SCameraPathPose final : SCameraRigPose
+{
+    /// @brief Final radial distance actually applied after clamping and path-state sanitization.
+    hlsl::float64_t appliedDistance = 0.0;
+    /// @brief Canonical orbit yaw/pitch derived from the evaluated path state.
+    hlsl::float64_t2 orbitUv = hlsl::float64_t2(0.0);
+};
+
+/// @brief Typed delta applied to `ICamera::PathState`.
+struct SCameraPathDelta final : ICamera::PathState
+{
+    /// @brief Pack the delta into one four-component vector.
+    inline hlsl::float64_t4 asVector() const
+    {
+        return ICamera::PathState::asVector();
+    }
+
+    /// @brief Rebuild the delta from the packed vector representation.
+    static inline SCameraPathDelta fromVector(const hlsl::float64_t4& value)
+    {
+        SCameraPathDelta delta = {};
+        delta.s = value.x;
+        delta.u = value.y;
+        delta.v = value.z;
+        delta.roll = value.w;
+        return delta;
+    }
+};
+
+/// @brief One desired path-state change expressed as current state, desired state, and their delta.
+struct SCameraPathStateTransition final
+{
+    ICamera::PathState current = {};
+    ICamera::PathState desired = {};
+    SCameraPathDelta delta = {};
+};
+
+/// @brief Canonical evaluated path state combining a final pose and target-relative view of that pose.
+struct SCameraCanonicalPathState final
+{
+    SCameraPathPose pose = {};
+    STargetOrbit targetRelative = {};
+};
+
+/// @brief Comparison tolerances used when matching two path states.
+struct SCameraPathComparisonThresholds final
+{
+    double sToleranceDeg = 1e-1;
+    double rollToleranceDeg = 1e-1;
+    double scalarTolerance = 1e-6;
+};
+
+/// @brief Result of updating the path distance while preserving the rest of the path state.
+struct SCameraPathDistanceUpdateResult final
+{
+    bool exact = false;
+    hlsl::float64_t appliedDistance = 0.0;
+};
+
+/// @brief Default constants used by the built-in `Path Rig` model.
+struct SCameraPathDefaults final
+{
+    static constexpr double MinU = static_cast<double>(ICamera::DefaultMinTargetDistance);
+    static constexpr double ScalarTolerance = SCameraPathComparisonThresholds{}.scalarTolerance;
+    static constexpr double ExactStateTolerance = 1e-9;
+    static constexpr double ExactAngleToleranceDeg = ExactStateTolerance * 180.0 / hlsl::numbers::pi<double>;
+    static constexpr double AngleToleranceDeg = SCameraPathComparisonThresholds{}.sToleranceDeg;
+    static inline constexpr std::string_view Identifier = SCameraPathRigMetadata::Identifier;
+    static inline constexpr std::string_view Description = SCameraPathRigMetadata::DefaultModelDescription;
+    static inline constexpr ICamera::PathStateLimits Limits = {};
+    static inline constexpr SCameraPathComparisonThresholds ComparisonThresholds = {
+        .sToleranceDeg = AngleToleranceDeg,
+        .rollToleranceDeg = AngleToleranceDeg,
+        .scalarTolerance = ScalarTolerance
+    };
+    static inline constexpr SCameraPathComparisonThresholds ExactComparisonThresholds = {
+        .sToleranceDeg = ExactAngleToleranceDeg,
+        .rollToleranceDeg = ExactAngleToleranceDeg,
+        .scalarTolerance = ExactStateTolerance
+    };
+};
+
+using SCameraPathLimits = ICamera::PathStateLimits;
+
+/// @brief Evaluation context passed into the active path-model control law.
+struct SCameraPathControlContext final
+{
+    ICamera::PathState currentState = {};
+    /// @brief The `s`, `u`, `v` and `roll` change asked for this step, in the units the model defines.
+    SCameraPathDelta requested = {};
+    hlsl::float64_t3 targetPosition = hlsl::float64_t3(0.0);
+    const SCameraRigPose* reference = nullptr;
+    SCameraPathLimits limits = SCameraPathDefaults::Limits;
+};
+
+/// @brief Callback bundle defining path-state resolution, input response, evaluation, and distance updates.
+///
+/// A concrete `Path Rig` model provides:
+/// - state resolution from target position, world position, and optional typed input
+/// - one control law turning the requested delta into the `SCameraPathDelta` to integrate
+/// - one state integrator
+/// - one canonical evaluator producing pose and target-relative view data
+/// - one distance-update rule for typed helpers that adjust distance directly
+struct SCameraPathModel final
+{
+    using resolve_state_t = std::function<bool(
+        const hlsl::float64_t3& targetPosition,
+        const hlsl::float64_t3& position,
+        const SCameraPathLimits& limits,
+        const ICamera::PathState* requestedState,
+        ICamera::PathState& outState)>;
+    using control_law_t = std::function<SCameraPathDelta(const SCameraPathControlContext&)>;
+    using integrate_t = std::function<bool(
+        const ICamera::PathState& currentState,
+        const SCameraPathDelta& delta,
+        const SCameraPathLimits& limits,
+        ICamera::PathState& outState)>;
+    using evaluate_t = std::function<bool(
+        const hlsl::float64_t3& targetPosition,
+        const ICamera::PathState& state,
+        const SCameraPathLimits& limits,
+        SCameraCanonicalPathState& outState)>;
+    using update_distance_t = std::function<bool(
+        const float desiredDistance,
+        const SCameraPathLimits& limits,
+        ICamera::PathState& ioState,
+        SCameraPathDistanceUpdateResult* outResult)>;
+
+    resolve_state_t resolveState;
+    control_law_t controlLaw;
+    integrate_t integrate;
+    evaluate_t evaluate;
+    update_distance_t updateDistance;
+};
+
+/// @brief Shared state, comparison, and model-building helpers for `Path Rig`.
+struct CCameraPathUtilities final
+{
+    /// @brief Build the default path state used by the built-in model.
+    static ICamera::PathState makeDefaultPathState(double minU = SCameraPathDefaults::MinU);
+
+    /// @brief Build path-state comparison tolerances from caller-provided angular and scalar thresholds.
+    static SCameraPathComparisonThresholds makePathComparisonThresholds(
+        double angularToleranceDeg = SCameraPathDefaults::AngleToleranceDeg,
+        double scalarTolerance = SCameraPathDefaults::ScalarTolerance);
+
+    /// @brief Return the default path-state limits used when a camera does not expose custom ones.
+    static inline constexpr SCameraPathLimits makeDefaultPathLimits()
+    {
+        return SCameraPathDefaults::Limits;
+    }
+
+    /// @brief Check whether every scalar stored in the path state is finite.
+    static bool isPathStateFinite(const ICamera::PathState& state);
+
+    /// @brief Check whether the path limits can be sanitized into a valid numeric domain.
+    static bool isPathLimitsWellFormed(const SCameraPathLimits& limits);
+
+    /// @brief Clamp and normalize path-state limits into a valid numeric domain.
+    static bool sanitizePathLimits(SCameraPathLimits& limits);
+
+    /// @brief Sanitize a path state against a caller-provided `minU` lower bound.
+    static bool sanitizePathState(ICamera::PathState& state, double minU);
+
+    /// @brief Sanitize a path state against a full limit bundle and optionally report the applied distance.
+    static bool sanitizePathState(ICamera::PathState& state, const SCameraPathLimits& limits, double* outAppliedDistance = nullptr);
+
+    /// @brief Rescale the `(u, v)` pair so the path state reaches the requested radial distance.
+    static bool tryScalePathStateDistance(
+        double desiredDistance,
+        double minU,
+        ICamera::PathState& ioState,
+        double* outAppliedDistance = nullptr);
+
+    /// @brief Update the distance encoded by a path state while respecting the provided limits.
+    static bool tryUpdatePathStateDistance(
+        float desiredDistance,
+        const SCameraPathLimits& limits,
+        ICamera::PathState& ioState,
+        SCameraPathDistanceUpdateResult* outResult = nullptr);
+
+    static bool tryBuildPathStateFromPosition(
+        const hlsl::float64_t3& targetPosition,
+        const hlsl::float64_t3& position,
+        double minU,
+        ICamera::PathState& outState);
+
+    static bool tryResolvePathState(
+        const hlsl::float64_t3& targetPosition,
+        const hlsl::float64_t3& position,
+        const SCameraPathLimits& limits,
+        const ICamera::PathState* requestedState,
+        ICamera::PathState& outState);
+
+    static bool tryBuildPathPoseFromState(
+        const hlsl::float64_t3& targetPosition,
+        const ICamera::PathState& state,
+        const SCameraPathLimits& limits,
+        SCameraPathPose& outPose);
+
+    static bool tryBuildPathPoseFromState(
+        const hlsl::float64_t3& targetPosition,
+        const ICamera::PathState& state,
+        const SCameraPathLimits& limits,
+        hlsl::float64_t3& outPosition,
+        hlsl::math::quaternion<hlsl::float64_t>& outOrientation,
+        hlsl::float64_t* outAppliedDistance = nullptr,
+        hlsl::float64_t2* outOrbitUv = nullptr);
+
+    static bool pathStatesNearlyEqual(
+        const ICamera::PathState& lhs,
+        const ICamera::PathState& rhs,
+        const SCameraPathComparisonThresholds& thresholds = {});
+
+    static bool pathStatesChanged(
+        const ICamera::PathState& lhs,
+        const ICamera::PathState& rhs,
+        const SCameraPathComparisonThresholds& thresholds = {});
+
+    static hlsl::float64_t4 buildPathStateDeltaVector(
+        const ICamera::PathState& currentState,
+        const ICamera::PathState& desiredState);
+
+    static SCameraPathDelta buildPathStateDelta(
+        const ICamera::PathState& currentState,
+        const ICamera::PathState& desiredState);
+
+    static SCameraPathDelta buildDefaultPathControlDelta(const SCameraPathControlContext& context);
+
+    static bool tryBuildCanonicalPathState(
+        const hlsl::float64_t3& targetPosition,
+        const ICamera::PathState& state,
+        const SCameraPathLimits& limits,
+        SCameraCanonicalPathState& outState);
+
+    static bool tryApplyPathStateDelta(
+        const ICamera::PathState& currentState,
+        const SCameraPathDelta& delta,
+        const SCameraPathLimits& limits,
+        ICamera::PathState& outState);
+
+    static ICamera::PathState blendPathStates(
+        const ICamera::PathState& from,
+        const ICamera::PathState& to,
+        double alpha);
+
+    static bool tryBuildPathStateTransition(
+        const hlsl::float64_t3& targetPosition,
+        const hlsl::float64_t3& currentPosition,
+        const hlsl::float64_t3& desiredPosition,
+        const SCameraPathLimits& limits,
+        const ICamera::PathState* currentStateOverride,
+        const ICamera::PathState* desiredStateOverride,
+        SCameraPathStateTransition& outTransition);
+
+    static SCameraPathModel makeDefaultPathModel();
+};
+
+} // namespace nbl::ext::cameras
+
+#endif // _C_CAMERA_PATH_UTILITIES_HPP_

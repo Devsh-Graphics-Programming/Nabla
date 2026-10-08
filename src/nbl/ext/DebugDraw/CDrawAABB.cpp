@@ -144,10 +144,14 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 	pipelineParams[0].layout = pipelineLayout;
 	pipelineParams[0].vertexShader = { .shader = unifiedShader.get(), .entryPoint = (mode & ADM_DRAW_SINGLE) ? "aabb_vertex_single" : "aabb_vertex_instances" };
 	pipelineParams[0].fragmentShader = { .shader = unifiedShader.get(), .entryPoint = "aabb_fragment" };
+	asset::SRasterizationParams rasterParams;
+	rasterParams.depthCompareOp = params.depthCompareOp;
+
 	pipelineParams[0].cached = {
 		.primitiveAssembly = {
 			.primitiveType = asset::E_PRIMITIVE_TOPOLOGY::EPT_LINE_LIST,
-		}
+		},
+		.rasterization = rasterParams,
 	};
 	pipelineParams[0].renderpass = params.renderpass.get();
 

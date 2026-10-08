@@ -58,7 +58,7 @@ class IEventChannelBase : public IInputEventChannel
 
     public:
         //
-        inline size_t getBackgroundBufferCapacity() const {return m_frontEventBuf.capacity();}
+        inline size_t getBackgroundBufferCapacity() const {return m_bgEventBuf.capacity();}
         inline size_t getFrontBufferCapacity() const {return m_frontEventBuf.capacity();}
 
         // Lock while working with background event buffer

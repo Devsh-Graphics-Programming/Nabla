@@ -77,7 +77,7 @@ class ISampler : public IDescriptor
 				//! Boolean, compare ref to texture
 				uint32_t CompareEnable : 1 = false;
 				//! Values taken from E_COMPARE_OP
-				uint32_t CompareFunc : 3 = ECO_GREATER;
+				uint32_t CompareFunc : 3 = ECO_LESS;
 			};
 			float LodBias = 0.f;
 			float MinLod = -1000.f;

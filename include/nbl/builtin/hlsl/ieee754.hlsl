@@ -1,7 +1,21 @@
 #ifndef _NBL_BUILTIN_HLSL_IEE754_HLSL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_IEE754_HLSL_INCLUDED_
 
-#include <nbl/builtin/hlsl/ieee754/impl.hlsl>
+// TODO: make every function in this header follow the scheme `replaceBiasedExponent` uses:
+// - the implementation works on the `uintN_t` bit pattern (using `traits` masks) and returns integer types,
+// - the floating point version `impl::bitCastToUintType`s its argument, calls the bit pattern version and,
+//   if it returns a value of the input type, `impl::castBackToFloatType`s the result.
+// So uint in gives uint out, float in gives float out, and there's a single implementation.
+// Candidates: `extractBiasedExponent` (explicit `uint64_t`/`float64_t` specializations), `extractExponent`, `extractMantissa`,
+// `extractNormalizeMantissa`, `extractSign`, `extractSignPreserveBitPattern`, `copySign`, `flipSign`, `flipSignIfRHSNegative`,
+// `isSubnormal`, `isZero`, `nextDown`, `nextTowardZero`.
+// Dispatch with `impl::` helper structs partially specialized on `concepts::UnsignedIntegralScalar`/`concepts::FloatingPointScalar`,
+// NOT explicit function specializations: those aren't templates, so MSVC requires a `constexpr` one to be constant-evaluable (C3615).
+// Also enforce with a concept that `impl::castBackToFloatType<T>` gets an unsigned integral `T`.
+
+#include <nbl/builtin/hlsl/type_traits.hlsl>
+#include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
+#include <nbl/builtin/hlsl/bit.hlsl>
 #include <nbl/builtin/hlsl/concepts/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 
@@ -11,6 +25,32 @@ namespace hlsl
 {
 namespace ieee754
 {
+
+namespace impl
+{
+template <typename T>
+NBL_CONSTEXPR_FUNC unsigned_integer_of_size_t<sizeof(T)> bitCastToUintType(T x)
+{
+	using AsUint = unsigned_integer_of_size_t<sizeof(T)>;
+	return bit_cast<AsUint, T>(x);
+}
+// to avoid bit cast from uintN_t to uintN_t
+template <> NBL_CONSTEXPR_FUNC unsigned_integer_of_size_t<2> bitCastToUintType(uint16_t x) { return x; }
+template <> NBL_CONSTEXPR_FUNC unsigned_integer_of_size_t<4> bitCastToUintType(uint32_t x) { return x; }
+template <> NBL_CONSTEXPR_FUNC unsigned_integer_of_size_t<8> bitCastToUintType(uint64_t x) { return x; }
+
+// Inverse of `bitCastToUintType`: reinterprets integer bits as the float of the same size.
+// `T` MUST be the unsigned integer type of the bits (e.g. `castBackToFloatType<uint32_t>(bits)`), NOT the float type.
+// Passing a float `T` makes the call site convert the integer bits to that float BY VALUE before the (then same-type) bit cast,
+// which silently returns garbage (`nextDown(1.0f)` used to return ~1.07e9 because of exactly that).
+// TODO: enforce `T` being an unsigned integral scalar with a concept (see the TODO at the top of this header).
+template <typename T>
+NBL_CONSTEXPR_FUNC typename float_of_size<sizeof(T)>::type castBackToFloatType(T x)
+{
+	using AsFloat = typename float_of_size<sizeof(T)>::type;
+	return bit_cast<AsFloat, T>(x);
+}
+}
 
 template<typename Float>
 struct traits_base
@@ -89,11 +129,43 @@ inline int extractExponent(T x)
 	return int(extractBiasedExponent(x)) - traits<AsFloat>::exponentBias;
 }
 
+namespace impl
+{
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct replaceBiasedExponent_helper;
+
+// the implementation, works on the bit pattern and returns the bit pattern
+template<typename UnsignedIntegral>
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<UnsignedIntegral>)
+struct replaceBiasedExponent_helper<UnsignedIntegral NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<UnsignedIntegral>) >
+{
+	static UnsignedIntegral __call(const UnsignedIntegral bits, const UnsignedIntegral biasedExp)
+	{
+		using traits_t = traits<typename float_of_size<sizeof(UnsignedIntegral)>::type>;
+		// bits of `biasedExp` that don't fit in the exponent are dropped
+		return UnsignedIntegral((bits & UnsignedIntegral(~traits_t::exponentMask)) | ((biasedExp << traits_t::mantissaBitCnt) & traits_t::exponentMask));
+	}
+};
+
+// floats go through the bit pattern version and come back as floats
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct replaceBiasedExponent_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+
+	static FloatingPoint __call(const FloatingPoint x, const AsUint biasedExp)
+	{
+		return castBackToFloatType<AsUint>(replaceBiasedExponent_helper<AsUint>::__call(bitCastToUintType(x), biasedExp));
+	}
+};
+}
+
+// `T` can be a native float, returning a float, or the `uintN_t` bit pattern of one (as used by `emulated_float64_t`), returning a bit pattern
 template <typename T>
 NBL_CONSTEXPR_FUNC T replaceBiasedExponent(T x, typename unsigned_integer_of_size<sizeof(T)>::type biasedExp)
 {
-	using AsFloat = typename float_of_size<sizeof(T)>::type;
-	return impl::castBackToFloatType<T>(glsl::bitfieldInsert(ieee754::impl::bitCastToUintType(x), biasedExp, traits<AsFloat>::mantissaBitCnt, traits<AsFloat>::exponentBitCnt));
+	return impl::replaceBiasedExponent_helper<T>::__call(x, biasedExp);
 }
 
 // performs no overflow tests, returns x*exp2(n)
@@ -311,7 +383,7 @@ NBL_CONSTEXPR_FUNC T nextDown(T val)
 	}
 	else
 		result = bits - AsUint(1);
-	return impl::castBackToFloatType<T>(result);
+	return impl::castBackToFloatType<AsUint>(result);
 }
 
 // Returns the representable value nearest to `val` in the direction of zero.
@@ -323,7 +395,27 @@ NBL_CONSTEXPR_FUNC T nextTowardZero(T val)
 	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 
 	const AsUint bits = ieee754::impl::bitCastToUintType(val);
-	return impl::castBackToFloatType<T>(bits - AsUint(1));
+	return impl::castBackToFloatType<AsUint>(bits - AsUint(1));
+}
+
+// Number of representable values (ULPs) between `lhs` and `rhs`, measured on the bit patterns.
+// Crossing zero adds up both magnitudes, so `+0` and `-0` are 0 ULPs apart.
+// NaN and infinity are not special cased, this is the raw bit pattern distance
+// (two NaNs, or the largest finite value and infinity, can be a single ULP apart).
+template <typename T NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<T>)
+NBL_CONSTEXPR_FUNC typename unsigned_integer_of_size<sizeof(T)>::type ulpDistance(T lhs, T rhs)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	const AsUint signMask = traits<T>::signMask;
+
+	const AsUint lhsBits = ieee754::impl::bitCastToUintType(lhs);
+	const AsUint rhsBits = ieee754::impl::bitCastToUintType(rhs);
+	const AsUint lhsMagnitude = AsUint(lhsBits & AsUint(~signMask));
+	const AsUint rhsMagnitude = AsUint(rhsBits & AsUint(~signMask));
+	// opposite signs, the distance goes through zero (can't overflow, both magnitudes have their top bit clear)
+	if ((lhsBits ^ rhsBits) & signMask)
+		return AsUint(lhsMagnitude + rhsMagnitude);
+	return lhsMagnitude > rhsMagnitude ? AsUint(lhsMagnitude - rhsMagnitude) : AsUint(rhsMagnitude - lhsMagnitude);
 }
 
 }
