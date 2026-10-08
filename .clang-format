@@ -1,0 +1,11 @@
+---
+BasedOnStyle: LLVM
+AccessModifierOffset: -4
+AlignAfterOpenBracket: BlockIndent
+AllowShortFunctionsOnASingleLine: InlineOnly
+BreakBeforeBraces: Allman
+ColumnLimit: 256
+IndentWidth: 4
+InsertNewlineAtEOF: true
+PointerAlignment: Left
+TabWidth: 4
