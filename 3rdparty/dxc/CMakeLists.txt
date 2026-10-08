@@ -115,7 +115,10 @@ if(NOT MSVC)
 	# TODO: fix in the DXC fork, lib/DxcSupport/dxcmem.cpp calls the Win32-only CoGetMalloc
 	# instead of the DxcCoGetMalloc adapter (which maps to CoGetMalloc on Windows anyway)
 	if(NOT WIN32)
-		list(APPEND NBL_DXC_CMAKE_OPTIONS "-DCMAKE_CXX_FLAGS:STRING=$ENV{CXXFLAGS} -DCoGetMalloc=DxcCoGetMalloc")
+		# injected as a compile definition after DXC's project() so CMAKE_CXX_FLAGS/CXXFLAGS keep their usual meaning
+		set(_NBL_DXC_PROJECT_INCLUDE_ "${CMAKE_CURRENT_BINARY_DIR}/nbl-dxc-project-include.cmake")
+		file(CONFIGURE OUTPUT "${_NBL_DXC_PROJECT_INCLUDE_}" CONTENT "add_compile_definitions(CoGetMalloc=DxcCoGetMalloc)\n")
+		list(APPEND NBL_DXC_CMAKE_OPTIONS "-DCMAKE_PROJECT_INCLUDE:FILEPATH=${_NBL_DXC_PROJECT_INCLUDE_}")
 
 		# TODO: fix in the DXC fork, its merge of upstream main bumped external/DirectX-Headers past the
 		# commit upstream DXC pins, the newer wsl/stubs/basetsd.h redefines the WinAdapter.h typedefs.

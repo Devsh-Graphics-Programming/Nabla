@@ -51,19 +51,18 @@ Nabla vendors dependencies (DXC, Boost, OpenEXR, glslang, shaderc, Vulkan-Header
 
 ### Fresh Fork Submodule Hydration
 
-Because the repository fork uses relative submodule URLs in `.gitmodules`, git defaults to looking under the fork owner (`raydelto`) for all submodules. Two upstream submodules (`3rdparty/boost/superproject` and `docker/msvc-winsdk`) are hosted solely under upstream `Devsh-Graphics-Programming` and do not exist under `raydelto`. Furthermore, `Ditt-Reference-Scenes` is a private reference repository that must be excluded.
+`.gitmodules` points every submodule at an absolute URL. Upstream uses relative URLs for `3rdparty/boost/superproject` and `docker/msvc-winsdk`, and in a fork those resolve under the fork owner (`raydelto`), where they don't exist; `linux-port` uses the absolute `Devsh-Graphics-Programming` URLs instead (NAB-10). `Ditt-Reference-Scenes` is a private reference repository that must be excluded.
 
-Configure the explicit upstream URLs, exclude private scenes, configure protocol requirements (SSH vs. HTTPS), and initialize:
+Exclude the private scenes, pick the protocol (SSH or HTTPS), and initialize:
 
 ```bash
 # In your clone / worktree of raydelto/Nabla:
 git checkout linux-port
 
-# 1. Override relative submodule URLs that exist only in upstream Devsh:
-git config submodule."3rdparty/boost/superproject".url git@github.com:Devsh-Graphics-Programming/boost.git
-git config submodule."docker/msvc-winsdk".url git@github.com:Devsh-Graphics-Programming/docker-nanoserver-msvc-winsdk.git
+# Clones made before NAB-10 still carry the old relative URLs in .git/config; refresh them once:
+git submodule sync -- 3rdparty/boost/superproject docker/msvc-winsdk
 
-# 2. Exclude private scenes and initialize recursively (use HTTPS rewrite if SSH keys are not set up):
+# Exclude private scenes and initialize recursively (use HTTPS rewrite if SSH keys are not set up):
 git -c fetch.parallel=0 \
     -c url.https://github.com/.insteadOf=git@github.com: \
     -c submodule."Ditt-Reference-Scenes".update=none \

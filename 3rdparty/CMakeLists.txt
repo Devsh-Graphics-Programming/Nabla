@@ -167,12 +167,16 @@ if(NBL_IS_MULTI_CONFIG)
 else()
 	set(JPEG_LIB_OUTPUT "${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo/${_NBL_JPEG_LIB_NAME_}")
 endif()
-add_custom_command(OUTPUT ${JPEG_LIB_OUTPUT}
+# always step into the child build (a no-op when it's up to date), its own dependency tracking then picks up
+# source and flag changes (e.g. PIC) which a custom command OUTPUT without DEPENDS never would
+add_custom_target(jpeg-static-build
 	COMMAND "${CMAKE_COMMAND}" --build "${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo" -t jpeg-static --config $<CONFIG>
+	BYPRODUCTS "${JPEG_LIB_OUTPUT}"
 	COMMENT "Building libjpeg-turbo static library"
 	VERBATIM USES_TERMINAL
 )
-add_library(jpeg-static INTERFACE ${JPEG_LIB_OUTPUT})
+add_library(jpeg-static INTERFACE)
+add_dependencies(jpeg-static jpeg-static-build)
 target_include_directories(jpeg-static INTERFACE 
 	"${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo/src"
 	"${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo"

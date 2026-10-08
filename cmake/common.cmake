@@ -311,8 +311,15 @@ function(nbl_install_program_spec _TRGT _RELATIVE_DESTINATION)
 	set(_DEST_GE_ "${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/${_RELATIVE_DESTINATION}")
 	
 	if (TARGET ${_TRGT})
+		get_target_property(_TYPE_ ${_TRGT} TYPE)
 		foreach(_CONFIGURATION_ IN LISTS CMAKE_CONFIGURATION_TYPES)
-			install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+			# a plain file copy keeps the build RPATH (absolute build tree paths) of an ELF/Mach-O shared object,
+			# install(TARGETS) swaps it for INSTALL_RPATH
+			if(NOT WIN32 AND _TYPE_ MATCHES "^(SHARED|MODULE)_LIBRARY$")
+				install(TARGETS ${_TRGT} LIBRARY DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+			else()
+				install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
+			endif()
 		endforeach()
 	
 		if(MSVC) # PDBs only exist with MSVC-style linkers, $<TARGET_PDB_FILE> is an error elsewhere
