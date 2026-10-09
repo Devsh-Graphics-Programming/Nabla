@@ -240,7 +240,7 @@ struct inclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
 
-    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor, class WorkgroupCounter NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t> && DeviceReductionsAccessor<ReductionAccessor,scalar_t> && WorkgroupCounterAccessor<WorkgroupCounter>)
+    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor, class WorkgroupCounter NBL_FUNC_REQUIRES(concepts::accessors::GenericDataAccessor<DataAccessor,scalar_t,uint32_t> && concepts::accessors::GenericSharedMemoryAccessor<ScratchAccessor,scalar_t,uint32_t> && DeviceReductionsAccessor<ReductionAccessor,scalar_t> && GenericAtomicArithmeticAccessor<WorkgroupCounter>)
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction, NBL_REF_ARG(WorkgroupCounter) counter)
     {
         impl::Scan<Config,BinOp,false,device_capabilities> fn;
@@ -253,7 +253,7 @@ struct exclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
 
-    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor, class WorkgroupCounter NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t> && DeviceReductionsAccessor<ReductionAccessor,scalar_t> && WorkgroupCounterAccessor<WorkgroupCounter>)
+    template<class DataAccessor, class ScratchAccessor, class ReductionAccessor, class WorkgroupCounter NBL_FUNC_REQUIRES(concepts::accessors::GenericDataAccessor<DataAccessor,scalar_t,uint32_t> && concepts::accessors::GenericSharedMemoryAccessor<ScratchAccessor,scalar_t,uint32_t> && DeviceReductionsAccessor<ReductionAccessor,scalar_t> && GenericAtomicArithmeticAccessor<WorkgroupCounter>)
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor, NBL_REF_ARG(ReductionAccessor) workgroupReduction, NBL_REF_ARG(WorkgroupCounter) counter)
     {
         impl::Scan<Config,BinOp,true,device_capabilities> fn;
