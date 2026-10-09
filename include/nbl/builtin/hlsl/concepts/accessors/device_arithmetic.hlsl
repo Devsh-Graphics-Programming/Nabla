@@ -32,14 +32,13 @@ NBL_CONCEPT_BEGIN(3)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(concepts::accessors::GenericDataAccessor, T, V, uint64_t))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.atomicMax(index, val)), is_same_v, V))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.atomicExchange(index, val)), is_same_v, V))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.atomicStore(index, val)), is_same_v, void))
 );
 #undef val
 #undef index
 #undef accessor
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-// TODO: as counter, maybe just increment 1 always?
 #define NBL_CONCEPT_NAME WorkgroupCounterAccessor
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)

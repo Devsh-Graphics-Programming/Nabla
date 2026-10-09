@@ -132,7 +132,7 @@ struct Scan
         if (invocIx == 0u)
         {
             const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, workgroupId > 0u) | currGroupReduction << Flag_Shift;
-            workgroupReduction.atomicExchange(workgroupId, storeVal);
+            workgroupReduction.atomicStore(workgroupId, storeVal);
         }
 
         if (workgroupId > 0u)
@@ -161,7 +161,7 @@ struct Scan
                             if ((flagPayload & Flag_Mask) == Flag_Inclusive)
                             {
                                 const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
-                                workgroupReduction.atomicExchange(workgroupId, storeVal);
+                                workgroupReduction.atomicStore(workgroupId, storeVal);
                                 scratchAccessor.template set<scalar_t, uint32_t>(0u, prevReduction);
                                 sIsLocked = false;
                                 break;
@@ -201,7 +201,7 @@ struct Scan
                         if (fallbackGroupId == 0u || (fallbackPayload & Flag_Mask) == Flag_Inclusive)
                         {
                             const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
-                            workgroupReduction.atomicExchange(workgroupId, storeVal);
+                            workgroupReduction.atomicStore(workgroupId, storeVal);
                             scratchAccessor.template set<scalar_t, uint32_t>(0u, prevReduction);
                             sIsLocked = false;
                         }
