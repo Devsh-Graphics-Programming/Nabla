@@ -145,6 +145,9 @@ template<typename T, typename Ptr_U>
 [[vk::ext_instruction(spv::OpCopyLogical)]]
 enable_if_t<is_pointer_v<Ptr_U>/* && !is_same_v<T,U>*/,T> copyLogical(Ptr_U v);
 
+// Atomics still don't detect the address space of `ptr` and narrow down the sync-scope properly, hence the DXC workarounds
+// see issue: https://github.com/microsoft/DirectXShaderCompiler/issues/6508 -- same as in glsl_compat/core.hlsl
+
 // Here's the thing with atomics, it's not only the data type that dictates whether you can do an atomic or not.
 // It's the storage class that has the most effect (shared vs storage vs image) and we can't check that easily
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
