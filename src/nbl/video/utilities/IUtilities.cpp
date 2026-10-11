@@ -65,7 +65,19 @@ bool IUtilities::updateImageViaStagingBuffer(
         return false;
     }
 
-    ImageRegionIterator regionIterator(regions, queueFamProps, srcData, srcFormat, dstImage, limits.optimalBufferCopyRowPitchAlignment);
+    ImageRegionIterator regionIterator(regions, queueFamProps, dstImage, limits.optimalBufferCopyRowPitchAlignment);
+
+    uint32_t maxRowPitch = 0u;
+    for (const auto region : regions)
+    {
+        const auto copyTexelStrides = regionIterator.getOptimalCopyTexelStrides(region.imageExtent);
+        maxRowPitch = core::max(maxRowPitch,texelBlockInfo.convert3DTexelStridesTo1DByteStrides(copyTexelStrides)[1]);
+    }
+    if (core::alignUp(maxRowPitch,m_allocationAlignmentForBufferImageCopy)>m_defaultUploadBuffer->get_total_size())
+    {
+        m_logger.log("Upload staging buffer of %u bytes cannot hold a single %u byte row, cannot `updateImageViaStagingBuffer`.",system::ILogger::ELL_ERROR,m_defaultUploadBuffer->get_total_size(),maxRowPitch);
+        return false;
+    }
 
     // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
     // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
@@ -99,10 +111,15 @@ bool IUtilities::updateImageViaStagingBuffer(
         }
 
         uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_value;
-        uint32_t maxFreeBlock = m_defaultUploadBuffer.get()->max_size();
-        const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(memoryNeededForRemainingRegions, m_allocationAlignmentForBufferImageCopy, maxFreeBlock, memoryLowerBound);
+        const uint32_t maxFreeBlock = m_defaultUploadBuffer.get()->max_size();
+        uint32_t allocationSize = getAllocationSizeForStreamingBuffer(memoryNeededForRemainingRegions, m_allocationAlignmentForBufferImageCopy, m_defaultUploadBuffer.get()->get_total_size(), memoryLowerBound);
         // cannot use `multi_place` because of the extra padding size we could have added
-        m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u), 1u, &localOffset, &allocationSize, &m_allocationAlignmentForBufferImageCopy);
+        m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(maxFreeBlock<memoryLowerBound ? 500u:0u), 1u, &localOffset, &allocationSize, &m_allocationAlignmentForBufferImageCopy);
+        if (localOffset == video::StreamingTransientDataBufferMT<>::invalid_value)
+        {
+            allocationSize = getAllocationSizeForStreamingBuffer(memoryNeededForRemainingRegions, m_allocationAlignmentForBufferImageCopy, m_defaultUploadBuffer.get()->max_size(), memoryLowerBound);
+            m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(maxFreeBlock<memoryLowerBound ? 0u:500u), 1u, &localOffset, &allocationSize, &m_allocationAlignmentForBufferImageCopy);
+        }
         bool failedAllocation = (localOffset == video::StreamingTransientDataBufferMT<>::invalid_value);
 
         // keep trying again
@@ -114,39 +131,61 @@ bool IUtilities::updateImageViaStagingBuffer(
                 flushRanges.clear();
             }
             const auto completed = intendedNextSubmit.getFutureScratchSemaphore();
-            intendedNextSubmit.overflowSubmit(scratch);
+            if (intendedNextSubmit.overflowSubmit(scratch)!=IQueue::RESULT::SUCCESS)
+            {
+                m_logger.log("Overflow submit failed, cannot `updateImageViaStagingBuffer`.",system::ILogger::ELL_ERROR);
+                intendedNextSubmit.scratchSemaphore.stageMask = oldScratchStage;
+                return false;
+            }
             // first submit we respect whatever stages the user had (maybe they wanted to be notified of the completion of `nextSubmit.prevCommandBuffers`
             intendedNextSubmit.scratchSemaphore.stageMask = asset::PIPELINE_STAGE_FLAGS::COPY_BIT;
             // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
             // TODO: if we cleverly overflowed BEFORE completely running out of memory (better heuristics) then we wouldn't need to do this and some CPU-GPU overlap could be achieved
             if (intendedNextSubmit.overflowCallback)
                 intendedNextSubmit.overflowCallback(completed);
-            m_device->blockForSemaphores({&completed,1});
+            if (m_device->blockForSemaphores({&completed,1})!=ISemaphore::WAIT_RESULT::SUCCESS)
+            {
+                m_logger.log("Waiting for the overflow submit failed, cannot `updateImageViaStagingBuffer`.",system::ILogger::ELL_ERROR);
+                intendedNextSubmit.scratchSemaphore.stageMask = oldScratchStage;
+                return false;
+            }
             m_defaultUploadBuffer->cull_frees(); // is this even needed anymore?
             continue;
         }
         else
         {
+            auto fail = [&](const char* message) -> bool
+            {
+                m_logger.log(message,system::ILogger::ELL_ERROR);
+                m_defaultUploadBuffer->multi_deallocate(1u,&localOffset,&allocationSize);
+                intendedNextSubmit.scratchSemaphore.stageMask = oldScratchStage;
+                if (!flushRanges.empty())
+                    m_device->flushMappedMemoryRanges(flushRanges);
+                return false;
+            };
+
             uint32_t currentUploadBufferOffset = localOffset;
             uint32_t availableUploadBufferMemory = allocationSize;
 
             regionsToCopy.clear();
             for (uint32_t d = 0u; d < maxIterations && !regionIterator.isFinished(); ++d)
             {
-                asset::IImage::SBufferCopy nextRegionToCopy = {};
-                if (availableUploadBufferMemory > 0u && regionIterator.advanceAndCopyToStagingBuffer(nextRegionToCopy, availableUploadBufferMemory, currentUploadBufferOffset, m_defaultUploadBuffer->getBufferPointer()))
+                ImageRegionIterator::SChunk chunk;
+                if (availableUploadBufferMemory > 0u && regionIterator.advance(chunk, availableUploadBufferMemory, currentUploadBufferOffset))
                 {
-                    regionsToCopy.push_back(nextRegionToCopy);
+                    if (!ImageRegionIterator::copyChunk(chunk, ImageRegionIterator::E_DIRECTION::HOST_TO_STAGING, m_defaultUploadBuffer->getBufferPointer(), const_cast<void*>(srcData), srcFormat))
+                        return fail("Failed to copy `srcData` into the staging buffer, cannot `updateImageViaStagingBuffer`.");
+                    regionsToCopy.push_back(chunk.staging);
                 }
                 else
                     break;
             }
 
-            if (!regionsToCopy.empty())
-                scratch->cmdbuf->copyBufferToImage(uploadBuffer, dstImage, currentDstImageLayout, regionsToCopy.size(), regionsToCopy.data());
+            if (regionsToCopy.empty())
+                return fail("Allocation cannot hold the smallest transferable unit, check the queue family's `minImageTransferGranularity`, cannot `updateImageViaStagingBuffer`.");
+            if (!scratch->cmdbuf->copyBufferToImage(uploadBuffer, dstImage, currentDstImageLayout, regionsToCopy.size(), regionsToCopy.data()))
+                return fail("Failed to record the staging to image copy, cannot `updateImageViaStagingBuffer`.");
 
-            assert(!regionsToCopy.empty() && "allocationSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
-            
             // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
             if (manualFlush)
             {
@@ -166,7 +205,7 @@ bool IUtilities::updateImageViaStagingBuffer(
 
 bool IUtilities::downloadImageViaStagingBuffer(
     SIntendedSubmitInfo& intendedNextSubmit, const IGPUImage* srcImage, const IGPUImage::LAYOUT currentSrcImageLayout,
-    void* dest, const std::span<const asset::IImage::SBufferCopy> regions
+    void* dst, const std::span<const asset::IImage::SBufferCopy> regions
 )
 {
     if (!m_defaultDownloadBuffer)
@@ -181,9 +220,9 @@ bool IUtilities::downloadImageViaStagingBuffer(
     if (!scratch)
         return false;
 
-    if (!srcImage || !dest)
+    if (!srcImage || !dst)
     {
-        m_logger.log("Invalid `srcImage` or `dest` cannot `downloadImageViaStagingBuffer`.", nbl::system::ILogger::ELL_ERROR);
+        m_logger.log("Invalid `srcImage` or `dst` cannot `downloadImageViaStagingBuffer`.", nbl::system::ILogger::ELL_ERROR);
         return false;
     }
 
@@ -240,8 +279,8 @@ bool IUtilities::downloadImageViaStagingBuffer(
 
     core::vector<asset::IImage::SBufferCopy> regionsToCopy;
     regionsToCopy.reserve(maxIterations);
-    core::vector<asset::IImage::SBufferCopy> parentRegions;
-    parentRegions.reserve(maxIterations);
+    core::vector<ImageRegionIterator::SChunk> chunks;
+    chunks.reserve(maxIterations);
 
     // for the signal to be useful for us to execute the data consumer callback, the signal must happen after the copy is done
     const auto oldScratchStage = intendedNextSubmit.scratchSemaphore.stageMask|=asset::PIPELINE_STAGE_FLAGS::COPY_BIT;
@@ -291,15 +330,14 @@ bool IUtilities::downloadImageViaStagingBuffer(
         uint32_t availableDownloadBufferMemory = allocationSize;
 
         regionsToCopy.clear();
-        parentRegions.clear();
+        chunks.clear();
         for (uint32_t d = 0u; d < maxIterations && !regionIterator.isFinished(); ++d)
         {
-            const asset::IImage::SBufferCopy parentRegion = regions[regionIterator.getCurrentRegion()];
-            asset::IImage::SBufferCopy nextRegionToCopy = {};
-            if (availableDownloadBufferMemory > 0u && regionIterator.advance(nextRegionToCopy, availableDownloadBufferMemory, currentDownloadBufferOffset))
+            ImageRegionIterator::SChunk chunk;
+            if (availableDownloadBufferMemory > 0u && regionIterator.advance(chunk, availableDownloadBufferMemory, currentDownloadBufferOffset))
             {
-                regionsToCopy.push_back(nextRegionToCopy);
-                parentRegions.push_back(parentRegion);
+                regionsToCopy.push_back(chunk.staging);
+                chunks.push_back(chunk);
             }
             else
                 break;
@@ -339,40 +377,11 @@ bool IUtilities::downloadImageViaStagingBuffer(
         const uint32_t consumedMemory = allocationSize - availableDownloadBufferMemory;
         auto dataConsumer = core::make_smart_refctd_ptr<CDownstreamingDataConsumer>(
             IDeviceMemoryAllocation::MemoryRange(localOffset,consumedMemory),
-            [dest,localOffset,srcImageFormat,subRegions=regionsToCopy,dstRegions=parentRegions](const size_t dstOffset, const void* srcPtr, const size_t size)->void
+            [dst,stagingPtr=m_defaultDownloadBuffer->getBufferPointer(),hostFormat=srcImageFormat,chunks,logger=m_logger](const size_t, const void*, const size_t)->void
             {
-                const asset::TexelBlockInfo blockInfo(srcImageFormat);
-                const uint32_t blockByteSize = blockInfo.getBlockByteSize();
-                for (size_t i=0; i<subRegions.size(); i++)
-                {
-                    const asset::IImage::SBufferCopy& sub = subRegions[i];
-                    const asset::IImage::SBufferCopy& parent = dstRegions[i];
-
-                    const auto srcByteStrides = sub.getByteStrides(blockInfo);
-                    const auto dstByteStrides = parent.getByteStrides(blockInfo);
-                    const auto extentInBlocks = blockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(sub.imageExtent.width,sub.imageExtent.height,sub.imageExtent.depth));
-                    const auto localBlockOffset = blockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(
-                        sub.imageOffset.x-parent.imageOffset.x,
-                        sub.imageOffset.y-parent.imageOffset.y,
-                        sub.imageOffset.z-parent.imageOffset.z
-                    ));
-                    const uint32_t localLayer = sub.imageSubresource.baseArrayLayer-parent.imageSubresource.baseArrayLayer;
-
-                    const size_t rowByteSize = size_t(extentInBlocks.x)*blockByteSize;
-                    const uint8_t* srcBase = reinterpret_cast<const uint8_t*>(srcPtr)+(sub.bufferOffset-localOffset);
-                    uint8_t* dstBase = reinterpret_cast<uint8_t*>(dest)+parent.bufferOffset;
-                    for (uint32_t l=0u; l<sub.imageSubresource.layerCount; l++)
-                    for (uint32_t z=0u; z<extentInBlocks.z; z++)
-                    for (uint32_t y=0u; y<extentInBlocks.y; y++)
-                    {
-                        const uint8_t* src = srcBase+size_t(l)*srcByteStrides[3]+size_t(z)*srcByteStrides[2]+size_t(y)*srcByteStrides[1];
-                        assert(src+rowByteSize<=reinterpret_cast<const uint8_t*>(srcPtr)+size);
-                        uint8_t* dst = dstBase+asset::IImage::SBufferCopy::getLocalByteOffset(
-                            core::vector4du32_SIMD(localBlockOffset.x,localBlockOffset.y+y,localBlockOffset.z+z,localLayer+l),dstByteStrides
-                        );
-                        memcpy(dst,src,rowByteSize);
-                    }
-                }
+                for (const auto& chunk : chunks)
+                if (!ImageRegionIterator::copyChunk(chunk,ImageRegionIterator::E_DIRECTION::STAGING_TO_HOST,stagingPtr,dst,hostFormat))
+                    logger.log("Failed to copy a staged chunk into `dst`, the download is incomplete.",system::ILogger::ELL_ERROR);
             },
             core::smart_refctd_ptr<IGPUCommandBuffer>(scratch->cmdbuf),
             m_defaultDownloadBuffer.get()

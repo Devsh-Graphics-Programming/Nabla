@@ -61,14 +61,21 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 			{
 				assert(getTexelOrBlockBytesize(commonExecuteData.inFormat)==getTexelOrBlockBytesize(commonExecuteData.outFormat)); // if this asserts the API got broken during an update or something
 
-				const auto blockDims = asset::getBlockDimensions(commonExecuteData.inFormat);
-				auto copy = [&commonExecuteData,&blockDims](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+				const TexelBlockInfo blockInfo(commonExecuteData.inFormat);
+				const auto outBlockStrides = commonExecuteData.oit->getBlockStrides(TexelBlockInfo(commonExecuteData.outFormat));
+				for (auto region : commonExecuteData.inRegions)
 				{
-					const auto localOutPos = readBlockPos+commonExecuteData.offsetDifferenceInBlocks;
-					const auto writeOffset = commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides);
-					memcpy(commonExecuteData.outData+writeOffset,commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.outBlockByteSize);
-				};
-				CBasicImageFilterCommon::executePerRegion<ExecutionPolicy>(policy,commonExecuteData.inImg,copy,commonExecuteData.inRegions,clip);
+					if (!clip(region,&region))
+						continue;
+					core::vectorSIMDu32 readBlockPos(region.imageOffset.x,region.imageOffset.y,region.imageOffset.z);
+					readBlockPos = blockInfo.convertTexelsToBlocks(readBlockPos);
+					readBlockPos.w = region.imageSubresource.baseArrayLayer;
+					core::vectorSIMDu32 extentInBlocks(region.imageExtent.width,region.imageExtent.height,region.imageExtent.depth);
+					extentInBlocks = blockInfo.convertTexelsToBlocks(extentInBlocks);
+					extentInBlocks.w = region.imageSubresource.layerCount;
+					const auto writeOffset = commonExecuteData.oit->getByteOffset(readBlockPos+commonExecuteData.offsetDifferenceInBlocks,commonExecuteData.outByteStrides);
+					CBasicImageFilterCommon::copyBlocks(policy,commonExecuteData.outData+writeOffset,outBlockStrides,commonExecuteData.inData+region.bufferOffset,region.getBlockStrides(blockInfo),blockInfo.getBlockByteSize(),extentInBlocks);
+				}
 
 				return true;
 			};

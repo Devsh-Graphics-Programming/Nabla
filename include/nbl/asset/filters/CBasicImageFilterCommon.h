@@ -240,6 +240,65 @@ class CBasicImageFilterCommon
 			executePerBlock(core::execution::seq,image,region,f);
 		}
 
+		//! Calls `f(inByteOffset,outByteOffset,blockCount)` for every run of blocks contiguous in both the input and the output of a box of `extentInBlocks` (`w` is the layer count).
+		//! The strides are `IImage::SBufferCopy::getBlockStrides`, rows, slices and layers merge into one run wherever neither side has padding between them, parallel policies split runs into 256 KiB pieces.
+		template<class ExecutionPolicy, typename F>
+		static inline void executePerRun(ExecutionPolicy&& policy, const core::vectorSIMDu32& extentInBlocks, const core::vectorSIMDu32& inBlockStrides, const size_t inBlockByteSize, const core::vectorSIMDu32& outBlockStrides, const size_t outBlockByteSize, F&& f)
+		{
+			if (!extentInBlocks.x || !extentInBlocks.y || !extentInBlocks.z || !extentInBlocks.w)
+				return;
+
+			const size_t inRowPitch = inBlockStrides.x*inBlockByteSize;
+			const size_t outRowPitch = outBlockStrides.x*outBlockByteSize;
+			const size_t inPitches[3] = {inRowPitch,inRowPitch*inBlockStrides.y,inRowPitch*inBlockStrides.y*inBlockStrides.z};
+			const size_t outPitches[3] = {outRowPitch,outRowPitch*outBlockStrides.y,outRowPitch*outBlockStrides.y*outBlockStrides.z};
+			uint32_t counts[3] = {extentInBlocks.y,extentInBlocks.z,extentInBlocks.w};
+			size_t runBlocks = extentInBlocks.x;
+			for (uint32_t i=0u; i<3u; i++)
+			{
+				if (counts[i]!=1u && (inPitches[i]!=runBlocks*inBlockByteSize || outPitches[i]!=runBlocks*outBlockByteSize))
+					break;
+				runBlocks *= counts[i];
+				counts[i] = 1u;
+			}
+
+			constexpr size_t PieceByteSize = 0x40000u;
+			const size_t blockByteSize = core::max<size_t>(core::max(inBlockByteSize,outBlockByteSize),1u);
+			constexpr bool Sequential = std::is_same_v<std::decay_t<ExecutionPolicy>,core::execution::sequenced_policy>;
+			if (Sequential || runBlocks*blockByteSize*counts[0]*counts[1]*counts[2]<=PieceByteSize)
+			{
+				for (uint32_t layer=0u; layer<counts[2]; layer++)
+				for (uint32_t slice=0u; slice<counts[1]; slice++)
+				for (uint32_t row=0u; row<counts[0]; row++)
+					f(row*inPitches[0]+slice*inPitches[1]+layer*inPitches[2],row*outPitches[0]+slice*outPitches[1]+layer*outPitches[2],runBlocks);
+			}
+			else
+			{
+				const size_t pieceBlocks = core::max<size_t>(PieceByteSize/blockByteSize,1u);
+				const uint32_t batches[4] = {uint32_t((runBlocks+pieceBlocks-1u)/pieceBlocks),counts[0],counts[1],counts[2]};
+				const uint32_t endCoord[4] = {0u,0u,0u,counts[2]};
+				BlockIterator<4u> begin(batches);
+				BlockIterator<4u> end(begin.getExtentBatches(),endCoord);
+				std::for_each(std::forward<ExecutionPolicy>(policy),begin,end,[&](const std::array<uint32_t,4u>& coord) -> void
+				{
+					const size_t firstBlock = coord[0]*pieceBlocks;
+					f(coord[1]*inPitches[0]+coord[2]*inPitches[1]+coord[3]*inPitches[2]+firstBlock*inBlockByteSize,
+						coord[1]*outPitches[0]+coord[2]*outPitches[1]+coord[3]*outPitches[2]+firstBlock*outBlockByteSize,
+						core::min(pieceBlocks,runBlocks-firstBlock));
+				});
+			}
+		}
+
+		//! Copies a box of blocks between two layouts with one memcpy per run, @see `executePerRun`
+		template<class ExecutionPolicy>
+		static inline void copyBlocks(ExecutionPolicy&& policy, uint8_t* const dst, const core::vectorSIMDu32& dstBlockStrides, const uint8_t* const src, const core::vectorSIMDu32& srcBlockStrides, const size_t blockByteSize, const core::vectorSIMDu32& extentInBlocks)
+		{
+			executePerRun(std::forward<ExecutionPolicy>(policy),extentInBlocks,srcBlockStrides,blockByteSize,dstBlockStrides,blockByteSize,[&](const size_t srcByteOffset, const size_t dstByteOffset, const size_t blockCount) -> void
+			{
+				memcpy(dst+dstByteOffset,src+srcByteOffset,blockCount*blockByteSize);
+			});
+		}
+
 		struct default_region_functor_t
 		{
 			constexpr default_region_functor_t() = default;
