@@ -5,6 +5,8 @@
 #include <functional>
 
 #include "nbl/system/IAsyncQueueDispatcher.h"
+#include "nbl/system/IFile.h"
+#include "nbl/system/ILogger.h"
 
 namespace nbl::system
 {
@@ -31,8 +33,15 @@ namespace nbl::system
         {
             using base_t = IAsyncQueueDispatcher;
 
+            bool m_curlReady = false;
+            int m_curlInitResult = 0;           // a CURLcode, kept so `process_request` can report why init failed
+            logger_opt_smart_ptr m_logger = nullptr;      // only read by the worker thread inside `process_request`
+
         public:
-            CAsyncQueue() : base_t(start_on_construction) {}
+            CAsyncQueue() : base_t() { start(); }
+
+            // Must be called before the first request is queued, the queue is what orders it before the worker's reads
+            inline void setLogger(core::smart_refctd_ptr<ILogger>&& logger) { m_logger = logger_opt_smart_ptr(std::move(logger)); }
             ~CAsyncQueue() { this->shutdown(); }
 
             void init();
@@ -45,6 +54,9 @@ namespace nbl::system
 
         CHttpDownloader() : m_queue() {}
         ~CHttpDownloader() = default;
+
+        // Optional, errors get logged from the download worker thread. Call before the first `downloadFile`.
+        inline void setLogger(core::smart_refctd_ptr<ILogger>&& logger) { m_queue.setLogger(std::move(logger)); }
 
         template<typename T>
         using future_t = IAsyncQueueDispatcher<CAsyncQueue, SRequest_DOWNLOAD, CIRCULAR_QUEUE_SIZE>::future_t<T>;

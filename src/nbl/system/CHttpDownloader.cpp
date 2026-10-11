@@ -11,12 +11,16 @@ namespace nbl::system
 {
     void CHttpDownloader::CAsyncQueue::init()
     {
-        curl_global_init(CURL_GLOBAL_DEFAULT);
+        //Cannot log here, sadly
+        const CURLcode res = curl_global_init(CURL_GLOBAL_DEFAULT);
+        m_curlInitResult = static_cast<int>(res);
+        m_curlReady = (res == CURLE_OK);
     }
 
     void CHttpDownloader::CAsyncQueue::exit()
     {
-        curl_global_cleanup();
+        if (m_curlReady)
+            curl_global_cleanup();
     }
 
     void CHttpDownloader::CAsyncQueue::process_request(base_t::future_base_t* future, SRequest_DOWNLOAD& request)
@@ -24,14 +28,19 @@ namespace nbl::system
         using retval_t = core::smart_refctd_ptr<IFile>;
         auto* storage = base_t::future_storage_cast<retval_t>(future);
 
-        std::vector<uint8_t> bytes;
-        CURL* curl = curl_easy_init();
-
-        if (curl == nullptr)
+        if (!m_curlReady)
         {
+            m_logger.log("curl_global_init failed (%s), cannot download %s", ILogger::ELL_ERROR,
+                curl_easy_strerror(static_cast<CURLcode>(m_curlInitResult)), request.url.c_str());
             storage->construct(nullptr);
             return;
         }
+
+        std::vector<uint8_t> bytes;
+        CURL* curl = curl_easy_init();
+
+        char errorBuffer[CURL_ERROR_SIZE] = {};
+        curl_easy_setopt(curl, CURLOPT_ERRORBUFFER, errorBuffer);
 
         curl_easy_setopt(curl, CURLOPT_URL, request.url.c_str());
         curl_easy_setopt(curl, CURLOPT_PROTOCOLS_STR, "http,https");
@@ -49,10 +58,30 @@ namespace nbl::system
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeToBuffer);  //callback to write data to buffer
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &bytes);
 
-        const bool ok = curl_easy_perform(curl) == CURLE_OK;
+        const CURLcode res = curl_easy_perform(curl);
+
+        long httpStatus = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpStatus);
         curl_easy_cleanup(curl);
 
-        storage->construct(ok ? createFile(path(request.url).filename(), bytes) : nullptr);
+        if (res != CURLE_OK)
+        {
+            m_logger.log("Download of %s failed: %s (curl code %d, HTTP status %ld)", ILogger::ELL_ERROR,
+                request.url.c_str(), errorBuffer[0] ? errorBuffer : curl_easy_strerror(res), static_cast<int>(res), httpStatus);
+            storage->construct(nullptr);
+            return;
+        }
+
+        auto file = createFile(path(request.url).filename(), bytes);
+        if (file)
+        {
+            m_logger.log("Downloaded %s (%zu bytes)", ILogger::ELL_DEBUG, request.url.c_str(), bytes.size());
+        }
+        else
+        {
+            m_logger.log("Downloaded %s (%zu bytes) but could not create the in-memory file", ILogger::ELL_ERROR, request.url.c_str(), bytes.size());
+        }
+        storage->construct(std::move(file));
     }
 
     void CHttpDownloader::downloadFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::string& url)
