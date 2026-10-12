@@ -5,7 +5,6 @@
 #define _NBL_VIDEO_IMAGE_REGION_ITERATOR_H_INCLUDED_
 
 #include "nbl/asset/asset.h"
-#include "nbl/asset/utils/ISPIRVOptimizer.h"
 
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
@@ -13,28 +12,63 @@
 namespace nbl::video
 {
 
+// ! Chops `copyRegions` of an image into chunks that fit a staging buffer allocation.
+// ! Direction agnostic: a chunk is what one `copyBufferToImage` or `copyImageToBuffer` region touches, and enough to also copy the
+// ! chunk between the staging buffer and the host memory `copyRegions` describe, see `copyChunk`.
+// ! The chunking respects both copy commands' shared valid usage on `bufferOffset` alignment and transfer granularity:
+// ! VUID-vkCmdCopyBufferToImage-dstImage-07975 / VUID-vkCmdCopyImageToBuffer-srcImage-07975 (texel block size)
+// ! VUID-vkCmdCopyBufferToImage-dstImage-07978 / VUID-vkCmdCopyImageToBuffer-srcImage-07978 (depth/stencil, multiple of 4)
+// ! VUID-vkCmdCopyBufferToImage-commandBuffer-07737 / VUID-vkCmdCopyImageToBuffer-commandBuffer-07746 (no graphics/compute queue, multiple of 4)
+// ! VUID-vkCmdCopyBufferToImage-imageOffset-07738 / VUID-vkCmdCopyImageToBuffer-imageOffset-07747 (minImageTransferGranularity)
 class ImageRegionIterator
 {
     public:
+        struct SChunk
+        {
+            // ! Region for the `copyBufferToImage`/`copyImageToBuffer` call, `bufferOffset` is relative to the staging buffer
+            asset::IImage::SBufferCopy staging = {};
+            // ! Bytes the staging region spans, the rows are laid out at `getOptimalCopyTexelStrides` pitch
+            uint32_t stagingByteSize = 0u;
+            // ! Format of the image, and hence of the staged data
+            asset::E_FORMAT imageFormat = asset::EF_UNKNOWN;
+            // ! `bufferOffset` of the region in `copyRegions` this chunk was cut from
+            size_t hostBufferOffset = 0ull;
+            // ! `SBufferCopy::getTexelStrides()` of the region in `copyRegions` this chunk was cut from
+            core::vector3du32_SIMD hostTexelStrides = core::vector3du32_SIMD(0u,0u,0u);
+            // ! Where the chunk starts inside the region it was cut from, xyz in texels and w the array layer
+            core::vector4du32_SIMD hostOffsetBaseLayer = core::vector4du32_SIMD(0u,0u,0u,0u);
+        };
+
+        // ! The extra copy between the host memory `copyRegions` describe and the staging buffer.
+        enum class E_DIRECTION : uint8_t
+        {
+            // ! host -> staging, before `copyBufferToImage`
+            HOST_TO_STAGING,
+            // ! staging -> host, after `copyImageToBuffer` completed
+            STAGING_TO_HOST
+        };
+
         ImageRegionIterator(
             const std::span<const asset::IImage::SBufferCopy> copyRegions,
             IPhysicalDevice::SQueueFamilyProperties queueFamilyProps,
-            const void* srcData,
-            asset::E_FORMAT srcImageFormat,
-            video::IGPUImage* const dstImage,
+            const video::IGPUImage* const image,
             size_t optimalRowPitchAlignment
         );
-    
+
         // ! Memory you need to allocate to transfer the remaining regions in one submit.
         // ! WARN: It's okay to use less memory than the return value of this function for your staging memory, in that usual case more than 1 copy regions will be needed to transfer the remaining regions.
         size_t getMemoryNeededForRemainingRegions() const;
 
-        // ! Gives `regionToCopyNext` based on `availableMemory`
-        // ! memcopies the data from `srcData` to `stagingBuffer`, preparing it for launch and submit to copy to GPU buffer
+        // ! Cuts the next `chunk` that fits in `availableMemory`, largest transferable unit first (layers, slices, rows, blocks)
         // ! updates `availableMemory` (availableMemory -= consumedMemory)
         // ! updates `stagingBufferOffset` based on consumed memory and alignment requirements
-        // ! this function may do format conversions when copying from `srcData` to `stagingBuffer` if srcImageFormat != dstImage->getCreationParams().format passed as constructor parameters
-        bool advanceAndCopyToStagingBuffer(asset::IImage::SBufferCopy& regionToCopyNext, uint32_t& availableMemory, uint32_t& stagingBufferOffset, void* stagingBufferPointer);
+        // ! does not touch any memory, @see `copyChunk`
+        bool advance(SChunk& chunk, uint32_t& availableMemory, uint32_t& stagingBufferOffset);
+
+        // ! Copies one chunk between `hostPtr` (laid out as the region the chunk was cut from, in `hostFormat`) and `stagingPtr` (the staging buffer base).
+        // ! Same format: `CBasicImageFilterCommon::copyBlocks`, memcpy of the largest runs of rows, slices or layers without padding on either side, padding is never read or written.
+        // ! Different formats: maps channels by position, missing ones to zero and alpha to one, with `STexelReshuffle` when no channel changes its encoding, otherwise with `CSwizzleAndConvertImageFilter` on mock `ICPUImage`s.
+        static bool copyChunk(const SChunk& chunk, const E_DIRECTION direction, void* stagingPtr, void* hostPtr, const asset::E_FORMAT hostFormat);
 
         // ! returns true when there is no more regions left over to copy
         bool isFinished() const { return currentRegion == regions.size(); }
@@ -55,28 +89,20 @@ class ImageRegionIterator
     private:
         const std::span<const asset::IImage::SBufferCopy> regions;
 
-        // Mock CPU Images used to copy cpu buffer to staging buffer
-        // TODO: unless you're doing region copies in parallel, just have one image each and set new regions each upload
-        std::vector<core::smart_refctd_ptr<asset::ICPUImage>> imageFilterInCPUImages;
-        core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy> outCPUImageRegions; // needs to be updated before each upload
-        std::vector<core::smart_refctd_ptr<asset::ICPUImage>> imageFilterOutCPUImages;
-
         size_t optimalRowPitchAlignment = 1u;
         bool canTransferMipLevelsPartially = false;
         const asset::VkExtent3D minImageTransferGranularity = {};
         uint32_t bufferOffsetAlignment = 1u;
 
-        asset::E_FORMAT srcImageFormat;
-        const asset::E_FORMAT dstImageFormat;
-        const void* const srcData;
-        video::IGPUImage* const dstImage;
-    
-        // Block Offsets 
-        uint16_t currentBlockInRow = 0u;
-        uint16_t currentRowInSlice = 0u;
-        uint16_t currentSliceInLayer = 0u;
-        uint16_t currentLayerInRegion = 0u;
-        uint16_t currentRegion = 0u;
+        const asset::E_FORMAT imageFormat;
+        const video::IGPUImage* const image;
+
+        // Block Offsets
+        uint32_t currentBlockInRow = 0u;
+        uint32_t currentRowInSlice = 0u;
+        uint32_t currentSliceInLayer = 0u;
+        uint32_t currentLayerInRegion = 0u;
+        uint32_t currentRegion = 0u;
 };
 
 }
