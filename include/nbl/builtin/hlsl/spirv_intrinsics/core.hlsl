@@ -145,6 +145,9 @@ template<typename T, typename Ptr_U>
 [[vk::ext_instruction(spv::OpCopyLogical)]]
 enable_if_t<is_pointer_v<Ptr_U>/* && !is_same_v<T,U>*/,T> copyLogical(Ptr_U v);
 
+// Atomics still don't detect the address space of `ptr` and narrow down the sync-scope properly, hence the DXC workarounds
+// see issue: https://github.com/microsoft/DirectXShaderCompiler/issues/6508 -- same as in glsl_compat/core.hlsl
+
 // Here's the thing with atomics, it's not only the data type that dictates whether you can do an atomic or not.
 // It's the storage class that has the most effect (shared vs storage vs image) and we can't check that easily
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
@@ -254,6 +257,22 @@ T atomicCompareExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint3
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
 enable_if_t<is_pointer_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
+
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicLoad)]]
+T atomicLoad([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+template<typename T, typename Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicLoad)]]
+enable_if_t<is_pointer_v<Ptr_T>, T> atomicLoad(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicStore)]]
+enable_if_t<is_scalar_v<T>, void> atomicStore([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+template<typename T, typename Ptr_T> // DXC Workaround
+[[vk::ext_instruction(spv::OpAtomicStore)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_scalar_v<T>, void> atomicStore(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 
 template<typename T, uint32_t alignment>

@@ -116,16 +116,6 @@ enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicXor(Ptr_T ptr, T value)
 {
     return spirv::atomicXor<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
-/* TODO: @Hazardu struct dispatchers like for `bitfieldExtract`
-template<typename T>
-T atomicMin(NBL_REF_ARG(T) ptr, T value)
-{
-}
-template<typename T>
-T atomicMax(NBL_REF_ARG(T) ptr, T value)
-{
-}
-*/
 template<typename T>
 T atomicExchange(NBL_REF_ARG(T) ptr, T value)
 {
@@ -145,6 +135,100 @@ template<typename T, typename Ptr_T> // DXC Workaround
 enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T comparator, T value)
 {
     return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
+}
+
+namespace impl
+{
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct atomicMin;
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::SignedIntegral<T>)
+struct atomicMin<T NBL_PARTIAL_REQ_BOT(concepts::SignedIntegral<T>) >
+{
+    static T __call(NBL_REF_ARG(T) ptr, T value)
+    {
+        return spirv::atomicSMin<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    }
+
+    template<typename Ptr_T> // DXC Workaround
+    static T __call(Ptr_T ptr, T value)
+    {
+        return spirv::atomicSMin<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    }
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegral<T>)
+struct atomicMin<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegral<T>) >
+{
+    static T __call(NBL_REF_ARG(T) ptr, T value)
+    {
+        return spirv::atomicUMin<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    }
+
+    template<typename Ptr_T> // DXC Workaround
+    static T __call(Ptr_T ptr, T value)
+    {
+        return spirv::atomicUMin<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    }
+};
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct atomicMax;
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::SignedIntegral<T>)
+struct atomicMax<T NBL_PARTIAL_REQ_BOT(concepts::SignedIntegral<T>) >
+{
+    static T __call(NBL_REF_ARG(T) ptr, T value)
+    {
+        return spirv::atomicSMax<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    }
+
+    template<typename Ptr_T> // DXC Workaround
+    static T __call(Ptr_T ptr, T value)
+    {
+        return spirv::atomicSMax<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    }
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegral<T>)
+struct atomicMax<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegral<T>) >
+{
+    static T __call(NBL_REF_ARG(T) ptr, T value)
+    {
+        return spirv::atomicUMax<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    }
+
+    template<typename Ptr_T> // DXC Workaround
+    static T __call(Ptr_T ptr, T value)
+    {
+        return spirv::atomicUMax<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    }
+};
+}
+
+template<typename T>
+T atomicMin(NBL_REF_ARG(T) ptr, T value)
+{
+    return impl::atomicMin<T>::__call(ptr, value);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicMin(Ptr_T ptr, T value)
+{
+    return impl::atomicMin<T>::template __call<Ptr_T>(ptr, value);
+}
+template<typename T>
+T atomicMax(NBL_REF_ARG(T) ptr, T value)
+{
+    return impl::atomicMax<T>::__call(ptr, value);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicMax(Ptr_T ptr, T value)
+{
+    return impl::atomicMax<T>::template __call<Ptr_T>(ptr, value);
 }
 
 /**
