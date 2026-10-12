@@ -13,9 +13,10 @@ set(NBL_EXTRA_LIBS
 
 nbl_create_executable_project("" "${NBL_EXTRA_OPTIONS}" "${NBL_EXTRA_INCLUDES}" "${NBL_EXTRA_LIBS}")
 
-add_dependencies(${EXECUTABLE_NAME} argparse)
+find_package(argparse CONFIG REQUIRED)
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE argparse::argparse)
 target_include_directories(${EXECUTABLE_NAME} PUBLIC 
-	$<TARGET_PROPERTY:argparse,INTERFACE_INCLUDE_DIRECTORIES>
+	# $<TARGET_PROPERTY:argparse,INTERFACE_INCLUDE_DIRECTORIES>
 	"${NBL_ROOT_PATH}/examples_tests/common/include"
 )
 

@@ -18,7 +18,7 @@
 #include "CImageLoaderPNG.h"
 
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
-	#include "libpng/png.h"
+#include "libpng16/png.h"
 #endif // _NBL_COMPILE_WITH_LIBPNG_
 
 namespace nbl::asset

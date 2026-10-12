@@ -7,8 +7,8 @@
 #include "nbl/asset/ICPUPipeline.h"
 #include "nbl/asset/utils/spvUtils.h"
 
-#include "nbl_spirv_cross/spirv_parser.hpp"
-#include "nbl_spirv_cross/spirv_cross.hpp"
+#include "spirv_cross/spirv_parser.hpp"
+#include "spirv_cross/spirv_cross.hpp"
 
 namespace nbl::asset
 {
