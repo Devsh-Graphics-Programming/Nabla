@@ -164,5 +164,43 @@ core::smart_refctd_ptr<CSurfaceVulkanWin32Native> CSurfaceVulkanWin32Native::cre
 	auto retval = new this_t(std::move(api), handle, vk_surface);
 	return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
 }
+#elif defined(_NBL_PLATFORM_LINUX_)
+static VkSurfaceKHR createXcbSurface(CVulkanConnection* api, const ui::IWindowXcb::native_handle_t& handle)
+{
+	VkXcbSurfaceCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR };
+	createInfo.pNext = nullptr; // pNext must be NULL
+	createInfo.flags = static_cast<VkXcbSurfaceCreateFlagsKHR>(0);
+	createInfo.connection = handle.connection;
+	createInfo.window = handle.window;
+
+	VkSurfaceKHR vk_surface;
+	// `vkCreateXcbSurfaceKHR` is taken from `volk`, and only loaded when `VK_KHR_xcb_surface` got enabled on the instance
+	if (!vkCreateXcbSurfaceKHR || vkCreateXcbSurfaceKHR(api->getInternalObject(), &createInfo, nullptr, &vk_surface) != VK_SUCCESS)
+		return VK_NULL_HANDLE;
+	return vk_surface;
+}
+
+core::smart_refctd_ptr<CSurfaceVulkanXcb> CSurfaceVulkanXcb::create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowXcb>&& window)
+{
+	if (!api || !window)
+		return nullptr;
+
+	const VkSurfaceKHR vk_surface = createXcbSurface(api.get(), window->getNativeHandle());
+	if (vk_surface == VK_NULL_HANDLE)
+		return nullptr;
+	auto retval = new this_t(std::move(window), std::move(api), vk_surface);
+	return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
+}
+core::smart_refctd_ptr<CSurfaceVulkanXcbNative> CSurfaceVulkanXcbNative::create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, const ui::IWindowXcb::native_handle_t& handle)
+{
+	if (!api || !handle.connection || !handle.window)
+		return nullptr;
+
+	const VkSurfaceKHR vk_surface = createXcbSurface(api.get(), handle);
+	if (vk_surface == VK_NULL_HANDLE)
+		return nullptr;
+	auto retval = new this_t(std::move(api), handle, vk_surface);
+	return core::smart_refctd_ptr<this_t>(retval, core::dont_grab);
+}
 #endif
 }

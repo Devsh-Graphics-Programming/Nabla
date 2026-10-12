@@ -143,7 +143,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 				inline core::smart_refctd_ptr<CFileSystemIncludeLoader> getDefaultFileSystemLoader() const { return m_defaultFileSystemLoader; }
 
-				void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader, IncludeClassification classification = {});
+				void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader, IncludeClassification classification);
+				// separate overload because Clang can't evaluate `IncludeClassification`'s default member initializers in a default argument here
+				inline void addSearchPath(const std::string& searchPath, const core::smart_refctd_ptr<IIncludeLoader>& loader) {addSearchPath(searchPath,loader,IncludeClassification{});}
 
 				void addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generator, IncludeClassification classification = {IncludeRootOrigin::Generated,HeaderClass::System});
 
@@ -291,7 +293,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								requestingSourceDir(_requestingSourceDir), identifier(_identifier), standardInclude(_standardInclude), hash(_hash)
 							{}
 
-							inline SPreprocessingDependency(SPreprocessingDependency&) = default;
+							inline SPreprocessingDependency(const SPreprocessingDependency&) = default;
 							inline SPreprocessingDependency& operator=(SPreprocessingDependency&) = delete;
 							inline SPreprocessingDependency(SPreprocessingDependency&&) = default;
 							inline SPreprocessingDependency& operator=(SPreprocessingDependency&&) = default;

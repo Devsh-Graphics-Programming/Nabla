@@ -66,10 +66,17 @@ set(VOLK_PULL_IN_VULKAN OFF CACHE INTERNAL "" FORCE) # Needed to make sure vulka
 	
 if (WIN32)
 	set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_XCB_KHR)
 endif()
 add_subdirectory(volk volk EXCLUDE_FROM_ALL)
 	
 target_include_directories(volk PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
+# vulkaninfo (C++) defines the same global `vkXxx` function pointers volk.c declares as C tentative definitions,
+# MSVC merges them as common symbols, GCC>=10 and Clang>=11 default to -fno-common and the link fails on duplicates
+if(NOT MSVC)
+	target_compile_options(volk PRIVATE -fcommon)
+endif()
 target_include_directories(volk_headers INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/include")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -119,6 +126,10 @@ if(NOT NBL_IS_MULTI_CONFIG)
 	list(APPEND NBL_JPEG_CMAKE_OPTIONS "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
 endif()
 
+if(CMAKE_POSITION_INDEPENDENT_CODE)
+	list(APPEND NBL_JPEG_CMAKE_OPTIONS "-DCMAKE_POSITION_INDEPENDENT_CODE:BOOL=ON")
+endif()
+
 if(NOT CMAKE_GENERATOR MATCHES "Ninja*")
     list(APPEND NBL_JPEG_CMAKE_OPTIONS -Ax64)
 endif()
@@ -144,13 +155,28 @@ if(NOT "${JPEG_CMAKE_RESULT}" STREQUAL "0")
 	message(FATAL_ERROR "${JPEG_CMAKE_STREAM_PIPE}")
 endif()
 
-set(JPEG_LIB_OUTPUT "${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo/$<CONFIG>/jpeg-static${CMAKE_STATIC_LIBRARY_SUFFIX}")
-add_custom_command(OUTPUT ${JPEG_LIB_OUTPUT}
+# libjpeg-turbo only names the archive `jpeg-static` for MSVC-like compilers (`libjpeg.a` otherwise)
+# and single-config generators don't put outputs in a per-config subdirectory
+if(MSVC)
+	set(_NBL_JPEG_LIB_NAME_ "jpeg-static${CMAKE_STATIC_LIBRARY_SUFFIX}")
+else()
+	set(_NBL_JPEG_LIB_NAME_ "${CMAKE_STATIC_LIBRARY_PREFIX}jpeg${CMAKE_STATIC_LIBRARY_SUFFIX}")
+endif()
+if(NBL_IS_MULTI_CONFIG)
+	set(JPEG_LIB_OUTPUT "${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo/$<CONFIG>/${_NBL_JPEG_LIB_NAME_}")
+else()
+	set(JPEG_LIB_OUTPUT "${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo/${_NBL_JPEG_LIB_NAME_}")
+endif()
+# always step into the child build (a no-op when it's up to date), its own dependency tracking then picks up
+# source and flag changes (e.g. PIC) which a custom command OUTPUT without DEPENDS never would
+add_custom_target(jpeg-static-build
 	COMMAND "${CMAKE_COMMAND}" --build "${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo" -t jpeg-static --config $<CONFIG>
+	BYPRODUCTS "${JPEG_LIB_OUTPUT}"
 	COMMENT "Building libjpeg-turbo static library"
 	VERBATIM USES_TERMINAL
 )
-add_library(jpeg-static INTERFACE ${JPEG_LIB_OUTPUT})
+add_library(jpeg-static INTERFACE)
+add_dependencies(jpeg-static jpeg-static-build)
 target_include_directories(jpeg-static INTERFACE 
 	"${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo/src"
 	"${THIRD_PARTY_BINARY_DIR}/libjpeg-turbo"

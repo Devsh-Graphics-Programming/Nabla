@@ -20,8 +20,15 @@ namespace math
 namespace linalg
 {
 
+// `hlsl::matrix` has `uint16_t` dimensions in C++ and Clang won't deduce them through an `int` parameter, DXC wants `int`
+#ifdef __HLSL_VERSION
+#define NBL_PROMOTED_MUL_DIM_T int
+#else
+#define NBL_PROMOTED_MUL_DIM_T uint16_t
+#endif
+
 // Multiply matrices as-if extended to be filled with identity elements
-template<typename T, int N, int M, int P, int Q> 
+template<typename T, NBL_PROMOTED_MUL_DIM_T N, NBL_PROMOTED_MUL_DIM_T M, NBL_PROMOTED_MUL_DIM_T P, NBL_PROMOTED_MUL_DIM_T Q> 
 matrix<T,N,M> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,P>) lhs, NBL_CONST_REF_ARG(matrix<T,Q,M>) rhs)
 {
     matrix<T,N,M> retval;
@@ -56,7 +63,7 @@ matrix<T,N,M> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,P>) lhs, NBL_CONST_REF_A
 }
 
 // Multiply matrix and vector as-if extended to be filled with 1 in diagonal for matrix and last for vector
-template<typename T, int N, int M, int P> 
+template<typename T, NBL_PROMOTED_MUL_DIM_T N, NBL_PROMOTED_MUL_DIM_T M, int P> 
 vector<T,N> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,M>) lhs, const vector<T,P> v)
 {
     vector<T,N> retval;
@@ -77,6 +84,7 @@ vector<T,N> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,M>) lhs, const vector<T,P>
     }
     return retval;
 }
+#undef NBL_PROMOTED_MUL_DIM_T
 
 template<typename T, uint32_t N>
 inline void setRotation(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(math::quaternion<T>) quat)

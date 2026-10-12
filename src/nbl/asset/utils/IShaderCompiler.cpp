@@ -702,6 +702,10 @@ std::string normalizeIncludeLookupName(const std::string& includeName)
         second != '/' && second != '\\';
     if (!hasSingleLeadingSeparator)
         return includeName;
+    // on POSIX a single leading separator is also an absolute filesystem path (`#include "/abs/file.hlsl"`)
+    std::error_code ec;
+    if (std::filesystem::path(includeName).is_absolute() && std::filesystem::exists(includeName,ec))
+        return includeName;
 
     return includeName.substr(1ull);
 }
@@ -917,10 +921,15 @@ void IShaderCompiler::CIncludeFinder::addSearchPath(const std::string& searchPat
 {
     if (!loader)
         return;
-    auto normalizedSearchPath = normalizeClassifiedRootPath(searchPath);
+    const auto normalizedSearchPath = normalizeClassifiedRootPath(searchPath);
     if (!normalizedSearchPath.empty())
         registerHeaderRoot(normalizedSearchPath, classification);
-    m_loaders.emplace_back(LoaderSearchPath{ loader, std::move(normalizedSearchPath), classification });
+    // the classified root drops a leading separator, the loader must keep it or POSIX absolute paths become relative
+    auto loaderSearchPath = searchPath;
+    std::replace(loaderSearchPath.begin(), loaderSearchPath.end(), '\\', '/');
+    while (loaderSearchPath.size() > 1ull && loaderSearchPath.back() == '/')
+        loaderSearchPath.pop_back();
+    m_loaders.emplace_back(LoaderSearchPath{ loader, std::move(loaderSearchPath), classification });
 }
 
 void IShaderCompiler::CIncludeFinder::addGenerator(const core::smart_refctd_ptr<IIncludeGenerator>& generatorToAdd, IncludeClassification classification)

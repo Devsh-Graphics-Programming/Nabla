@@ -10,7 +10,7 @@
 
 
 
-#ifdef _NBL_PLATFORM_WINDOWS_
+#if defined(_NBL_PLATFORM_WINDOWS_) || defined(_NBL_PLATFORM_LINUX_) // DXC is available on both
 
 namespace nbl::asset::impl
 {

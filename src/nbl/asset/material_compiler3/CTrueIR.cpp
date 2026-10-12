@@ -325,5 +325,5 @@ void CTrueIR::CEmitter::printDot(std::ostringstream& sstr, const core::string& s
 	}
 }
 
-template class CTrueIR::CSpectralVariable<CTrueIR::ISpectralVariableFactor>;
+// explicitly instantiated in the header already, a second one in the same TU is ill-formed (Clang rejects it)
 }

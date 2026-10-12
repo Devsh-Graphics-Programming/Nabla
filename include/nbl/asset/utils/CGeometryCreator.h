@@ -27,7 +27,9 @@ class NBL_API2 CGeometryCreator final : public core::IReferenceCounted
 			core::smart_refctd_ptr<CQuantNormalCache> normalCache = nullptr;
 			core::smart_refctd_ptr<CQuantQuaternionCache> quaternionCache = nullptr;
 		};
-		inline CGeometryCreator(SCreationParams&& params={}) : m_params(std::move(params))
+		// separate overload because Clang can't evaluate `SCreationParams`'s default member initializers in a default argument here
+		inline CGeometryCreator() : CGeometryCreator(SCreationParams{}) {}
+		inline CGeometryCreator(SCreationParams&& params) : m_params(std::move(params))
 		{
 			if (!m_params.normalCache)
 				m_params.normalCache = core::make_smart_refctd_ptr<CQuantNormalCache>();

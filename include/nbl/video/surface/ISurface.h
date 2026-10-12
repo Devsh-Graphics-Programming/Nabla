@@ -115,9 +115,14 @@ class CSurface : public ImmediateBase
         }
         inline const window_t* getWindow() const {return const_cast<window_t*>(const_cast<this_t*>(this)->getWindow());}
 
+        // handles which aren't pointers (e.g. XCB's connection and window pair) are returned by address
         inline const void* getNativeWindowHandle() const override final
         {
-            return m_window->getNativeHandle();
+            const auto& handle = m_window->getNativeHandle();
+            if constexpr (std::is_pointer_v<std::remove_cvref_t<decltype(handle)>>)
+                return handle;
+            else
+                return &handle;
         }
 
     protected:
@@ -138,7 +143,10 @@ class CSurfaceNative : public ImmediateBase
 
         inline const void* getNativeWindowHandle() const override final
         {
-            return m_handle;
+            if constexpr (std::is_pointer_v<typename Window::native_handle_t>)
+                return m_handle;
+            else
+                return &m_handle;
         }
 
     protected:

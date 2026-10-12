@@ -48,7 +48,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     using cur = std::remove_cvref_t<decltype(std::get<N - 1>(key))>;
        
                     if constexpr (is_bitflag<cur>)
-                        core::hash_combine(seed, cur::UNDERLYING_TYPE(std::get<N - 1>(key).value));
+                        core::hash_combine(seed, typename cur::UNDERLYING_TYPE(std::get<N - 1>(key).value));
                     else if constexpr (std::is_convertible_v<cur, size_t>)
                         core::hash_combine(seed, size_t(std::get<N - 1>(key)));
                     else

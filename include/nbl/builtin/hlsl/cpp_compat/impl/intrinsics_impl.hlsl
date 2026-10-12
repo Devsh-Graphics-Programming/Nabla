@@ -344,7 +344,8 @@ struct transpose_helper<Matrix>
 	{
 		using traits = matrix_traits<Matrix>;
 		// GLM's transpose function signature specializes in terms of the input argument
-		return reinterpret_cast<transposed_t&>(glm::transpose<traits::RowCount,traits::ColumnCount,traits::scalar_type,glm::qualifier::highp>(reinterpret_cast<typename Matrix::Base const&>(m)));
+		const auto transposed = glm::transpose<traits::RowCount,traits::ColumnCount,typename traits::scalar_type,glm::qualifier::highp>(reinterpret_cast<typename Matrix::Base const&>(m));
+		return reinterpret_cast<const transposed_t&>(transposed);
 	}
 };
 template<typename Vector>
@@ -459,7 +460,8 @@ struct inverse_helper<SquareMatrix>
 	static SquareMatrix __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
 	{
 		using traits = matrix_traits<SquareMatrix>;
-		return reinterpret_cast<SquareMatrix&>(glm::inverse<traits::ColumnCount, traits::RowCount, traits::scalar_type, glm::qualifier::highp>(reinterpret_cast<typename SquareMatrix::Base const&>(mat)));
+		const auto inv = glm::inverse<traits::ColumnCount, traits::RowCount, typename traits::scalar_type, glm::qualifier::highp>(reinterpret_cast<typename SquareMatrix::Base const&>(mat));
+		return reinterpret_cast<const SquareMatrix&>(inv);
 	}
 };
 

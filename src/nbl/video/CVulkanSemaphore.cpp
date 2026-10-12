@@ -47,9 +47,9 @@ system::external_handle_t CVulkanSemaphore::getExportHandle(E_EXTERNAL_HANDLE_TY
 {
   using U = typename core::bitflag<E_EXTERNAL_HANDLE_TYPE>::UNDERLYING_TYPE;
 
-  if (!std::has_single_bit(static_cast<U>(handleType))) return nullptr;
+  if (!std::has_single_bit(static_cast<U>(handleType))) return system::ExternalHandleNull;
 
-  if (!m_creationParams.externalHandleTypes.hasFlags(handleType)) return nullptr;
+  if (!m_creationParams.externalHandleTypes.hasFlags(handleType)) return system::ExternalHandleNull;
 
   const auto externalHandleTypes = m_creationParams.externalHandleTypes;
   const auto mask = core::bitflag<E_EXTERNAL_HANDLE_TYPE>(handleType - 1);

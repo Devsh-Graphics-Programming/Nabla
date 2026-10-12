@@ -15,7 +15,7 @@ class NBL_API2 CCompilerSet : public core::IReferenceCounted
 	public:
 		CCompilerSet(core::smart_refctd_ptr<system::ISystem>&& sys)
 			: 
-#ifdef _NBL_PLATFORM_WINDOWS_
+#if defined(_NBL_PLATFORM_WINDOWS_) || defined(_NBL_PLATFORM_LINUX_) // DXC is available on both
 			m_HLSLCompiler(core::make_smart_refctd_ptr<CHLSLCompiler>(core::smart_refctd_ptr(sys))),
 #endif
 			m_GLSLCompiler(core::make_smart_refctd_ptr<CGLSLCompiler>(core::smart_refctd_ptr(sys)))
@@ -29,7 +29,7 @@ class NBL_API2 CCompilerSet : public core::IReferenceCounted
 		{
 			if (contentType==IShader::E_CONTENT_TYPE::ECT_HLSL)
 			{
-#ifdef _NBL_PLATFORM_WINDOWS_
+#if defined(_NBL_PLATFORM_WINDOWS_) || defined(_NBL_PLATFORM_LINUX_) // DXC is available on both
 				return m_HLSLCompiler;
 #else
 				return nullptr;
@@ -42,7 +42,7 @@ class NBL_API2 CCompilerSet : public core::IReferenceCounted
 		}
 
 	protected:
-#ifdef _NBL_PLATFORM_WINDOWS_
+#if defined(_NBL_PLATFORM_WINDOWS_) || defined(_NBL_PLATFORM_LINUX_) // DXC is available on both
 		core::smart_refctd_ptr<CHLSLCompiler> m_HLSLCompiler = nullptr;
 #endif
 		core::smart_refctd_ptr<CGLSLCompiler> m_GLSLCompiler = nullptr;

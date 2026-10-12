@@ -7,6 +7,7 @@
 
 namespace nbl::video
 {
+class CAssetConverter;
 
 class CComputeBlit : public core::IReferenceCounted
 {

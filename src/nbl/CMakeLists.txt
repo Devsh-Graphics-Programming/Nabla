@@ -157,6 +157,8 @@ set(NBL_SYSTEM_SOURCES
 set(NBL_UI_SOURCES
 	ui/CWindowWin32.cpp
 	ui/CWindowManagerWin32.cpp
+	ui/CWindowXcb.cpp
+	ui/CWindowManagerXcb.cpp
 	ui/CWindowManagerAndroid.cpp
 	ui/CGraphicalApplicationAndroid.cpp
 )
@@ -634,7 +636,7 @@ endif()
 # TODO: remove and replace with target in tree
 add_custom_target(dxcompiler 
 	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -j${_NBL_JOBS_AMOUNT_}
-	BYPRODUCTS "${DXC_LIB}" "${DXC_DLL}"
+	BYPRODUCTS "$<REMOVE_DUPLICATES:${DXC_LIB};${DXC_DLL}>" # on ELF platforms the import library and the shared object are the same file
 	VERBATIM
 	COMMAND_EXPAND_LISTS
 )
@@ -655,6 +657,11 @@ if (UNIX AND NOT ANDROID AND NOT APPLE)
 		${X11_Xrandr_INCLUDE_PATH}
 		${X11_xf86vmode_INCLUDE_PATH}
 	)
+	# CWindowManagerXcb, and the VK_KHR_xcb_surface types in the public Vulkan headers
+	if(NOT X11_xcb_FOUND)
+		message(FATAL_ERROR "libxcb development files are required for the X11 window manager (libxcb1-dev)")
+	endif()
+	target_link_libraries(Nabla PRIVATE X11::xcb)
 endif()
 
 # Vulkan
@@ -664,7 +671,10 @@ list(APPEND PUBLIC_BUILD_INCLUDE_DIRS
 )
 target_link_libraries(Nabla PRIVATE volk)
 # volk is part of public interface headers in Nabla
-target_compile_definitions(Nabla PUBLIC $<$<PLATFORM_ID:Windows>:VK_USE_PLATFORM_WIN32_KHR>)
+target_compile_definitions(Nabla PUBLIC
+	$<$<PLATFORM_ID:Windows>:VK_USE_PLATFORM_WIN32_KHR>
+	$<$<PLATFORM_ID:Linux>:VK_USE_PLATFORM_XCB_KHR>
+)
 
 list(APPEND PUBLIC_BUILD_INCLUDE_DIRS
 	# this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
@@ -755,6 +765,30 @@ list(APPEND INTERFACE_BUILD_DEFINITIONS
 # git version tracking
 # TODO: private
 target_link_libraries(Nabla PUBLIC $<BUILD_INTERFACE:gtml>)
+
+# libstdc++ implements the parallel `std::execution` policies on top of oneTBB whenever <tbb/tbb.h> is found,
+# then everything instantiating them (Nabla and its consumers) has to link TBB. Ask the standard library itself
+# which backend it picked (libc++ and older libstdc++ never use TBB, so a stray TBB header doesn't matter there).
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU" AND NOT ANDROID AND NOT APPLE)
+	include(CheckCXXSourceCompiles)
+	block()
+		set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY) # compile only, the point is that it won't link without TBB
+		check_cxx_source_compiles("#include <execution>\n#ifndef _PSTL_PAR_BACKEND_TBB\n#error no TBB backend\n#endif\nint main() {return 0;}" NBL_STDLIB_USES_TBB_PAR_BACKEND)
+	endblock()
+	if(NBL_STDLIB_USES_TBB_PAR_BACKEND)
+		find_package(TBB CONFIG QUIET)
+		if(TBB_FOUND)
+			target_link_libraries(Nabla PUBLIC TBB::tbb)
+		else()
+			# headers without the CMake package (or the library): fall back to the serial backend instead of failing to link
+			message(WARNING "libstdc++ found <tbb/tbb.h> and would run std::execution policies on oneTBB, but TBBConfig.cmake was not found. "
+				"Building with _GLIBCXX_USE_TBB_PAR_BACKEND=0 (parallel algorithms run serially). Install the TBB development package "
+				"(Ubuntu: libtbb-dev) or point TBB_DIR at TBBConfig.cmake to use oneTBB."
+			)
+			target_compile_definitions(Nabla PUBLIC _GLIBCXX_USE_TBB_PAR_BACKEND=0)
+		endif()
+	endif()
+endif()
 
 # vulkaninfo
 if (NBL_STATIC_BUILD)
@@ -905,6 +939,12 @@ nbl_install_dir_spec(../../include/nbl/application_templates nbl)
 # note: order important, keep after install rules due to NBL_3RDPARTY_DXC_NS_PACKAGE_RUNTIME_DLL_DIR_PATH property
 get_property(_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_ GLOBAL PROPERTY NBL_3RDPARTY_DXC_NS_PACKAGE_RUNTIME_DLL_DIR_PATH)
 get_target_property(_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_ Nabla NBL_PACKAGE_RUNTIME_DLL_DIR_PATH)
+# the installed Nabla shared object must find DXC next to it (an executable's RUNPATH doesn't apply to its dependencies),
+# (the build tree one finds it through the linker-generated build RPATH, install replaces that with INSTALL_RPATH)
+if(UNIX AND NOT APPLE AND NOT ANDROID AND NOT NBL_STATIC_BUILD)
+	cmake_path(RELATIVE_PATH _NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_ BASE_DIRECTORY "${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_}" OUTPUT_VARIABLE _NBL_DXC_DIR_REL_TO_NABLA_)
+	set_property(TARGET Nabla APPEND PROPERTY INSTALL_RPATH "$ORIGIN/${_NBL_DXC_DIR_REL_TO_NABLA_}")
+endif()
 set(_NBL_CONSUMER_BIN_DIR_GE_
 	"$<PATH:NORMAL_PATH,$<PATH:APPEND,$<TARGET_PROPERTY:BINARY_DIR>,$<CONFIG>>>"
 )
@@ -960,3 +1000,8 @@ source_group(TREE "${NBL_ROOT_PATH}"
     PREFIX "Source Files"
     FILES  ${NABLA_SOURCE_FILES}
 )
+
+# XCB window manager regression test (NAB-9)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	add_subdirectory(ui/test)
+endif()

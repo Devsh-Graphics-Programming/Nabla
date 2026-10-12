@@ -38,7 +38,9 @@ core::smart_refctd_ptr<ISystemFile> ISystemPOSIX::CCaller::createFile(const std:
 	// only create a new file if we're going to be writing
 	if (writeAccess)
 	{
-		_native = creat(name_c_str, S_IRUSR | S_IRGRP | S_IROTH);//open(name_c_str, createFlags, S_IRUSR | S_IRGRP | S_IROTH);
+		// like `OPEN_ALWAYS` on Win32: keep the requested access mode, don't truncate, and leave the new file writable
+		// (`creat` meant `O_WRONLY|O_TRUNC` with mode 0444, so any second run failed to reopen its own output)
+		_native = open(name_c_str, createFlags, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	}
 	else if (std::filesystem::exists(filename))
 	{

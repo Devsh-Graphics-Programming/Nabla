@@ -332,7 +332,7 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 					// which factors get `1-x` for an Add node or `-x` for a Mul node before getting used
 					uint64_t childIxComplementMask : 57 = 0x0u;
 				};
-				static_assert(sizeof(SState) == sizeof(IFactor::padding));
+				static_assert(sizeof(SState) == sizeof(padding));
 				
 				//
 				static inline uint32_t calc_size(const SState state)
@@ -1503,9 +1503,9 @@ class CTrueIR : public CNodePool // TODO: turn into an asset!
 
 			private:
 				template <typename T, typename... FuncArgs>
-				inline typed_pointer_type<T> emplace(FuncArgs&&... args)
+				inline typed_pointer_type<T> emplace(FuncArgs&&... funcArgs)
 				{
-					const auto retval =  args.dst->getObjectPool().emplace<T,FuncArgs...>(1u,std::forward<FuncArgs>(args)...);
+					const auto retval =  args.dst->getObjectPool().template emplace<T,FuncArgs...>(1u,std::forward<FuncArgs>(funcArgs)...);
 					if (retval)
 						createdNodes.push_back(retval);
 					return retval;
@@ -1661,9 +1661,14 @@ inline void CTrueIR::SBasicNDFParams::printDot(std::ostringstream& sstr, const c
 	}
 }
 
+} // namespace nbl::asset::material_compiler3
+
+// specializations of a member template have to live in the namespace enclosing the class
+namespace nbl::core
+{
 // specialization of parameter hashing
 template<typename Dummy>
-struct core::blake3_hasher::update_impl<CTrueIR::SParameter,Dummy>
+struct blake3_hasher::update_impl<asset::material_compiler3::CTrueIR::SParameter,Dummy>
 {
 	using input_t = asset::material_compiler3::CTrueIR::SParameter;
 
@@ -1714,7 +1719,7 @@ struct core::blake3_hasher::update_impl<CTrueIR::SParameter,Dummy>
 	}
 };
 template<uint8_t Count, typename Dummy>
-struct core::blake3_hasher::update_impl<CTrueIR::SParameterSet<Count>,Dummy>
+struct blake3_hasher::update_impl<asset::material_compiler3::CTrueIR::SParameterSet<Count>,Dummy>
 {
 	using input_t = asset::material_compiler3::CTrueIR::SParameterSet<Count>;
 
@@ -1735,7 +1740,7 @@ struct core::blake3_hasher::update_impl<CTrueIR::SParameterSet<Count>,Dummy>
 	}
 };
 template<typename Dummy>
-struct core::blake3_hasher::update_impl<CTrueIR::SBasicNDFParams,Dummy>
+struct blake3_hasher::update_impl<asset::material_compiler3::CTrueIR::SBasicNDFParams,Dummy>
 {
 	using input_t = asset::material_compiler3::CTrueIR::SBasicNDFParams;
 
@@ -1751,7 +1756,6 @@ struct core::blake3_hasher::update_impl<CTrueIR::SBasicNDFParams,Dummy>
 			hasher << input.reference;
 	}
 };
-
-} // namespace nbl::asset::material_compiler3
+} // namespace nbl::core
 
 #endif

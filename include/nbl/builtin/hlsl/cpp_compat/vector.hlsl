@@ -8,8 +8,22 @@
 #include <Imath/half.h>
 
 #define GLM_FORCE_SWIZZLE
+// GLM only provides swizzle members (`v.xyz`) when it detects MS language extensions (anonymous structs in unions),
+// its only other route is the SIMD path which disables constexpr. GCC and Clang support the extension too,
+// so make GLM's one-time configuration (glm/detail/setup.hpp) see it, exactly like it does with MSVC.
+#if !defined(_MSC_EXTENSIONS) && (defined(__clang__) || defined(__GNUC__))
+#define _NBL_GLM_FAKE_MSC_EXTENSIONS_
+#define _MSC_EXTENSIONS 1
+#endif
 #include <glm/glm.hpp>
 #include <glm/detail/_swizzle.hpp>
+#ifdef _NBL_GLM_FAKE_MSC_EXTENSIONS_
+#undef _MSC_EXTENSIONS
+#undef _NBL_GLM_FAKE_MSC_EXTENSIONS_
+#if GLM_CONFIG_SWIZZLE != GLM_SWIZZLE_OPERATOR
+#error "glm/glm.hpp was included before nbl/builtin/hlsl/cpp_compat/vector.hlsl, Nabla needs GLM swizzle operators"
+#endif
+#endif
 
 #include "nbl/core/hash/blake.h"
 #include "nbl/core/algorithm/utility.h"

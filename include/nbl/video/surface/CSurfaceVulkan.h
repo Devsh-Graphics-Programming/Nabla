@@ -58,7 +58,30 @@ class NBL_API2 CSurfaceVulkanWin32Native final : public CSurfaceNative<ui::IWind
 };
 
 #elif defined _NBL_PLATFORM_LINUX_
-// TODO: later, not this week
+class NBL_API2 CSurfaceVulkanXcb final : public CSurface<ui::IWindowXcb,ISurfaceVulkan>
+{
+        using this_t = CSurfaceVulkanXcb;
+        using base_t = CSurface<ui::IWindowXcb,ISurfaceVulkan>;
+    public:
+        inline CSurfaceVulkanXcb(core::smart_refctd_ptr<ui::IWindowXcb>&& window, core::smart_refctd_ptr<IAPIConnection>&& api, VkSurfaceKHR surf) :
+            base_t(std::move(window), std::move(api), surf) {}
+
+        static core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, core::smart_refctd_ptr<ui::IWindowXcb>&& window);
+};
+
+class NBL_API2 CSurfaceVulkanXcbNative final : public CSurfaceNative<ui::IWindowXcb, ISurfaceVulkan>
+{
+        using this_t = CSurfaceVulkanXcbNative;
+        using base_t = CSurfaceNative<ui::IWindowXcb, ISurfaceVulkan>;
+    public:
+        inline CSurfaceVulkanXcbNative(core::smart_refctd_ptr<IAPIConnection>&& api, const typename ui::IWindowXcb::native_handle_t& handle, VkSurfaceKHR surf) :
+            base_t(handle, std::move(api), surf)
+        {
+        }
+
+        // the caller keeps the connection open and the window alive for the lifetime of the surface
+        static core::smart_refctd_ptr<this_t> create(core::smart_refctd_ptr<video::CVulkanConnection>&& api, const ui::IWindowXcb::native_handle_t& handle);
+};
 #elif defined _NBL_PLATFORM_ANDROID_
 // TODO: later, not this week
 #endif

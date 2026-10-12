@@ -21,13 +21,13 @@ namespace nbl::asset
 template<SimpleWeightFunction1D WeightFunction1DA, SimpleWeightFunction1D WeightFunction1DB>
 class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<typename WeightFunction1DA::value_t>
 {
-		static_assert(std::is_same_v<WeightFunction1DA::value_t,WeightFunction1DB::value_t>, "Both functions must use the same Value Type!");
+		static_assert(std::is_same_v<typename WeightFunction1DA::value_t,typename WeightFunction1DB::value_t>, "Both functions must use the same Value Type!");
 	public:
-		using value_t = WeightFunction1DA::value_t;
+		using value_t = typename WeightFunction1DA::value_t;
 		constexpr static inline uint32_t k_smoothness = WeightFunction1DA::k_smoothness + WeightFunction1DB::k_smoothness;
 
 		inline CConvolutionWeightFunction1D(WeightFunction1DA&& funcA, WeightFunction1DB&& funcB)
-			: impl::IWeightFunction1D<WeightFunction1DA::value_t>(funcA.getMinSupport()+funcB.getMinSupport(), funcA.getMaxSupport()+funcB.getMaxSupport()), m_funcA(std::move(funcA)), m_funcB(std::move(funcB))
+			: impl::IWeightFunction1D<typename WeightFunction1DA::value_t>(funcA.getMinSupport()+funcB.getMinSupport(), funcA.getMaxSupport()+funcB.getMaxSupport()), m_funcA(std::move(funcA)), m_funcB(std::move(funcB))
 		{
 		}
 
@@ -45,9 +45,9 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<typena
 			value_t retval;
 			// handle global stretch before we do anything
 			x *= this->getInvStretch();
-			if constexpr (std::is_same_v<WeightFunction1DB::function_t,SDiracFunction> && WeightFunction1DB::k_derivative==0)
+			if constexpr (std::is_same_v<typename WeightFunction1DB::function_t,SDiracFunction> && WeightFunction1DB::k_derivative==0)
 				retval = m_funcA.weight(x);
-			else if (std::is_same_v<WeightFunction1DA::function_t,SDiracFunction> && WeightFunction1DA::k_derivative==0)
+			else if (std::is_same_v<typename WeightFunction1DA::function_t,SDiracFunction> && WeightFunction1DA::k_derivative==0)
 				retval = m_funcB.weight(x);
 			else
 			{

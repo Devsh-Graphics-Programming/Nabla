@@ -1,5 +1,7 @@
 # Linux build
 
+> For the up-to-date Linux build guide, toolchain setup, and validation steps, see [docs/linux-build.md](../linux-build.md).
+
 ## Supported toolsets
 
 - **[GCC](https://gcc.gnu.org/)**

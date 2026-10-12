@@ -10,6 +10,8 @@
 
 #include <span>
 #include <bit>
+#include <functional>
+#include <string_view>
 
 
 namespace nbl::core
@@ -38,8 +40,8 @@ class NBL_API2 blake3_hasher final
 			{
 				// unfortunately there's no concept like StandardLayout or Aggregate for "just structs/classes of non-pointer types" so need to play it safe
 				constexpr bool ForbiddenType = std::is_compound_v<T> || std::is_enum_v<T> || std::is_class_v<T>;
-				// use __FUNCTION__ to print something with `T` to the error log
-				static_assert(!ForbiddenType, __FUNCTION__ "Hashing Specialization for this Type is not implemented!");
+				// the failing instantiation in the error log shows the offending `T`
+				static_assert(!ForbiddenType, "Hashing Specialization for this Type is not implemented!");
 				hasher.update(&input,sizeof(input));
 			}
 		};

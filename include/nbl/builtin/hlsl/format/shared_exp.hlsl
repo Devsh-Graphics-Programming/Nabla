@@ -161,7 +161,7 @@ struct static_cast_helper<
             decode_t v = val[i];
             if (limits_t::is_signed)
                 v = abs(v);
-            exponentsDecBias[i] = uint16_t(asuint(v)>>dec_MantissaStoredBits);
+            exponentsDecBias[i] = uint16_t(bit_cast<decode_bits_t>(v)>>dec_MantissaStoredBits);
         }
 
         // get the maximum exponent

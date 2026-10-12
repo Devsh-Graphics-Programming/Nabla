@@ -102,6 +102,60 @@ if(CMAKE_TOOLCHAIN_FILE)
 	list(APPEND NBL_DXC_CMAKE_OPTIONS "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
 endif()
 
+# the DXC configure below is a separate CMake invocation, it inherits nothing from this
+# cache - forward the toolchain choices explicitly so DXC is built the same way as Nabla
+if(NOT MSVC)
+	list(APPEND NBL_DXC_CMAKE_OPTIONS
+		"-DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}"
+		"-DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}"
+	)
+	if(CMAKE_LINKER_TYPE)
+		list(APPEND NBL_DXC_CMAKE_OPTIONS "-DCMAKE_LINKER_TYPE:STRING=${CMAKE_LINKER_TYPE}")
+	endif()
+	# TODO: fix in the DXC fork, lib/DxcSupport/dxcmem.cpp calls the Win32-only CoGetMalloc
+	# instead of the DxcCoGetMalloc adapter (which maps to CoGetMalloc on Windows anyway)
+	if(NOT WIN32)
+		# injected as a compile definition after DXC's project() so CMAKE_CXX_FLAGS/CXXFLAGS keep their usual meaning
+		set(_NBL_DXC_PROJECT_INCLUDE_ "${CMAKE_CURRENT_BINARY_DIR}/nbl-dxc-project-include.cmake")
+		file(CONFIGURE OUTPUT "${_NBL_DXC_PROJECT_INCLUDE_}" CONTENT "add_compile_definitions(CoGetMalloc=DxcCoGetMalloc)\n")
+		list(APPEND NBL_DXC_CMAKE_OPTIONS "-DCMAKE_PROJECT_INCLUDE:FILEPATH=${_NBL_DXC_PROJECT_INCLUDE_}")
+
+		# TODO: fix in the DXC fork, its merge of upstream main bumped external/DirectX-Headers past the
+		# commit upstream DXC pins, the newer wsl/stubs/basetsd.h redefines the WinAdapter.h typedefs.
+		# Until then export the upstream-pinned headers (an ancestor of the fork's pin) and use those.
+		set(NBL_DXC_DIRECTX_HEADERS_REF 980971e835876dc0cde415e8f9bc646e64667bf7 CACHE STRING "DirectX-Headers commit DXC is built against on non-Windows hosts, empty = the submodule checkout")
+		if(NBL_DXC_DIRECTX_HEADERS_REF)
+			find_package(Git REQUIRED)
+			set(_NBL_DXC_DX_HEADERS_SRC_ "${CMAKE_CURRENT_SOURCE_DIR}/dxc/external/DirectX-Headers")
+			set(_NBL_DXC_DX_HEADERS_DIR_ "${CMAKE_CURRENT_BINARY_DIR}/DirectX-Headers-${NBL_DXC_DIRECTX_HEADERS_REF}")
+			if(NOT EXISTS "${_NBL_DXC_DX_HEADERS_DIR_}/include/directx/d3d12.h")
+				file(MAKE_DIRECTORY "${_NBL_DXC_DX_HEADERS_DIR_}")
+				execute_process(COMMAND "${GIT_EXECUTABLE}" -C "${_NBL_DXC_DX_HEADERS_SRC_}" archive --format=tar -o "${_NBL_DXC_DX_HEADERS_DIR_}.tar" "${NBL_DXC_DIRECTX_HEADERS_REF}" include
+					RESULT_VARIABLE _NBL_RES_ ERROR_VARIABLE _NBL_ERR_
+				)
+				if(NOT _NBL_RES_ EQUAL 0)
+					message(FATAL_ERROR "Could not export DirectX-Headers @ ${NBL_DXC_DIRECTX_HEADERS_REF} (shallow submodule?): ${_NBL_ERR_}")
+				endif()
+				file(ARCHIVE_EXTRACT INPUT "${_NBL_DXC_DX_HEADERS_DIR_}.tar" DESTINATION "${_NBL_DXC_DX_HEADERS_DIR_}")
+				file(REMOVE "${_NBL_DXC_DX_HEADERS_DIR_}.tar")
+			endif()
+			list(APPEND NBL_DXC_CMAKE_OPTIONS "-DDIRECTX_HEADER_INCLUDE_DIR:PATH=${_NBL_DXC_DX_HEADERS_DIR_}/include")
+		endif()
+	endif()
+	if(USE_CCACHE)
+		list(APPEND NBL_DXC_CMAKE_OPTIONS
+			"-DCMAKE_C_COMPILER_LAUNCHER:STRING=${CCACHE_FOUND}"
+			"-DCMAKE_CXX_COMPILER_LAUNCHER:STRING=${CCACHE_FOUND}"
+		)
+	endif()
+endif()
+
+# LLVM links are the memory peak of the whole build, by default allow one at a time
+set(NBL_DXC_PARALLEL_LINK_JOBS 1 CACHE STRING "LLVM_PARALLEL_LINK_JOBS for the DXC build (Ninja only, empty = unlimited)")
+if(CMAKE_GENERATOR MATCHES "Ninja" AND NBL_DXC_PARALLEL_LINK_JOBS)
+	list(APPEND NBL_DXC_CMAKE_OPTIONS "-DLLVM_PARALLEL_LINK_JOBS:STRING=${NBL_DXC_PARALLEL_LINK_JOBS}")
+endif()
+
 # TODO: add_subdirectory but don't modify dxc target compile options
 execute_process(COMMAND "${CMAKE_COMMAND}" -C "${CMAKE_CURRENT_SOURCE_DIR}/dxc/cmake/caches/PredefinedParams.cmake" -S "${CMAKE_CURRENT_SOURCE_DIR}/dxc" -B "${DXC_BUILD_DIR}" -G "${CMAKE_GENERATOR}" ${NBL_DXC_CMAKE_OPTIONS}
 	RESULT_VARIABLE DXC_CMAKE_RESULT

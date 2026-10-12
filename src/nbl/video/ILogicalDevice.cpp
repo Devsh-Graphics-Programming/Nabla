@@ -169,6 +169,11 @@ const SPhysicalDeviceLimits& ILogicalDevice::getPhysicalDeviceLimits() const
     return m_physicalDevice->getLimits();
 }
 
+bool ILogicalDevice::supportsAccelerationStructureVertexFormat(const asset::E_FORMAT format) const
+{
+    return m_physicalDevice->getBufferFormatUsages()[format].accelerationStructureVertex;
+}
+
 bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::PIPELINE_STAGE_FLAGS> stageMask) const
 {
     if (getQueueCount(queueFamilyIndex) == 0)
@@ -1840,7 +1845,7 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     {
         const auto& ci = params[ix];
 
-        const core::set entryPoints = { asset::ISPIRVEntryPointTrimmer::EntryPoint{.name = ci.shader.entryPoint, .stage = hlsl::ShaderStage::ESS_COMPUTE} };
+        const core::set<asset::ISPIRVEntryPointTrimmer::EntryPoint> entryPoints = { asset::ISPIRVEntryPointTrimmer::EntryPoint{.name = ci.shader.entryPoint, .stage = hlsl::ShaderStage::ESS_COMPUTE} };
         trimmedShaders.push_back(m_spirvTrimmer->trim(ci.shader.shader, entryPoints, m_logger));
         auto trimmedShaderSpec = ci.shader;
         trimmedShaderSpec.shader = trimmedShaders.back().get();

@@ -281,8 +281,11 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 		// handlers for acquisition exceptions (will get called under mutexes)
 		inline SAcquireResult handleOutOfDate() override final
 		{
-			// try again, will re-create swapchain
-			return ISimpleManagedSurface::acquireNextImage();
+			// The swapchain can go out of date before the window event that would have triggered `explicitRecreateSwapchain` gets processed,
+			// e.g. on X11 the event thread races the render thread. Recreate here, `ISimpleManagedSurface::acquireNextImage` won't use invalidated resources.
+			if (recreateSwapchain())
+				return ISimpleManagedSurface::acquireNextImage();
+			return {};
 		}
 
 		//

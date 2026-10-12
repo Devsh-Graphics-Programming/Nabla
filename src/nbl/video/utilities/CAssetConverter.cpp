@@ -2456,7 +2456,7 @@ class MetaDeviceMemoryAllocator final
 							const auto* memBacked = getAsBase(binItems[i]);
 							const auto& memReqs = memBacked->getMemoryReqs();
 							// round up the offset to get the correct alignment
-							offsetsTmp[i] = core::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
+							offsetsTmp[i] = core::roundUp<decltype(offsetsTmp)::value_type>(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
 							// record next offset
 							if (i<binItemCount-1)
 								offsetsTmp[++i] = offsetsTmp[i]+memReqs.size;
@@ -2875,7 +2875,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						.device = device,
 						.dfsCaches = dfsCaches,
 						.stack = stack
-					}.descend_impl_impl<AssetType>({},{asset,uniqueGroupID},std::move(patch));
+					}.template descend_impl_impl<AssetType>({},{asset,uniqueGroupID},std::move(patch));
 				}
 			};
 			core::for_each_in_tuple(inputs.assets,initialize);

@@ -316,7 +316,7 @@ class SimpleBlockBasedAllocator<AddressAllocator,HandleValue> final : protected 
 		using block_id_alloc_t = PoolAddressAllocatorST<block_id_t>;
 
 	public:
-		using handle_value_type = typename HandleValue;
+		using handle_value_type = HandleValue;
 		using addr_alloc_traits = typename base_t::addr_alloc_traits;
 		using extra_params_type = typename base_t::extra_params_type;
 		using size_type = typename base_t::size_type;
@@ -512,12 +512,12 @@ class SimpleBlockBasedAllocatorMT final
 		template<typename T> requires (!std::is_const_v<T>)
 		inline T* deref(typed_pointer_type<T> p)
 		{
-			return m_composed.deref<T>(p);
+			return m_composed.template deref<T>(p);
 		}
 		template<typename T> requires std::is_const_v<T>
 		inline T* deref(typed_pointer_type<T> p) const
 		{
-			return m_composed.deref<T>(p);
+			return m_composed.template deref<T>(p);
 		}
 
 		//

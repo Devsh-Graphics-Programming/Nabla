@@ -322,6 +322,7 @@ class IGPUCommandPool : public IBackendObject
         };
         // I can't refactor this into a base class for tracking handles, cause I want them to live at the end :(
         class CCommandSegmentListPool;
+    public: // keep the access of the earlier declaration
         class IVariableSizeCommandBase : public ICommand
         {
             public:
@@ -368,6 +369,7 @@ class IGPUCommandPool : public IBackendObject
 
                 CExtraResourceTrackingBlock* m_next;
         };
+    protected:
         template<class CRTP>
         class IVariableSizeCommand : public IVariableSizeCommandBase
         {
@@ -483,6 +485,7 @@ class IGPUCommandPool : public IBackendObject
         static_assert(sizeof(CCommandSegment)==CommandSegmentSize);
 
     private:
+    public: // keep the access of the earlier declaration
         class CExtraResourceTrackingBlock final : public IVariableSizeCommandBase
         {
             public:
@@ -500,6 +503,8 @@ class IGPUCommandPool : public IBackendObject
                     return extraResourceCount;
                 }
         };
+    private:
+    protected: // keep the access of the earlier declaration
         class CCommandSegmentListPool
         {
             public:
@@ -636,6 +641,7 @@ class IGPUCommandPool : public IBackendObject
                 };
                 core::CMemoryPool<PoolConfig> m_pool;
         };
+    private:
 
         const core::bitflag<CREATE_FLAGS> m_flags;
         const uint8_t m_familyIx;

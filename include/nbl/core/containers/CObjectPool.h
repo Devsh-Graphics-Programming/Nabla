@@ -104,7 +104,7 @@ class CObjectPool final : public IObjectPoolBase
 		template<typename T> requires (!std::is_const_v<T>)
 		inline T* deref(const typed_pointer_type<T> h, check_t check={.value=false})
 		{
-			T* retval = m_pool.deref<T>(h);
+			T* retval = m_pool.template deref<T>(h);
 			if (!retval)
 				return nullptr;
 			// check double free
@@ -130,7 +130,7 @@ class CObjectPool final : public IObjectPoolBase
 		template<typename T, typename U>// requires (std::is_const_v<T> == std::is_const_v<U>)
 		inline typed_pointer_type<T> _dynamic_cast(const typed_pointer_type<U> h) const
 		{
-			return m_pool._dynamic_cast<T,U>(h);
+			return m_pool.template _dynamic_cast<T,U>(h);
 		}
 
 		//
