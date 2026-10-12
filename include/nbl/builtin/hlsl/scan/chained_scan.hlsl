@@ -139,7 +139,7 @@ struct Scan
         {
             bool locked = sIsLocked;
 
-            scalar_t prevReduction = 0u;
+            scalar_t prevReduction = binop_t::identity;
             uint16_t lookbackIx = workgroupId - uint16_t(1u);
 
             while (locked)
@@ -218,7 +218,7 @@ struct Scan
 
         dataAccessor.initAtWorkgroupID(workgroupId);
 
-        scalar_t prevReduction = 0u;
+        scalar_t prevReduction = binop_t::identity;
         if (workgroupId)
             scratchAccessor.template get<scalar_t, uint32_t>(0u, prevReduction);
 
