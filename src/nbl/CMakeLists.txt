@@ -296,7 +296,9 @@ set(NBL_VIDEO_SOURCES
 	video/CVulkanRayTracingPipeline.cpp
 	video/CVulkanEvent.cpp
 	video/CSurfaceVulkan.cpp
-	
+
+# Sampling
+	video/sampling/CEnvmapWarpGenerator.cpp
 )
 
 set(NBL_SCENE_SOURCES
