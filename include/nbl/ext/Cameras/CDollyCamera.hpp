@@ -25,8 +25,8 @@ class CDollyCamera final : public CSphericalTargetCamera
 public:
     using base_t = CSphericalTargetCamera;
 
-    CDollyCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target)
-        : base_t(position, target)
+    CDollyCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, const SWorldFrame& frame = SWorldFrame::yUpLeftHanded())
+        : base_t(position, target, frame)
     {
         m_orbit.angles.y = std::clamp(m_orbit.angles.y, MinPitch, MaxPitch);
         updateGimbal();
@@ -41,7 +41,7 @@ public:
     virtual bool setPose(const SCameraRigPose& pose) override
     {
         STargetOrbit orbit = {};
-        if (!CCameraMathUtilities::tryBuildOrbitFromPosition(m_orbit.target, pose.position, MinDistance, MaxDistance, orbit))
+        if (!CCameraMathUtilities::tryBuildOrbitFromPosition(m_orbit.target, pose.position, MinDistance, MaxDistance, getFrame(), orbit))
             return false;
 
         orbit.angles.y = std::clamp(orbit.angles.y, MinPitch, MaxPitch);
@@ -62,7 +62,7 @@ protected:
     {
         // the dolly moves the target through the full committed basis, forward component included
         // TODO: like the planar pan in the base rig, this delta is a fixed world-space length and should scale with distance
-        const auto basis = m_gimbal.getBasis();
+        const auto basis = getBasis();
         const auto delta = CCameraMathUtilities::transformLocalVectorToWorldBasis(controls.translate, basis.right, basis.up, basis.forward);
 
         m_orbit.target += delta;

@@ -12,16 +12,16 @@ namespace nbl::ext::cameras
 
 /// @brief Free-position camera that allows full yaw/pitch/roll rotation.
 ///
-/// Controls: `translate` in the camera's own frame (x right, y up, z forward), world units. `rotate.x`,
-/// `rotate.y` and `rotate.z` pitch, yaw and roll about the camera's own right, up and forward axes, radians,
-/// unclamped.
+/// Controls: `translate` in the camera's own frame (x right, y up, z forward), world units. Rotations about the
+/// camera's own axes, radians, unclamped: `rotate.z` rolls right toward up, `rotate.x` pitches forward toward
+/// down, `rotate.y` yaws forward toward right, applied in that order.
 class CFreeCamera final : public ICamera
 {
 public:
     using base_t = ICamera;
 
-    CFreeCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::math::quaternion<hlsl::float64_t>::identity())
-        : base_t(), m_gimbal(SCameraRigPose{ .position = position, .orientation = orientation }) {}
+    CFreeCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::math::quaternion<hlsl::float64_t>::identity(), const SWorldFrame& frame = SWorldFrame::yUpLeftHanded())
+        : base_t(frame), m_gimbal(SCameraRigPose{ .position = position, .orientation = orientation }) {}
     ~CFreeCamera() = default;
 
     const CCameraGimbal& getGimbal() override
@@ -61,19 +61,37 @@ public:
 protected:
     virtual bool applyControls(const SCameraControls& controls) override
     {
-        // a copy, because the pose is replaced below while it still anchors the rotation axes and the translation
-        const auto anchor = m_gimbal.getPose();
-        const auto anchorBasis = m_gimbal.getBasis();
+        // the translation is resolved in the basis the controls were issued in, before the rotation changes it
+        const auto basis = getBasis();
+        const auto newPosition = m_gimbal.getPosition() + CCameraMathUtilities::transformLocalVectorToWorldBasis(controls.translate, basis.right, basis.up, basis.forward);
 
-        // rotations about the anchor's own axes, translation in the anchor frame
-        const auto pitch = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.right, controls.rotate.x);
-        const auto yaw = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.up, controls.rotate.y);
-        const auto roll = hlsl::math::quaternion<hlsl::float64_t>::createFromAxisAngle(anchorBasis.forward, controls.rotate.z);
-        const auto newPosition = anchor.position + anchor.orientation.transformVector(controls.translate, true);
+        // each rotation turns two of the axes toward each other inside their plane
+        auto right = basis.right;
+        auto up = basis.up;
+        auto forward = basis.forward;
+        // roll about forward: right toward up
+        {
+            const auto rolledRight = CCameraMathUtilities::rotateTowards(right, up, controls.rotate.z);
+            up = CCameraMathUtilities::rotateTowards(up, -right, controls.rotate.z);
+            right = rolledRight;
+        }
+        // pitch about right: forward toward down
+        {
+            const auto pitchedForward = CCameraMathUtilities::rotateTowards(forward, -up, controls.rotate.x);
+            up = CCameraMathUtilities::rotateTowards(up, forward, controls.rotate.x);
+            forward = pitchedForward;
+        }
+        // yaw about up: forward toward right
+        forward = CCameraMathUtilities::rotateTowards(forward, right, controls.rotate.y);
+
+        // re-orthonormalized, with right rebuilt for the handedness
+        SCameraBasis<hlsl::float64_t> newBasis;
+        if (!CCameraMathUtilities::tryBuildBasis(forward, up, getFrame(), newBasis))
+            return false;
 
         return m_gimbal.setPose(SCameraRigPose{
             .position = newPosition,
-            .orientation = yaw * pitch * roll * anchor.orientation
+            .orientation = CCameraMathUtilities::orientationFromBasis(newBasis, getHandedness())
         });
     }
 
