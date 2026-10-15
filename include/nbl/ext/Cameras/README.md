@@ -16,6 +16,8 @@ If you want to know which type to touch first, use this table.
 | pair one camera with one or more projections | `CCameraWithProjections` holding `CPlanarProjection` entries |
 | apply one absolute rigid pose request at runtime | `camera->setPose(...)` |
 | set exact position or exact orientation on `Free` and `FPS` | `SCameraRigPose` built from `camera->getGimbal()` |
+| use a camera in a right-handed or Z-up world | the `SWorldFrame` constructor argument, see [Frames and handedness](#frames-and-handedness) |
+| aim a camera at a point | `camera->setLookAt(position, target, up)` |
 | capture, store, replay or script camera state | moved to the 61_UI example, see below |
 | use the path-rig camera | `CPathCamera` and `SCameraPathModel` |
 
@@ -103,6 +105,26 @@ binding[ECameraControlAxis::Distance].mouseScrollGain = { -0.1, 0.0 };          
 ```
 
 Sensitivity lives in the binding, not in the camera. A camera has no speed.
+
+**Question: My world is right-handed, or Z-up. What changes?**
+
+Every camera constructor takes the world's `SWorldFrame` as its last argument, default `yUpLeftHanded()`. The
+frame is the up axis, the direction a zero yaw or azimuth refers to, and the handedness; `yUpRightHanded()` and
+`zUpRightHanded()` are the other built-ins and `SWorldFrame::tryMake(up, forward, handedness)` takes any pair.
+Pair the camera with the projection of the frame's handedness; the view matrix is the same call either way.
+
+```cpp
+const auto frame = SWorldFrame::zUpRightHanded();                            // +Z up, +Y forward, +X right
+auto camera = core::make_smart_refctd_ptr<CFPSCamera>(position, quaternion::identity(), frame);
+camera->setLookAt(position, target, frame.up);
+
+const auto view = camera->getGimbal().getViewMatrix();                       // equals hlsl::math::linalg::rhLookAt(position, target, frame.up)
+const auto projection = hlsl::math::thin_lens::rhPerspectiveFovMatrix<float>(fov, aspect, zNear, zFar);
+```
+
+Controls mean the same in every frame: `translate.x` is the camera's right, `translate.z` where it looks,
+`rotate.y` turns toward its right about the frame's up, `rotate.x` tilts toward its down. See
+[Frames and handedness](#frames-and-handedness) for what the frame does and does not touch.
 
 TODO: revisit. How the controller turns held keys and event timestamps into an amount of motion
 ### 2. Projection is separate from camera state
@@ -309,6 +331,72 @@ Use this path when you already have:
 - path-rig state
 - one other family-specific typed fragment exposed by `ICamera`
 
+## Frames and handedness
+
+A frame is three perpendicular unit vectors with names. Three of them matter here.
+
+- **World frame.** The user's X, Y, Z. Positions, targets and the scene live in it. Its handedness, whether
+  `X x Y` is `+Z` or `-Z`, is what `ECameraHandedness` records. `SWorldFrame` adds the two conventions a camera
+  needs on top of that: which axis is up (the horizon the FPS rig keeps level, the pole the orbit rigs turn
+  about) and which direction a zero yaw or azimuth refers to (`forward`); `right` follows from the two by the
+  handedness. Angles in the extension are measured in this frame.
+- **Camera local frame, or view space.** The world axes rotated by the camera's quaternion: local X is `q * X`,
+  local Y is `q * Y`, local Z is `q * Z`. The columns of the quaternion's rotation matrix are these three vectors.
+  The view matrix maps world coordinates into this frame and the projection consumes them from it. A projection
+  has a convention about where "in front" is: `lhPerspective` looks along +Z of this frame, `rhPerspective`
+  against it.
+- **Physical frame, `SCameraBasis`.** Right, up and forward as world-space directions, where forward is where
+  the camera actually looks. Rigs and users think in this frame: `W` moves along forward, a look-at aims forward
+  at the target.
+
+The two camera frames share X and Y: right is local X and up is local Y in both worlds. They differ only in Z,
+because a quaternion holds a rotation (`det = +1`) and `(right, up, forward)` is a rotation only in a left-handed
+world. In a right-handed world the quaternion holds `(right, up, -forward)` instead. So
+
+```text
+forward = local Z          left-handed
+forward = -local Z         right-handed
+```
+
+which is the convention of the LH/RH projection matrices and of `hlsl::math::linalg::lhLookAt` / `rhLookAt`.
+With the identity quaternion the view matrix is the identity in both worlds; the camera looks along +Z in a
+left-handed world and along -Z in a right-handed one, because that is where each projection puts "in front".
+
+**The rule.** Code needs the handedness exactly when it relates a physical direction, forward or right, to the
+quaternion or its frame. Code needs the world frame when it turns angles into directions or back: yaw and
+pitch, azimuth and elevation, the horizon plane. Code that stays inside the quaternion's frame (pose, world
+matrix, view matrix, decomposing a matrix) or inside the physical frame (moving along the basis, rotating one
+basis vector toward another) is the same in every world and takes neither.
+
+Functions that take an `ECameraHandedness` or an `SWorldFrame`, keep this list current when adding one:
+
+| Function | Takes | What it decides there |
+|---|---|---|
+| `CCameraMathUtilities::orientationFromBasis` | handedness | whether `forward` or `-forward` goes on local Z |
+| `CCameraMathUtilities::basisFromOrientation` | handedness | whether forward is read from local Z or `-local Z` |
+| `CCameraMathUtilities::tryBuildBasis` | frame | which cross product is the physical right; the frame's up and forward stand in for a degenerate up hint |
+| `CCameraMathUtilities::tryCreateQuaternionFromLookAt` | frame | builds a basis, so the above |
+| `CCameraMathUtilities::tryBuildPoseFromOrbit`, `tryBuildOrbitFromPosition` | frame | azimuth and elevation are measured about the frame's up from its forward |
+| `CCameraPathUtilities::tryBuildPathStateFromPosition`, `tryResolvePathState`, `tryBuildPathPoseFromState`, `tryBuildCanonicalPathState`, `makeDefaultPathModel` | frame | the path's radius lies in the frame's horizon plane, its height along the up |
+| `CTopDownCamera::resolveTopDownYaw` | frame | the azimuth of an orientation about the frame's up |
+| `CFPSCamera` | frame (via `getFrame()`) | yaw and pitch are measured in it, the up hint is its up |
+| `CChaseCamera` | frame (via `getFrame()`) | the target moves in the frame's horizon plane |
+| `ICamera` and every rig constructor | frame | fix the camera's frame for its lifetime; `getFrame()` and `getHandedness()` read it |
+| `ICamera::getBasis`, `ICamera::setLookAt` | handedness, frame | the physical frame of the camera, and aiming it |
+| `CPlanarProjection::update(leftHanded, ...)` | handedness | the projection side; it has to agree with the camera |
+
+`CCameraMathUtilities::getPitchYawRollRadians` and the Euler helpers around it decompose the rotation about the world
+Y, X and Z axes (the inverse of `createFromYawPitchRoll`); they take no handedness, but their angles describe local +Z,
+so they read as the look direction's heading and pitch only for a left-handed camera.
+
+Functions that look like they should take one and do not: `IGimbal` and `CCameraGimbal` (pose, world and view
+matrices), `composeTransformMatrix`, `tryExtractPositionAndQuaternionFromTransform`, `setPose(float64_t4x4)`,
+`directionFromYawPitch` and the angle helpers next to it (the caller passes the frame's axes), `SCameraControls`
+and the controller. They never mention forward or right.
+
+The rigs themselves contain no sign: they read their physical axes through `getBasis()`, move and turn in that
+frame, and write the result back through `orientationFromBasis`. `CFreeCamera` is the simplest example.
+
 ## Core concepts
 
 ### `SCameraControls`
@@ -333,8 +421,9 @@ The gimbal stores the runtime pose plus a manipulation counter:
 - orientation
 - number of manipulations that changed the pose
 
-The orthonormal basis and the world matrix are derived from the orientation on each call.
-Each setter returns whether the stored pose changed, and a changed pose advances the counter by one.
+The world matrix is derived from the pose on each call. Each setter returns whether the stored pose changed, and
+a changed pose advances the counter by one. The gimbal takes no handedness; the camera's physical axes are read
+through `ICamera::getBasis()`.
 
 `CCameraGimbal` in [`CCameraGimbal.hpp`](CCameraGimbal.hpp) extends it with the world-to-view matrix.
 That matrix is rebuilt on the first read after a manipulation and cached against the counter until the next
@@ -361,6 +450,7 @@ Important members:
 - `manipulate(...)`
 - `getAcceptedControls()`
 - `getGimbal()`
+- `getHandedness()`, `getBasis()` and `setLookAt(...)`, see [Frames and handedness](#frames-and-handedness)
 - `getKind()`
 - `getCapabilities()`
 - typed hooks such as `tryGetSphericalTargetState(...)` and `tryGetPathState(...)`
@@ -403,7 +493,8 @@ Defined in [`SCameraTypes.hpp`](SCameraTypes.hpp), next to `STargetOrbit` and `S
 `SCameraRigPose` stores only:
 
 - world-space position
-- world-space orientation
+- world-space orientation: local X is the camera's right, local Y its up, local Z its look direction in a
+  left-handed world and the opposite of it in a right-handed one
 
 It is the smallest typed pose object reused across the stack.
 
@@ -649,7 +740,8 @@ If a camera must store completely unconstrained 6DOF pose as its native state, u
 - [`ICameraWithProjections.hpp`](ICameraWithProjections.hpp) and
   [`CCameraWithProjections.hpp`](CCameraWithProjections.hpp) pair one camera with a list of `CPlanarProjection`
   entries, for example one per viewport or preset, and return the view, projection and view-projection matrices.
-  The view matrix is the camera's left-handed one.
+  The view matrix is for the projection of the camera's handedness, so `update(leftHanded, ...)` has to be given
+  the same handedness the camera was built with.
 
 `CDollyZoomCamera` derives its FOV from its distance, so a projection paired with it has to be told the new FOV. The extension exposes the value through `ICamera::tryGetDynamicPerspectiveFov(...)` and leaves the push into `CPlanarProjection::setPerspective(...)` to the application; 61_UI does it in `CCameraProjectionUtilities`.
 

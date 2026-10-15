@@ -24,8 +24,8 @@ class CTopDownCamera final : public CSphericalTargetCamera
 public:
     using base_t = CSphericalTargetCamera;
 
-    CTopDownCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target)
-        : base_t(position, target)
+    CTopDownCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, const SWorldFrame& frame = SWorldFrame::yUpLeftHanded())
+        : base_t(position, target, frame)
     {
         m_orbit.angles.y = TopDownPitch;
         updateGimbal();
@@ -47,7 +47,7 @@ public:
         }
 
         m_orbit.distance = std::clamp(distance, MinDistance, MaxDistance);
-        m_orbit.angles.x = resolveTopDownYaw(pose.orientation, m_orbit.angles.x);
+        m_orbit.angles.x = resolveTopDownYaw(pose.orientation, getFrame(), m_orbit.angles.x);
         m_orbit.angles.y = TopDownPitch;
         updateGimbal();
         return true;
@@ -73,35 +73,24 @@ protected:
     }
 
 private:
-    /// @brief Recover the yaw a top-down orientation encodes, falling back when the pose carries none.
-    ///
-    /// TODO: this derivation assumes an elevation of +90 deg, while `TopDownPitch` is -90 (see the TODO on
-    /// `TopDownPitch`); fixing that sign fixes the 180 deg error here too.
-    static inline double resolveTopDownYaw(const hlsl::math::quaternion<hlsl::float64_t>& orientation, const double fallbackYaw)
+    /// @brief Recover the azimuth an orientation encodes, falling back when the pose carries none.
+    static inline double resolveTopDownYaw(const hlsl::math::quaternion<hlsl::float64_t>& orientation, const SWorldFrame& frame, const double fallbackYaw)
     {
-        const auto basis = CCameraMathUtilities::getOrientationBasis(orientation);
-        // looking straight down, the camera up vector lies in the ground plane; with +Y up that is the XZ plane,
-        // where `makeSphericalUpFromOrbit` gives up = (-sin(yaw), 0, -cos(yaw))
-        const auto planarUp = hlsl::float64_t2(basis.up.x, basis.up.z);
-        if (!CCameraMathUtilities::isNearlyZeroVector(planarUp, ZeroTolerance))
-            return hlsl::atan2(-planarUp.x, -planarUp.y);
-
-        // the same pose gives right = (-cos(yaw), 0, sin(yaw))
-        const auto planarRight = hlsl::float64_t2(basis.right.x, basis.right.z);
-        if (!CCameraMathUtilities::isNearlyZeroVector(planarRight, ZeroTolerance))
-            return hlsl::atan2(planarRight.y, -planarRight.x);
-
-        return fallbackYaw;
+        const auto basis = CCameraMathUtilities::basisFromOrientation(orientation, frame.handedness);
+        // a camera looking at its target from azimuth `yaw` looks along -(forward * cos(yaw) + right * sin(yaw)) in
+        // the horizon plane; straight above the target that part vanishes and its up, the orbit tangent
+        // `upHintFromYawPitch(yaw, 90 deg)` = -forward * cos(yaw) - right * sin(yaw), carries the same azimuth
+        auto horizon = basis.forward - frame.up * hlsl::dot(basis.forward, frame.up);
+        if (CCameraMathUtilities::isNearlyZeroVector(horizon, ZeroTolerance))
+            horizon = basis.up - frame.up * hlsl::dot(basis.up, frame.up);
+        if (CCameraMathUtilities::isNearlyZeroVector(horizon, ZeroTolerance))
+            return fallbackYaw;
+        return hlsl::atan2(-hlsl::dot(horizon, frame.right), -hlsl::dot(horizon, frame.forward));
     }
 
 public:
-    /// @brief Elevation of the camera above its target, in radians.
-    ///
-    /// TODO: -90 deg is an elevation of -90, which puts the top-down camera BELOW its target looking up
-    /// (positive elevation is above the target; compare `CIsometricCamera::IsoPitch`, which is positive). The yaw
-    /// recovery in `resolveTopDownYaw` is derived for +90. Fix: +90 deg. Not applied yet because it changes
-    /// visible behaviour.
-    static inline constexpr double TopDownPitch = -90.0 * (hlsl::numbers::pi<double> / 180.0);
+    /// @brief Elevation of the camera above its target, in radians: straight above it, looking down.
+    static inline constexpr double TopDownPitch = 90.0 * (hlsl::numbers::pi<double> / 180.0);
 };
 
 }

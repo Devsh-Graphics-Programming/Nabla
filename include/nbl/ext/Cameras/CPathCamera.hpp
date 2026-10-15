@@ -26,26 +26,26 @@ public:
     using path_limits_t = PathStateLimits;
 
     /// @brief Construct the path rig with the shared default path model and default limits.
-    CPathCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target)
-        : CPathCamera(position, target, CCameraPathUtilities::makeDefaultPathModel(), CCameraPathUtilities::makeDefaultPathLimits())
+    CPathCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, const SWorldFrame& frame = SWorldFrame::yUpLeftHanded())
+        : CPathCamera(position, target, CCameraPathUtilities::makeDefaultPathModel(frame), CCameraPathUtilities::makeDefaultPathLimits(), frame)
     {
     }
 
     /// @brief Construct the path rig with a caller-provided model and default limits.
-    CPathCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, path_model_t pathModel)
-        : CPathCamera(position, target, std::move(pathModel), CCameraPathUtilities::makeDefaultPathLimits())
+    CPathCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, path_model_t pathModel, const SWorldFrame& frame = SWorldFrame::yUpLeftHanded())
+        : CPathCamera(position, target, std::move(pathModel), CCameraPathUtilities::makeDefaultPathLimits(), frame)
     {
     }
 
     /// @brief Construct the path rig with the shared default model and caller-provided limits.
-    CPathCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, path_limits_t pathLimits)
-        : CPathCamera(position, target, CCameraPathUtilities::makeDefaultPathModel(), pathLimits)
+    CPathCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, path_limits_t pathLimits, const SWorldFrame& frame = SWorldFrame::yUpLeftHanded())
+        : CPathCamera(position, target, CCameraPathUtilities::makeDefaultPathModel(frame), pathLimits, frame)
     {
     }
 
     /// @brief Construct the path rig with fully caller-provided model and path-state limits.
-    CPathCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, path_model_t pathModel, path_limits_t pathLimits)
-        : base_t(position, target)
+    CPathCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, path_model_t pathModel, path_limits_t pathLimits, const SWorldFrame& frame = SWorldFrame::yUpLeftHanded())
+        : base_t(position, target, frame)
     {
         initializePathRig(position, std::move(pathModel), pathLimits);
     }
@@ -273,11 +273,11 @@ private:
         if (tryInitializePathRig(position, std::move(pathModel), sanitizedLimits))
             return;
 
-        if (tryInitializePathRig(position, CCameraPathUtilities::makeDefaultPathModel(), sanitizedLimits))
+        if (tryInitializePathRig(position, CCameraPathUtilities::makeDefaultPathModel(getFrame()), sanitizedLimits))
             return;
 
         m_pathLimits = CCameraPathUtilities::makeDefaultPathLimits();
-        m_pathModel = CCameraPathUtilities::makeDefaultPathModel();
+        m_pathModel = CCameraPathUtilities::makeDefaultPathModel(getFrame());
         m_pathState = CCameraPathUtilities::makeDefaultPathState(m_pathLimits.minU);
         m_pathModel.resolveState(m_orbit.target, position, m_pathLimits, nullptr, m_pathState);
         refreshFromPathState();

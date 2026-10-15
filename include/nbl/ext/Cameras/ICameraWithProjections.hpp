@@ -37,7 +37,7 @@ public:
     /// @brief Return the camera.
     ICamera* getCamera();
 
-    /// @brief Left-handed world-to-view matrix of the camera, promoted to 4x4.
+    /// @brief World-to-view matrix of the camera, promoted to 4x4; its handedness is the camera's.
     hlsl::float64_t4x4 getViewMatrix() const;
 
     /// @brief Projection matrix of one entry, as last built by `CPlanarProjection::update`.

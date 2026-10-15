@@ -10,9 +10,9 @@ namespace nbl::ext::cameras
 namespace
 {
 
-hlsl::float64_t getPlanarRadiusXZ(const hlsl::float64_t3& offset)
+hlsl::float64_t getHorizonRadius(const hlsl::float64_t3& offset, const SWorldFrame& frame)
 {
-    return hlsl::length(hlsl::float64_t2(offset.x, offset.z));
+    return hlsl::length(offset - frame.up * hlsl::dot(offset, frame.up));
 }
 
 hlsl::float64_t getPathDistance(const hlsl::float64_t pathU, const hlsl::float64_t pathV)
@@ -20,10 +20,11 @@ hlsl::float64_t getPathDistance(const hlsl::float64_t pathU, const hlsl::float64
     return hlsl::length(hlsl::float64_t2(pathU, pathV));
 }
 
-// NOTE: `pathS` is measured from +X towards +Z, a quarter turn away from the orbit azimuth of `STargetOrbit`.
-hlsl::float64_t3 makePathOffsetFromState(const hlsl::float64_t pathS, const hlsl::float64_t pathU, const hlsl::float64_t pathV)
+// NOTE: `pathS` is measured from the frame's right towards its forward, a quarter turn away from the orbit azimuth
+// of `STargetOrbit`; `pathU` is the radius in the horizon plane, `pathV` the height along the frame's up.
+hlsl::float64_t3 makePathOffsetFromState(const hlsl::float64_t pathS, const hlsl::float64_t pathU, const hlsl::float64_t pathV, const SWorldFrame& frame)
 {
-    return hlsl::float64_t3(hlsl::cos(pathS) * pathU, pathV, hlsl::sin(pathS) * pathU);
+    return frame.right * (hlsl::cos(pathS) * pathU) + frame.up * pathV + frame.forward * (hlsl::sin(pathS) * pathU);
 }
 
 }
@@ -166,17 +167,19 @@ bool CCameraPathUtilities::tryBuildPathStateFromPosition(
     const hlsl::float64_t3& targetPosition,
     const hlsl::float64_t3& position,
     const double minU,
+    const SWorldFrame& frame,
     ICamera::PathState& outState)
 {
     outState = {};
     const auto offset = position - targetPosition;
-    const auto radius = getPlanarRadiusXZ(offset);
-    if (!CCameraMathUtilities::isFiniteScalar(radius) || !CCameraMathUtilities::isFiniteScalar(offset.y))
+    const auto radius = getHorizonRadius(offset, frame);
+    const auto height = hlsl::dot(offset, frame.up);
+    if (!CCameraMathUtilities::isFiniteScalar(radius) || !CCameraMathUtilities::isFiniteScalar(height))
         return false;
 
-    outState.s = CCameraMathUtilities::wrapAngleRad(hlsl::atan2(offset.z, offset.x));
+    outState.s = CCameraMathUtilities::wrapAngleRad(hlsl::atan2(hlsl::dot(offset, frame.forward), hlsl::dot(offset, frame.right)));
     outState.u = hlsl::max(minU, radius);
-    outState.v = offset.y;
+    outState.v = height;
     if (!CCameraMathUtilities::isFiniteScalar(outState.s) ||
         !CCameraMathUtilities::isFiniteScalar(outState.u) ||
         !CCameraMathUtilities::isFiniteScalar(outState.v))
@@ -192,6 +195,7 @@ bool CCameraPathUtilities::tryResolvePathState(
     const hlsl::float64_t3& targetPosition,
     const hlsl::float64_t3& position,
     const SCameraPathLimits& limits,
+    const SWorldFrame& frame,
     const ICamera::PathState* requestedState,
     ICamera::PathState& outState)
 {
@@ -205,7 +209,7 @@ bool CCameraPathUtilities::tryResolvePathState(
         return sanitizePathState(outState, sanitizedLimits);
     }
 
-    if (tryBuildPathStateFromPosition(targetPosition, position, sanitizedLimits.minU, outState))
+    if (tryBuildPathStateFromPosition(targetPosition, position, sanitizedLimits.minU, frame, outState))
         return sanitizePathState(outState, sanitizedLimits);
 
     outState = makeDefaultPathState(sanitizedLimits.minU);
@@ -216,6 +220,7 @@ bool CCameraPathUtilities::tryBuildPathPoseFromState(
     const hlsl::float64_t3& targetPosition,
     const ICamera::PathState& state,
     const SCameraPathLimits& limits,
+    const SWorldFrame& frame,
     SCameraPathPose& outPose)
 {
     SCameraPathLimits sanitizedLimits = limits;
@@ -226,13 +231,13 @@ bool CCameraPathUtilities::tryBuildPathPoseFromState(
         return false;
 
     const hlsl::float64_t appliedU = hlsl::max(sanitizedLimits.minU, state.u);
-    const auto offset = makePathOffsetFromState(state.s, appliedU, state.v);
+    const auto offset = makePathOffsetFromState(state.s, appliedU, state.v, frame);
 
     STargetOrbit orbit = {};
-    if (!CCameraMathUtilities::tryBuildOrbitFromPosition(targetPosition, targetPosition + offset, sanitizedLimits.minDistance, sanitizedLimits.maxDistance, orbit))
+    if (!CCameraMathUtilities::tryBuildOrbitFromPosition(targetPosition, targetPosition + offset, sanitizedLimits.minDistance, sanitizedLimits.maxDistance, frame, orbit))
         return false;
     SCameraRigPose pose = {};
-    if (!CCameraMathUtilities::tryBuildPoseFromOrbit(orbit, sanitizedLimits.minDistance, sanitizedLimits.maxDistance, pose, &orbit.distance))
+    if (!CCameraMathUtilities::tryBuildPoseFromOrbit(orbit, sanitizedLimits.minDistance, sanitizedLimits.maxDistance, frame, pose, &orbit.distance))
         return false;
 
     outPose.position = pose.position;
@@ -240,12 +245,12 @@ bool CCameraPathUtilities::tryBuildPathPoseFromState(
     if (!CCameraMathUtilities::isNearlyZeroScalar(state.roll, hlsl::numeric_limits<hlsl::float64_t>::epsilon))
     {
         // roll turns right and up about forward
-        const auto basis = CCameraMathUtilities::getOrientationBasis(outPose.orientation);
+        const auto basis = CCameraMathUtilities::basisFromOrientation(outPose.orientation, frame.handedness);
         const hlsl::float64_t rollCos = hlsl::cos(state.roll);
         const hlsl::float64_t rollSin = hlsl::sin(state.roll);
         const auto right = basis.right * rollCos + basis.up * rollSin;
         const auto up = basis.up * rollCos - basis.right * rollSin;
-        const auto rolled = hlsl::math::quaternion<hlsl::float64_t>::createFromRotationMatrix(SCameraBasis<hlsl::float64_t>{ right, up, basis.forward }.getRotationMatrix(), true);
+        const auto rolled = CCameraMathUtilities::orientationFromBasis(SCameraBasis<hlsl::float64_t>{ right, up, basis.forward }, frame.handedness);
         if (!CCameraMathUtilities::isFiniteQuaternion(rolled))
             return false;
         outPose.orientation = hlsl::normalize(rolled);
@@ -260,13 +265,14 @@ bool CCameraPathUtilities::tryBuildPathPoseFromState(
     const hlsl::float64_t3& targetPosition,
     const ICamera::PathState& state,
     const SCameraPathLimits& limits,
+    const SWorldFrame& frame,
     hlsl::float64_t3& outPosition,
     hlsl::math::quaternion<hlsl::float64_t>& outOrientation,
     hlsl::float64_t* outAppliedDistance,
     hlsl::float64_t2* outOrbitUv)
 {
     SCameraPathPose pathPose = {};
-    if (!tryBuildPathPoseFromState(targetPosition, state, limits, pathPose))
+    if (!tryBuildPathPoseFromState(targetPosition, state, limits, frame, pathPose))
         return false;
 
     outPosition = pathPose.position;
@@ -323,10 +329,11 @@ bool CCameraPathUtilities::tryBuildCanonicalPathState(
     const hlsl::float64_t3& targetPosition,
     const ICamera::PathState& state,
     const SCameraPathLimits& limits,
+    const SWorldFrame& frame,
     SCameraCanonicalPathState& outState)
 {
     outState = {};
-    if (!tryBuildPathPoseFromState(targetPosition, state, limits, outState.pose))
+    if (!tryBuildPathPoseFromState(targetPosition, state, limits, frame, outState.pose))
         return false;
 
     outState.targetRelative = {
@@ -370,30 +377,31 @@ bool CCameraPathUtilities::tryBuildPathStateTransition(
     const hlsl::float64_t3& currentPosition,
     const hlsl::float64_t3& desiredPosition,
     const SCameraPathLimits& limits,
+    const SWorldFrame& frame,
     const ICamera::PathState* currentStateOverride,
     const ICamera::PathState* desiredStateOverride,
     SCameraPathStateTransition& outTransition)
 {
-    if (!tryResolvePathState(targetPosition, currentPosition, limits, currentStateOverride, outTransition.current))
+    if (!tryResolvePathState(targetPosition, currentPosition, limits, frame, currentStateOverride, outTransition.current))
         return false;
-    if (!tryResolvePathState(targetPosition, desiredPosition, limits, desiredStateOverride, outTransition.desired))
+    if (!tryResolvePathState(targetPosition, desiredPosition, limits, frame, desiredStateOverride, outTransition.desired))
         return false;
 
     outTransition.delta = buildPathStateDelta(outTransition.current, outTransition.desired);
     return true;
 }
 
-SCameraPathModel CCameraPathUtilities::makeDefaultPathModel()
+SCameraPathModel CCameraPathUtilities::makeDefaultPathModel(const SWorldFrame& frame)
 {
     return {
         .resolveState =
-            [](const hlsl::float64_t3& targetPosition,
+            [frame](const hlsl::float64_t3& targetPosition,
                 const hlsl::float64_t3& position,
                 const SCameraPathLimits& limits,
                 const ICamera::PathState* requestedState,
                 ICamera::PathState& outState) -> bool
             {
-                return tryResolvePathState(targetPosition, position, limits, requestedState, outState);
+                return tryResolvePathState(targetPosition, position, limits, frame, requestedState, outState);
             },
         .controlLaw =
             [](const SCameraPathControlContext& context) -> SCameraPathDelta
@@ -409,12 +417,12 @@ SCameraPathModel CCameraPathUtilities::makeDefaultPathModel()
                 return tryApplyPathStateDelta(currentState, delta, limits, outState);
             },
         .evaluate =
-            [](const hlsl::float64_t3& targetPosition,
+            [frame](const hlsl::float64_t3& targetPosition,
                 const ICamera::PathState& state,
                 const SCameraPathLimits& limits,
                 SCameraCanonicalPathState& outState) -> bool
             {
-                return tryBuildCanonicalPathState(targetPosition, state, limits, outState);
+                return tryBuildCanonicalPathState(targetPosition, state, limits, frame, outState);
             },
         .updateDistance =
             [](const float desiredDistance,

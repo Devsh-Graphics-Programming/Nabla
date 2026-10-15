@@ -24,6 +24,9 @@ namespace nbl::ext::cameras
 /// authored world-space pose onto the state the rig stores. `manipulate` does not know what filled the frame;
 /// the mouse/keyboard controller, a script, a solver and a test all build the same `SCameraControls`.
 ///
+/// A camera is built for one world frame, its up, zero direction and handedness, and keeps it for its lifetime (see
+/// `SWorldFrame`). `getBasis()` gives its physical axes and `setLookAt` aims it at a target.
+///
 /// The optional typed hooks expose camera-family state for code that needs
 /// capture, restore, compatibility analysis, persistence, or validation.
 class ICamera : virtual public core::IReferenceCounted
@@ -150,11 +153,22 @@ public:
         }
     };
 
-    ICamera() {}
+    explicit ICamera(const SWorldFrame& frame = SWorldFrame::yUpLeftHanded()) : m_frame(frame) {}
 	virtual ~ICamera() = default;
 
     /// @brief Return the gimbal holding the runtime camera pose.
 	virtual const CCameraGimbal& getGimbal() = 0u;
+
+    /// @brief The world frame this camera was built for: its up, the zero direction of its angles, its handedness.
+    inline const SWorldFrame& getFrame() const { return m_frame; }
+    /// @brief The world handedness this camera was built for.
+    inline ECameraHandedness getHandedness() const { return m_frame.handedness; }
+
+    /// @brief The camera's physical axes in world space: its right, its up and the direction it looks along.
+    inline SCameraBasis<hlsl::float64_t> getBasis()
+    {
+        return CCameraMathUtilities::basisFromOrientation(getGimbal().getOrientation(), m_frame.handedness);
+    }
 
     /// @brief Apply one frame of physical deltas on top of the pose currently held by the gimbal.
     ///
@@ -183,12 +197,24 @@ public:
     /// @return whether `pose` was accepted.
     virtual bool setPose(const SCameraRigPose& pose) = 0;
 
-    /// @brief Decompose one world-space transform (basis in the columns, translation in the last column) and apply
-    /// it as a pose. A positive scale is dropped; sheared, mirrored and degenerate input is rejected.
+    /// @brief Decompose one world-space transform in the layout `getGimbal().getWorldMatrix()` produces (the camera's
+    /// local X, Y, Z in the columns, translation in the last column) and apply it as a pose. A positive scale is
+    /// dropped; sheared, mirrored and degenerate input is rejected.
     inline bool setPose(const hlsl::float64_t4x4& rigidFrame)
     {
         SCameraRigPose pose = {};
         if (!CCameraMathUtilities::tryExtractPositionAndQuaternionFromTransform(rigidFrame, pose.position, pose.orientation))
+            return false;
+
+        return setPose(pose);
+    }
+
+    /// @brief Put the camera at `position` looking at `target`, with up as close to `up` as the view direction
+    /// allows, through `setPose`. The right local axis is aimed for this camera's handedness.
+    inline bool setLookAt(const hlsl::float64_t3& position, const hlsl::float64_t3& target, const hlsl::float64_t3& up)
+    {
+        SCameraRigPose pose = { .position = position };
+        if (!CCameraMathUtilities::tryCreateQuaternionFromLookAt(position, target, up, m_frame, pose.orientation))
             return false;
 
         return setPose(pose);
@@ -290,6 +316,9 @@ public:
 protected:
     /// @brief Apply a frame already checked against `getAcceptedControls()`.
     virtual bool applyControls(const SCameraControls& controls) = 0;
+
+private:
+    SWorldFrame m_frame;
 };
 
 }

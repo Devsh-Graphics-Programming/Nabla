@@ -23,7 +23,7 @@ ICamera* ICameraWithProjections::getCamera()
 
 hlsl::float64_t4x4 ICameraWithProjections::getViewMatrix() const
 {
-    return hlsl::math::linalg::promote_affine<4,4,3,4>(m_camera->getGimbal().getViewMatrixLH());
+    return hlsl::math::linalg::promote_affine<4,4,3,4>(m_camera->getGimbal().getViewMatrix());
 }
 
 hlsl::float64_t4x4 ICameraWithProjections::getProjectionMatrix(const uint32_t projectionIx) const
