@@ -12,8 +12,9 @@ using namespace nbl::hlsl::sampling::hierarchical_image;
 
 namespace nbl::video
 {
+  class IGPUImageView;
 
-class CEnvmapWarpGenerator;
+  class CEnvmapWarpGenerator;
 
 namespace
 {
@@ -35,7 +36,7 @@ namespace
     const auto image = device->createImage(std::move(imgParams));
     auto imageMemReqs = image->getMemoryReqs();
     imageMemReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-    device->allocate(imageMemReqs, image.get());
+    device->allocate(imageMemReqs, { image.get() });
     image->setObjectDebugName(debugName);
 
     IGPUImageView::SCreationParams viewparams;
