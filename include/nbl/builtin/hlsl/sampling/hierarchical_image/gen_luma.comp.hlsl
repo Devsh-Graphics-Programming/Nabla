@@ -27,8 +27,8 @@ void main(uint32_t3 threadID : SV_DispatchThreadID)
 		const float uv = (float32_t2(threadID.xy) + promote<float32_t2>(0.5)) / float32_t2(pc.lumaMapWidth, pc.lumaMapHeight);
 		const float32_t3 envMapSample = envMap.Load(int4(threadID.xyz, 0));
 		// Ask(kevin): I have to call generate first to get the cache, which is a lot of wasted calculation. Is this okay?
-		sampling::SphericalMapping postWarp;
-		sampling::SphericalMapping::cache_type postWarpCache;
+		sampling::SphericalMapping<float32_t> postWarp;
+	  sampling::SphericalMapping<float32_t>::cache_type postWarpCache;
 		postWarp.generate(uv, postWarpCache);
 		float32_t luma = calcLuma(envMapSample) / postWarp.forwardPdf(uv, postWarpCache);
 

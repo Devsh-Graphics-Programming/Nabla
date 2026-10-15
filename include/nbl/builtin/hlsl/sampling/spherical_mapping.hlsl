@@ -40,7 +40,7 @@ struct SphericalMapping
       dir.z = -dir.z;
     const scalar_type theta = uv.y * numbers::pi<scalar_type>;
     scalar_type sinTheta, cosTheta;
-    nbl::hlsl::math::sincos<float>(theta, sinTheta, cosTheta);
+    nbl::hlsl::math::sincos<scalar_type>(theta, sinTheta, cosTheta);
     dir.xz *= sinTheta;
     dir.y = cosTheta;
 
@@ -62,7 +62,7 @@ struct SphericalMapping
 
   density_type forwardPdf(const domain_type v, const cache_type cache)
   {
-    return scalar_type(1) / (scalar_type(2) * cache.sinTheta * numbers::pi<scalar_type> *numbers::pi<scalar_type>);
+    return scalar_type(1) / (scalar_type(2) * cache.sinTheta * numbers::pi<scalar_type> * numbers::pi<scalar_type>);
   }
 
   weight_type forwardWeight(const domain_type v, const cache_type cache)
