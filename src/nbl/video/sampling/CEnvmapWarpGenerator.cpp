@@ -588,7 +588,7 @@ std::array<CEnvmapWarpGenerator::SSession::image_barrier_t, 2> CEnvmapWarpGenera
       .barrier = {
         .dep = {
           .srcStageMask = PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT,
-          .srcAccessMask = ACCESS_FLAGS::SHADER_WRITE_BITS,
+          .srcAccessMask = ACCESS_FLAGS::NONE,
           .dstStageMask = dstStageMask,
           .dstAccessMask = dstAccessMask      }
       },
