@@ -19,7 +19,7 @@ namespace sampling
 {
 
 // TODO: Implement corner sampling or centered sampling based on the type of LuminanceAccessor
-template <typename LuminanceAccessorT 
+template <typename LuminanceAccessorT, bool weightMISCompensation = false
   NBL_PRIMARY_REQUIRES(
     hierarchical_image::MipmappedLuminanceReadAccessor<LuminanceAccessorT>
   )
@@ -148,10 +148,12 @@ struct HierarchicalLuminanceSampler
 
   density_type backwardPdf(const codomain_type codomainVal) NBL_CONST_MEMBER_FUNC
   {
-    vector2_type texelCoord = codomainVal * vector2_type(_lastTexel.x, _lastTexel.y);
-    float32_t2 lumaMapUv = (texelCoord + float32_t2(0.5, 0.5)) / vector2_type(_lastTexel.x + 1, _lastTexel.y + 1);
+    const vector2_type scaled = codomainVal * vector2_type(_lastTexel.x, _lastTexel.y) + vector2_type(0.5, 0.5);
+    const uint16_t2 maxTexel = uint16_t2(_lastTexel.x, _lastTexel.y); // last valid texel index
+    uint16_t2 texelCoord = _static_cast<uint16_t2>(nbl::hlsl::clamp(scaled, vector2_type(0, 0), vector2_type(maxTexel.x, maxTexel.y)));
+
     weight_type luma;
-    _map.get(lumaMapUv, luma);
+    _map.get(luma, texelCoord, 0);
     return luma / _map.getAvgLuma();
   }
 
