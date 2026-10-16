@@ -1,69 +1,129 @@
 #pragma once
 
+#include <atomic>
 #include <string>
 #include <vector>
 #include <functional>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <thread>
 
+#include "curl/multi.h"
 #include "nbl/system/IAsyncQueueDispatcher.h"
 #include "nbl/system/IFile.h"
 #include "nbl/system/ILogger.h"
 
 namespace nbl::system
 {
-    constexpr long CONNECT_TIMEOUT_SECONDS = 10;
-    constexpr long LOW_SPEED_LIMIT_BYTES_PER_SECOND = 1024;
-    constexpr long LOW_SPEED_TIME_SECONDS = 30;
-    constexpr long TOTAL_TIMEOUT_SECONDS = 600;
-    constexpr long MAX_REDIRECTS = 5;
-    constexpr size_t MAX_DOWNLOAD_BYTES = 256ull * 1024ull * 1024ull;
+    constexpr long CURL_CONNECT_TIMEOUT_SECONDS = 10;
+    constexpr long CURL_LOW_SPEED_LIMIT_BYTES_PER_SECOND = 1024;
+    constexpr long CURL_LOW_SPEED_TIME_SECONDS = 30;
+    constexpr long CURL_TOTAL_TIMEOUT_SECONDS = 600;
+    constexpr long CURL_MAX_REDIRECTS = 5;
+    constexpr size_t CURL_MAX_DOWNLOAD_BYTES = 256ull * 1024ull * 1024ull;
+    constexpr uint8_t CURL_MAX_SIMULTANEOUS_DOWNLOADS = 5;
 
-    constexpr int CIRCULAR_QUEUE_SIZE = 256;
+    constexpr uint8_t NUM_THREADs = 5;
+
+    struct DownloadRequest
+    {
+        std::string url;
+        std::function<void(bool success, const std::vector<uint8_t>& data)> callback;
+    };
+
+    //Using deleters since I wrap the curl handles in std::unique_ptrs
+    struct CurlMultipleHandleDeleter
+    {
+        void operator()(CURLM* handle) const
+        {
+            if (handle)
+                curl_multi_cleanup(handle);
+        }
+    };
+
+    struct CurlEasyHandleDeleter
+    {
+        void operator()(CURL* handle) const
+        {
+            if (handle)
+                curl_easy_cleanup(handle);
+        }
+    };
+
+    using CurlMultiPtr = std::unique_ptr<CURLM, CurlMultipleHandleDeleter>;
+    using CurlHandle = std::unique_ptr<CURL, CurlEasyHandleDeleter>;
+
+    //Used to store completion data. Owns everything by value so it can be handed to the main thread.
+    struct Completion
+    {
+        bool success = false;
+        std::vector<uint8_t> bytes;
+
+        std::function<void(bool success, const std::vector<uint8_t>& data)> callback;
+    };
+
+    struct Transfer
+    {
+        //Must be declared before the handle, so it outlives it (curl keeps a pointer to it)
+        char errorBuffer[CURL_ERROR_SIZE] = {};
+
+        std::string url;
+        CurlHandle handle;
+        std::vector<uint8_t> bytes{};
+
+        std::function<void(bool, const std::vector<uint8_t>&)> callback;
+    };
 
     class NBL_API2 CHttpDownloader
     {
-    private:
-        struct SRequest_DOWNLOAD
-        {
-            std::string url = {};
-            std::vector<uint8_t> data = {};
-            std::function<void(bool success, const std::vector<uint8_t>& data)> buffer_func;
-        };
-
-        class NBL_API2 CAsyncQueue final : public IAsyncQueueDispatcher<CAsyncQueue, SRequest_DOWNLOAD, CIRCULAR_QUEUE_SIZE>
-        {
-            using base_t = IAsyncQueueDispatcher;
-
-            bool m_curlReady = false;
-            int m_curlInitResult = 0;
-            logger_opt_smart_ptr m_logger = nullptr;
-
-        public:
-            CAsyncQueue() : base_t() { start(); }
-
-            inline void setLogger(core::smart_refctd_ptr<ILogger>&& logger) { m_logger = logger_opt_smart_ptr(std::move(logger)); }
-            ~CAsyncQueue() { this->shutdown(); }
-
-            void init();
-            void exit();
-
-            void process_request(future_base_t* future, SRequest_DOWNLOAD& req);
-        } m_queue;
 
     public:
+        CHttpDownloader(core::smart_refctd_ptr<ILogger>&& logger);
 
-        CHttpDownloader() : m_queue() {}
-        ~CHttpDownloader() = default;
+        ~CHttpDownloader();
 
-        inline void setLogger(core::smart_refctd_ptr<ILogger>&& logger) { m_queue.setLogger(std::move(logger)); }
+        //Adds a new download to the list.
+        void downloadFile(const std::string& url, const std::function<void(bool success, const std::vector<uint8_t>& data)>& callback);
 
-        template<typename T>
-        using future_t = IAsyncQueueDispatcher<CAsyncQueue, SRequest_DOWNLOAD, CIRCULAR_QUEUE_SIZE>::future_t<T>;
+        //Call from the main thread (e.g. once per frame). Runs the callbacks of finished downloads.
+        void update();
 
-        void downloadFile(future_t<core::smart_refctd_ptr<IFile>>& future, const std::string& url);
+        //Wraps downloaded bytes in an in-memory read-only file
+        static core::smart_refctd_ptr<IFile> createFile(path&& filePath, const std::vector<uint8_t>& data);
 
     private:
-        static size_t writeToBuffer(void* buffer, size_t size, size_t numMembers, void* userData);
-        static core::smart_refctd_ptr<IFile> createFile(path&& filePath, std::vector<uint8_t>& data);
+        void initCURLThread();
 
+        void exit();
+
+        void processRequests();
+        void startTransfer(DownloadRequest&& request);
+        void finishTransfer(CURLMsg* msg);
+        void pushCompletion(Completion&& completion);
+
+        static size_t writeToBuffer(void* buffer, size_t size, size_t numMembers, void* userData);
+
+        bool curlInit;
+        int stillRunning;
+        std::atomic<bool> m_quit;
+
+        //stores requests from the main thread
+        std::queue<DownloadRequest> requestQueue;
+
+        //stores finished downloads for the main thread
+        std::queue<Completion> completionQueue;
+
+        //Stores current active transfers (download thread only)
+        std::vector<std::unique_ptr<Transfer>> currentTransfers;
+
+        logger_opt_smart_ptr m_logger;
+
+        std::mutex mutexDownloadQueue;
+        std::mutex mutexCompletionQueue;
+
+        CurlMultiPtr m_multipleHandles;
+
+        std::thread m_downloadThread;
     };
 }
