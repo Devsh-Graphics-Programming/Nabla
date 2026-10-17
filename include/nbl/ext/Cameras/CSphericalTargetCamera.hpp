@@ -21,12 +21,12 @@ class CSphericalTargetCamera : public ICamera
 public:
     using base_t = ICamera;
 
-    CSphericalTargetCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target)
-        : base_t(), m_orbit{ .target = target, .angles = hlsl::float64_t2(0.0), .distance = MinDistance },
+    CSphericalTargetCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, const SWorldFrame& frame = SWorldFrame::yUpLeftHanded())
+        : base_t(frame), m_orbit{ .target = target, .angles = hlsl::float64_t2(0.0), .distance = MinDistance },
           m_gimbal(SCameraRigPose{ .position = position })
     {
         // a position that coincides with the target has no orbit, so the members keep their fallback
-        CCameraMathUtilities::tryBuildOrbitFromPosition(target, position, MinDistance, MaxDistance, m_orbit);
+        CCameraMathUtilities::tryBuildOrbitFromPosition(target, position, MinDistance, MaxDistance, getFrame(), m_orbit);
     }
     ~CSphericalTargetCamera() = default;
 
@@ -97,7 +97,7 @@ protected:
         if (!CCameraMathUtilities::hasPlanarDeltaXY(deltaTranslation, ZeroTolerance))
             return;
 
-        const auto basis = m_gimbal.getBasis();
+        const auto basis = getBasis();
         m_orbit.target += CCameraMathUtilities::transformLocalVectorToWorldBasis(
             hlsl::float64_t3(deltaTranslation.x, deltaTranslation.y, 0.0),
             basis.right,
@@ -110,7 +110,7 @@ protected:
     inline bool updateGimbal()
     {
         SCameraRigPose pose = {};
-        if (!CCameraMathUtilities::tryBuildPoseFromOrbit(m_orbit, MinDistance, MaxDistance, pose, &m_orbit.distance))
+        if (!CCameraMathUtilities::tryBuildPoseFromOrbit(m_orbit, MinDistance, MaxDistance, getFrame(), pose, &m_orbit.distance))
             return false;
 
         return m_gimbal.setPose(pose);

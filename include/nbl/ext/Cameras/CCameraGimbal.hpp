@@ -11,7 +11,7 @@
 
 namespace nbl::ext::cameras
 {
-    /// @brief Camera pose that also serves the left-handed world-to-view matrix derived from it.
+    /// @brief Camera pose that also serves the world-to-view matrix derived from it.
     ///
     /// Every runtime camera owns one. The view matrix is rebuilt on the first read that follows a manipulation
     /// and cached against `getManipulationCounter()` until the next one, so writing the pose several times in a
@@ -23,8 +23,8 @@ namespace nbl::ext::cameras
         using base_t = IGimbal;
         using base_t::base_t;
 
-        /// @brief Left-handed world-to-view matrix: rows are `(axis, -dot(axis, position))` for right, up, forward.
-        inline const hlsl::float64_t3x4& getViewMatrixLH() const
+        /// @brief World-to-view matrix: rows are the camera's local X, Y, Z in world space, each with `-dot(axis, position)`.
+        inline const hlsl::float64_t3x4& getViewMatrix() const
         {
             const auto counter = getManipulationCounter();
             if (m_cachedCounter != counter)
@@ -32,30 +32,30 @@ namespace nbl::ext::cameras
                 rebuildView();
                 m_cachedCounter = counter;
             }
-            return m_cachedViewLH;
-        }
-
-        /// @brief Right-handed world-to-view matrix: the left-handed one with the forward row negated.
-        inline hlsl::float64_t3x4 getViewMatrixRH() const
-        {
-            auto rhViewMatrix = getViewMatrixLH();
-            rhViewMatrix[2u] *= -1.0;
-            return rhViewMatrix;
+            return m_cachedView;
         }
 
     private:
         inline void rebuildView() const
         {
-            const auto basis = getBasis();
-            assert((hlsl::math::linalg::RuntimeTraits<hlsl::float64_t3x3>::create(basis.getRotationMatrix()).orthonormal));
+            // The view matrix is the inverse of the pose: the transpose of the orientation's rotation, with the
+            // translation that moves the position to the origin. No handedness enters here. The quaternion is only a
+            // rotation: it says how the world axes are turned to become the camera's local axes, and the view matrix
+            // undoes that turn. Which local axis is the look direction is not stored in either; it is decided by the
+            // projection paired with this matrix (`lhPerspective` looks along +Z of view space, `rhPerspective`
+            // along -Z), and `orientationFromBasis` built the quaternion so that the camera's forward sits on the
+            // axis that projection looks along.
+            // columns are the camera's local axes in world space, so the rows of the transpose are the view rotation
+            const auto rotation = hlsl::_static_cast<hlsl::float64_t3x3>(getOrientation());
+            assert((hlsl::math::linalg::RuntimeTraits<hlsl::float64_t3x3>::create(rotation).orthonormal));
+            const auto rotationT = hlsl::transpose(rotation);
 
             const auto& position = getPosition();
-            m_cachedViewLH[0u] = hlsl::float64_t4(basis.right, -hlsl::dot(basis.right, position));
-            m_cachedViewLH[1u] = hlsl::float64_t4(basis.up, -hlsl::dot(basis.up, position));
-            m_cachedViewLH[2u] = hlsl::float64_t4(basis.forward, -hlsl::dot(basis.forward, position));
+            for (uint32_t row = 0u; row < 3u; ++row)
+                m_cachedView[row] = hlsl::float64_t4(rotationT[row], -hlsl::dot(rotationT[row], position));
         }
 
-        mutable hlsl::float64_t3x4 m_cachedViewLH;
+        mutable hlsl::float64_t3x4 m_cachedView;
         /// @brief Counter value the cache was built from; the initial value forces the first read to build it.
         mutable uint64_t m_cachedCounter = ~0ull;
     };
