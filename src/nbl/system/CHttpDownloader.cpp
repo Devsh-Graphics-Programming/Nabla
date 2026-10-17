@@ -22,7 +22,7 @@ namespace nbl::system
     bool CHttpDownloader::initCURL()
     {
         //This needs to be initialized on the main thread since curl_multi_wakeup(m_multipleHandles.get());
-        //needs to be called form the downloadFile() function and I need the CURL multi handle there
+        //needs to be called form the downloadFile() function to awaken the networking thread and I need the CURL multi handle there
         const CURLcode result = curl_global_init(CURL_GLOBAL_DEFAULT);
         if (result != CURLE_OK)
         {
@@ -90,18 +90,17 @@ namespace nbl::system
 
     void CHttpDownloader::update()
     {
-        std::queue<Completion> done;
+        while (!completionQueue.empty())
         {
-            std::lock_guard<std::mutex> lock(mutexCompletionQueue);
-            std::swap(done, completionQueue);
-        }
+            Completion completion;
+            {
+                std::lock_guard<std::mutex> lock(mutexCompletionQueue);
+                completion = std::move(completionQueue.front());
 
-        while (!done.empty())
-        {
-            Completion& completion = done.front();
+                completionQueue.pop();
+            }
             if (completion.callback)
                 completion.callback(completion.success, completion.bytes);
-            done.pop();
         }
     }
 
@@ -127,7 +126,7 @@ namespace nbl::system
             return;
         }
 
-        curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, transfer->errorBuffer);
+        curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, transfer->curlErrorBuffer);
 
         curl_easy_setopt(handle, CURLOPT_URL, transfer->url.c_str());
         curl_easy_setopt(handle, CURLOPT_PROTOCOLS_STR, "http,https");
@@ -184,7 +183,7 @@ namespace nbl::system
         else
         {
             m_logger.log("Download of %s failed: %s (curl code %d, HTTP status %ld)", ILogger::ELL_ERROR,
-                finished->url.c_str(), finished->errorBuffer[0] ? finished->errorBuffer : curl_easy_strerror(result), static_cast<int>(result), httpStatus);
+                finished->url.c_str(), finished->curlErrorBuffer[0] ? finished->curlErrorBuffer : curl_easy_strerror(result), static_cast<int>(result), httpStatus);
         }
 
         pushCompletion({ .success = success, .bytes = std::move(finished->bytes), .callback = std::move(finished->callback) });

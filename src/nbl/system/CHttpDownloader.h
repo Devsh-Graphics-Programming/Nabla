@@ -54,7 +54,7 @@ namespace nbl::system
     using CurlMultiPtr = std::unique_ptr<CURLM, CurlMultipleHandleDeleter>;
     using CurlHandle = std::unique_ptr<CURL, CurlEasyHandleDeleter>;
 
-    //Used to store completion data. Owns everything by value so it can be handed to the main thread.
+    //Used to store completion data that is passed to the main thread
     struct Completion
     {
         bool success = false;
@@ -65,8 +65,7 @@ namespace nbl::system
 
     struct Transfer
     {
-        //Must be declared before the handle, so it outlives it (curl keeps a pointer to it)
-        char errorBuffer[CURL_ERROR_SIZE] = {};
+        char curlErrorBuffer[CURL_ERROR_SIZE] = {};
 
         std::string url;
         CurlHandle handle;
@@ -87,10 +86,10 @@ namespace nbl::system
         //Adds a new download to the list.
         void downloadFile(const std::string& url, const std::function<void(bool success, const std::vector<uint8_t>& data)>& callback);
 
-        //Call from the main thread (e.g. once per frame). Runs the callbacks of finished downloads.
+        //Call from the main thread (e.g. in tick) to execute the callbacks of finished downloads.
         void update();
 
-        //Wraps downloaded bytes in an in-memory read-only file
+        //Converts from vector<uint8_t> bytes to an IFile. use wiht the callback on the main thread
         static core::smart_refctd_ptr<IFile> createFile(path&& filePath, const std::vector<uint8_t>& data);
 
     private:
@@ -115,7 +114,7 @@ namespace nbl::system
         //stores finished downloads for the main thread
         std::queue<Completion> completionQueue;
 
-        //Stores current active transfers (download thread only)
+        //Stores current active transfers (network thread only)
         std::vector<std::unique_ptr<Transfer>> currentTransfers;
 
         logger_opt_smart_ptr m_logger;
