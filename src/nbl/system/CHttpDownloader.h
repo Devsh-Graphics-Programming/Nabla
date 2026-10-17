@@ -82,6 +82,7 @@ namespace nbl::system
         CHttpDownloader(core::smart_refctd_ptr<ILogger>&& logger);
 
         ~CHttpDownloader();
+        bool initCURL();
 
         //Adds a new download to the list.
         void downloadFile(const std::string& url, const std::function<void(bool success, const std::vector<uint8_t>& data)>& callback);
@@ -93,7 +94,7 @@ namespace nbl::system
         static core::smart_refctd_ptr<IFile> createFile(path&& filePath, const std::vector<uint8_t>& data);
 
     private:
-        void initCURLThread();
+        void initCURLWithProcessingThread();
 
         void exit();
 

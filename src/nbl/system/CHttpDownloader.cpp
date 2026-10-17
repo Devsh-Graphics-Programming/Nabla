@@ -11,7 +11,7 @@ namespace nbl::system
 {
     CHttpDownloader::CHttpDownloader(core::smart_refctd_ptr<ILogger>&& logger) : curlInit(false), stillRunning(0), m_quit(false), m_logger(std::move(logger))
     {
-        initCURLThread();
+        initCURLWithProcessingThread();
     }
 
     CHttpDownloader::~CHttpDownloader()
@@ -19,16 +19,15 @@ namespace nbl::system
         exit();
     }
 
-    void CHttpDownloader::initCURLThread()
+    bool CHttpDownloader::initCURL()
     {
-        if (m_downloadThread.joinable())
-            return;
-
+        //This needs to be initialized on the main thread since curl_multi_wakeup(m_multipleHandles.get());
+        //needs to be called form the downloadFile() function and I need the CURL multi handle there
         const CURLcode result = curl_global_init(CURL_GLOBAL_DEFAULT);
         if (result != CURLE_OK)
         {
             m_logger.log("curl_global_init failed: %s", ILogger::ELL_ERROR, curl_easy_strerror(result));
-            return;
+            return true;
         }
         m_logger.log("CURL global init succeeded");
         curlInit = true;
@@ -37,15 +36,22 @@ namespace nbl::system
         if (!m_multipleHandles)
         {
             m_logger.log("curl_multi_init failed", ILogger::ELL_ERROR);
-            return;
+            return true;
         }
         m_logger.log("CURL multiple handles initialized");
+        return false;
+    }
 
-        stillRunning = 0;
-        m_quit = false;
+    void CHttpDownloader::initCURLWithProcessingThread()
+    {
+        if (m_downloadThread.joinable())
+            return;
+
+        if (initCURL()) return;
 
         m_downloadThread = std::thread([this]()
         {
+            stillRunning = 0;
             processRequests();
         });
     }
@@ -139,7 +145,7 @@ namespace nbl::system
         curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, writeToBuffer);  //callback to write data to buffer
         curl_easy_setopt(handle, CURLOPT_WRITEDATA, &transfer->bytes);
 
-        //Lets us find the Transfer again when curl reports this handle as done
+        //Lets me find the Transfer again when curl reports this handle as done
         curl_easy_setopt(handle, CURLOPT_PRIVATE, transfer.get());
 
         const CURLMcode added = curl_multi_add_handle(m_multipleHandles.get(), handle);
@@ -160,7 +166,7 @@ namespace nbl::system
 
         char* privateData = nullptr;
         curl_easy_getinfo(easy, CURLINFO_PRIVATE, &privateData);
-        Transfer* finished = reinterpret_cast<Transfer*>(privateData);
+        auto finished = reinterpret_cast<Transfer*>(privateData);
 
         long httpStatus = 0;
         curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &httpStatus);
@@ -183,7 +189,6 @@ namespace nbl::system
 
         pushCompletion({ .success = success, .bytes = std::move(finished->bytes), .callback = std::move(finished->callback) });
 
-        //Destroys the Transfer, which also cleans up the easy handle (already removed from the multi handle)
         std::erase_if(currentTransfers, [finished](const std::unique_ptr<Transfer>& transfer) { return transfer.get() == finished; });
     }
 
@@ -209,20 +214,29 @@ namespace nbl::system
                 startTransfer(std::move(request));
             }
 
-            curl_multi_perform(multi, &stillRunning);
-
-            bool finishedAny = false;
-            int msgsLeft = 0;
-            while (CURLMsg* msg = curl_multi_info_read(multi, &msgsLeft))
+            if (!currentTransfers.empty())
             {
-                if (msg->msg == CURLMSG_DONE)
-                {
-                    finishTransfer(msg);
-                    finishedAny = true;
-                }
-            }
+                curl_multi_perform(multi, &stillRunning);
 
-            curl_multi_poll(multi, nullptr, 0, finishedAny ? 0 : 1000, nullptr);
+                bool finishedAny = false;
+                int msgsLeft = 0;
+                while (CURLMsg* msg = curl_multi_info_read(multi, &msgsLeft))
+                {
+                    if (msg->msg == CURLMSG_DONE)
+                    {
+                        finishTransfer(msg);
+                        finishedAny = true;
+                    }
+                }
+
+                curl_multi_poll(multi, nullptr, 0, finishedAny ? 0 : 1000, nullptr);
+            }
+            else
+            {
+                //Put this thread to sleep if we have no active transfers.
+                //Awoken by curl_multi_wakeup(m_multipleHandles.get()) from downloadFile()
+                curl_multi_poll(multi, nullptr, 0, 60000, nullptr);
+            }
         }
 
         for (auto& transfer : currentTransfers)
