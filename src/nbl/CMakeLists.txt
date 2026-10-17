@@ -148,6 +148,7 @@ set(NBL_SYSTEM_SOURCES
 	system/CFileViewVirtualAllocatorPOSIX.cpp
 	system/CFileViewAPKAllocator.cpp
 	system/CFileWin32.cpp
+	system/CHttpDownloader.cpp
 	system/CFilePOSIX.cpp
 	system/CSystemWin32.cpp
 	system/CSystemAndroid.cpp
@@ -333,6 +334,7 @@ set(PUBLIC_BUILD_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/glm
 	${THIRD_PARTY_SOURCE_DIR}/renderdoc 		# for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib 			# for dynamically generated zconf.h
+	${CMAKE_BINARY_DIR}/3rdparty/curl
 	${PNG_STATIC_BINARY_DIR} 					# for dynamically generated jconfig.h
 	${CONFIG_DIRECOTORY}						# Nabla config directory
 )
@@ -584,6 +586,15 @@ else()
 endif()
 list(APPEND PUBLIC_BUILD_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/libpng)
 
+# curl
+add_dependencies(Nabla libcurl_static)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE libcurl_static)
+else()
+	target_link_libraries(Nabla PRIVATE libcurl_static)
+endif()
+target_compile_definitions(Nabla PRIVATE CURL_STATICLIB)
+list(APPEND PUBLIC_BUILD_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/curl/include)
 
 # OpenEXR
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
