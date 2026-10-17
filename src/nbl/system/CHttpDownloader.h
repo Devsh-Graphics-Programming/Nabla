@@ -29,7 +29,7 @@ namespace nbl::system
     struct DownloadRequest
     {
         std::string url;
-        std::function<void(bool success, const std::vector<uint8_t>& data)> callback;
+        std::function<void(bool success, std::vector<uint8_t>&& data)> callback;
     };
 
     //Using deleters since I wrap the curl handles in std::unique_ptrs
@@ -60,7 +60,7 @@ namespace nbl::system
         bool success = false;
         std::vector<uint8_t> bytes;
 
-        std::function<void(bool success, const std::vector<uint8_t>& data)> callback;
+        std::function<void(bool success, std::vector<uint8_t>&& data)> callback;
     };
 
     struct Transfer
@@ -71,7 +71,7 @@ namespace nbl::system
         CurlHandle handle;
         std::vector<uint8_t> bytes{};
 
-        std::function<void(bool, const std::vector<uint8_t>&)> callback;
+        std::function<void(bool, std::vector<uint8_t>&&)> callback;
     };
 
     class NBL_API2 CHttpDownloader
@@ -84,13 +84,13 @@ namespace nbl::system
         bool initCURL();
 
         //Adds a new download to the list.
-        void downloadFile(const std::string& url, const std::function<void(bool success, const std::vector<uint8_t>& data)>& callback);
+        void downloadFile(const std::string& url, const std::function<void(bool success, std::vector<uint8_t>&& data)>& callback);
 
         //Call from the main thread (e.g. in tick) to execute the callbacks of finished downloads.
         void update();
 
         //Converts from vector<uint8_t> bytes to an IFile. use wiht the callback on the main thread
-        static core::smart_refctd_ptr<IFile> createFile(path&& filePath, const std::vector<uint8_t>& data);
+        static core::smart_refctd_ptr<IFile> createFile(path&& filePath, std::vector<uint8_t>&& data);
 
     private:
         void initCURLWithProcessingThread();

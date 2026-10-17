@@ -77,7 +77,7 @@ namespace nbl::system
         }
     }
 
-    void CHttpDownloader::downloadFile(const std::string& url, const std::function<void(bool success, const std::vector<uint8_t>& data)>& callback)
+    void CHttpDownloader::downloadFile(const std::string& url, const std::function<void(bool success, std::vector<uint8_t>&& data)>& callback)
     {
         {
             std::lock_guard<std::mutex> lock(mutexDownloadQueue);
@@ -99,8 +99,9 @@ namespace nbl::system
 
                 completionQueue.pop();
             }
+
             if (completion.callback)
-                completion.callback(completion.success, completion.bytes);
+                completion.callback(completion.success, std::move(completion.bytes));
         }
     }
 
@@ -258,22 +259,36 @@ namespace nbl::system
         return bytes;
     }
 
-    core::smart_refctd_ptr<IFile> CHttpDownloader::createFile(path&& filePath, const std::vector<uint8_t>& data)
+    namespace
     {
-        CPlainHeapAllocator allocator(nullptr);
-
-        void* memoryPtr = allocator.alloc(data.size());
-        if (memoryPtr == nullptr)
+        class CVectorOwningAllocator final : public IFileViewAllocator
         {
+            public:
+                CVectorOwningAllocator() : IFileViewAllocator(nullptr) {}
+                explicit CVectorOwningAllocator(std::vector<uint8_t>&& data) : IFileViewAllocator(nullptr), m_data(std::move(data)) {}
+
+                //Never allocates, the memory already exists
+                void* alloc(size_t size) override { return nullptr; }
+                //Nothing to do here, the vector frees its buffer when the file view destroys this allocator
+                bool dealloc(void* data, size_t size) override { return true; }
+
+            private:
+                std::vector<uint8_t> m_data;
+        };
+    }
+
+    core::smart_refctd_ptr<IFile> CHttpDownloader::createFile(path&& filePath, std::vector<uint8_t>&& data)
+    {
+        if (data.empty())
             return nullptr;
-        }
 
-        std::memcpy(memoryPtr, data.data(), data.size());
+        void* const buffer = data.data();
+        const size_t size = data.size();
 
-        return core::make_smart_refctd_ptr<CFileView<CPlainHeapAllocator>>(
+        return core::make_smart_refctd_ptr<CFileView<CVectorOwningAllocator>>(
             std::move(filePath),
             core::bitflag<IFileBase::E_CREATE_FLAGS>(IFileBase::ECF_READ),
             IFileBase::time_point_t::clock::now(),
-            memoryPtr, data.size(), std::move(allocator));
+            buffer, size, CVectorOwningAllocator(std::move(data)));
     }
 }
