@@ -194,6 +194,7 @@ namespace nbl::system
         while (!m_quit)
         {
             //Start queued requests, up to the simultaneous download limit
+            //If more requests come in, they are queued
             while (currentTransfers.size() < CURL_MAX_SIMULTANEOUS_DOWNLOADS)
             {
                 DownloadRequest request;
