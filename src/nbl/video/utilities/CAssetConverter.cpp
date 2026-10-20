@@ -578,9 +578,13 @@ class AssetVisitor : public CRTP
 			const auto* layout = asset->getLayout();
 			if (!layout || !descend(layout,{layout}))
 				return false;
-			const auto* rpass = asset->getRenderpass();
-			if (!rpass || !descend(rpass,{rpass}))
-				return false;
+			if (const auto* rpass=asset->getRenderpass(); rpass)
+			{
+				if (!descend(rpass,{rpass}))
+					return false;
+			}
+			else
+				CRTP::template nullOptional<ICPURenderpass>();
 			using stage_t = hlsl::ShaderStage;
 			for (stage_t stage : {stage_t::ESS_VERTEX,stage_t::ESS_TESSELLATION_CONTROL,stage_t::ESS_TESSELLATION_EVALUATION,stage_t::ESS_GEOMETRY,stage_t::ESS_FRAGMENT})
 			{
@@ -1571,11 +1575,23 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUGraphicsPip
 				hasher << raster.faceCullingMode;
 				hasher << raster.frontFaceIsCCW;
 			}
-			const auto& rpassParam = asset->getRenderpass()->getCreationParameters();
-			const auto& depthStencilRef = rpassParam.subpasses[params.subpassIx].depthStencilAttachment.render;
-			if (depthStencilRef.used())
+			bool depthStencilUsed;
+			E_FORMAT attFormat = EF_UNKNOWN;
+			if (const auto* rpass=asset->getRenderpass(); rpass)
 			{
-				const auto attFormat = rpassParam.depthStencilAttachments[depthStencilRef.attachmentIndex].format;
+				const auto& rpassParam = rpass->getCreationParameters();
+				const auto& depthStencilRef = rpassParam.subpasses[params.subpassIx].depthStencilAttachment.render;
+				depthStencilUsed = depthStencilRef.used();
+				if (depthStencilUsed)
+					attFormat = rpassParam.depthStencilAttachments[depthStencilRef.attachmentIndex].format;
+			}
+			else
+			{
+				attFormat = params.dynamicRendering.depthStencilAttachmentFormat;
+				depthStencilUsed = attFormat!=EF_UNKNOWN;
+			}
+			if (depthStencilUsed)
+			{
 				if (!isStencilOnlyFormat(attFormat))
 				{
 					hasher << raster.depthCompareOp;
@@ -1612,7 +1628,15 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUGraphicsPip
 		}
 		hasher << params.blend.logicOp;
 	}
-	hasher << params.subpassIx;
+	if (asset->getRenderpass())
+		hasher << params.subpassIx;
+	else
+	{
+		const auto& dynamicRendering = params.dynamicRendering;
+		hasher.update(dynamicRendering.colorAttachmentFormats.data(),sizeof(dynamicRendering.colorAttachmentFormats));
+		hasher << dynamicRendering.depthStencilAttachmentFormat;
+		hasher << dynamicRendering.viewMask;
+	}
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUDescriptorSet> lookup)

@@ -213,6 +213,9 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool nextSubpass_impl(const SUBPASS_CONTENTS contents) override;
         bool endRenderPass_impl() override;
 
+        bool beginRendering_impl(const SRenderingInfo& info) override;
+        bool endRendering_impl() override;
+
         bool clearAttachments_impl(const SClearAttachments& info) override;
 
         bool draw_impl(const uint32_t vertexCount, const uint32_t instanceCount, const uint32_t firstVertex, const uint32_t firstInstance) override;

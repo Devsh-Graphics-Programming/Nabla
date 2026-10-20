@@ -1069,7 +1069,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         properties.limits.shaderZeroInitializeWorkgroupMemory = vulkan13Features.shaderZeroInitializeWorkgroupMemory;
 
-        // not checking dynamicRendering
+        if (!vulkan13Features.dynamicRendering)
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         if (!vulkan13Features.shaderIntegerDotProduct)
             RETURN_NULL_PHYSICAL_DEVICE;
@@ -1912,7 +1913,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         // leave defaulted, enable if supported
         //vulkan13Features.textureCompressionASTC_HDR;
         vulkan13Features.shaderZeroInitializeWorkgroupMemory = limits.shaderZeroInitializeWorkgroupMemory;
-        vulkan13Features.dynamicRendering = false; // decided against
+        vulkan13Features.dynamicRendering = true; // require
         vulkan13Features.shaderIntegerDotProduct = true; // require
         vulkan13Features.maintenance4 = true; // require
 

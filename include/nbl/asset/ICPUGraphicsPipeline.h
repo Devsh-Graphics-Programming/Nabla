@@ -75,8 +75,11 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             if (!m_layout) return false;
             if (!m_layout->valid())return false;
 
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-dynamicRendering-06576
-            if (!m_renderpass || m_params.subpassIx >= m_renderpass->getSubpassCount()) return false;
+            if (m_renderpass)
+            {
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06046
+                if (m_params.subpassIx >= m_renderpass->getSubpassCount()) return false;
+            }
             
             core::bitflag<hlsl::ShaderStage> stagePresence = {};
             for (auto shader_i = 0u; shader_i < m_specInfos.size(); shader_i++)

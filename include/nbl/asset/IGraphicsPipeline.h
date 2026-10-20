@@ -71,6 +71,28 @@ class IGraphicsPipelineBase : public virtual core::IReferenceCounted
     public:
         constexpr static inline uint8_t GRAPHICS_SHADER_STAGE_COUNT = 5u;
 
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkPipelineRenderingCreateInfo.html
+        struct SDynamicRenderingParams
+        {
+            static inline constexpr auto MaxColorAttachments = IRenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments;
+            // EF_UNKNOWN means the slot is unused, trailing EF_UNKNOWN slots are not counted
+            std::array<E_FORMAT,MaxColorAttachments> colorAttachmentFormats = []()->auto{
+                std::array<E_FORMAT,MaxColorAttachments> retval;retval.fill(EF_UNKNOWN);return retval;
+            }();
+            // single combined slot, like IRenderpass: depth-only, stencil-only or depth+stencil format, EF_UNKNOWN for none
+            E_FORMAT depthStencilAttachmentFormat = EF_UNKNOWN;
+            uint32_t viewMask = 0u;
+
+            inline uint32_t getColorAttachmentCount() const
+            {
+                for (uint32_t i=MaxColorAttachments; i; i--)
+                    if (colorAttachmentFormats[i-1]!=EF_UNKNOWN)
+                        return i;
+                return 0u;
+            }
+            inline bool operator==(const SDynamicRenderingParams&) const = default;
+        };
+
         struct SCachedCreationParams final
         {
             SVertexInputParams vertexInput = {};
@@ -78,6 +100,7 @@ class IGraphicsPipelineBase : public virtual core::IReferenceCounted
             SRasterizationParams rasterization = {};
             SBlendParams blend = {};
             uint32_t subpassIx = 0u;
+            SDynamicRenderingParams dynamicRendering = {};
         };
 };
 

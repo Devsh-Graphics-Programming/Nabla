@@ -117,6 +117,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             NONE = 0x00u,
             PRECISE_BIT = 0x01u
         };
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingFlagBits.html
+        enum class RENDERING_FLAGS : uint8_t
+        {
+            NONE = 0x00u,
+            CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT = 0x01u
+            // SUSPENDING_BIT = 0x02u, RESUMING_BIT = 0x04u : TODO, need a "suspended" command buffer state
+        };
         struct SInheritanceInfo
         {
             bool occlusionQueryEnable = false;
@@ -126,6 +133,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             uint32_t subpass = IGPURenderpass::SCreationParams::SSubpassDependency::External;
             // optional metadata
             const IGPUFramebuffer* framebuffer = nullptr;
+            // Used only when `renderpass` is nullptr and you begin with `RENDER_PASS_CONTINUE_BIT`
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandBufferInheritanceRenderingInfo.html
+            asset::IGraphicsPipelineBase::SDynamicRenderingParams dynamicRendering = {};
+            core::bitflag<RENDERING_FLAGS> renderingFlags = RENDERING_FLAGS::NONE;
+            uint8_t rasterizationSamplesLog2 = 0u;
+            // filled by beginRendering on primaries, used by clearAttachments validation
+            uint32_t layerCount = 0u;
         };
         bool begin(const core::bitflag<USAGE> flags, const SInheritanceInfo* inheritanceInfo = nullptr);
         inline SInheritanceInfo getCachedInheritanceInfo() const { return m_cachedInheritanceInfo; }
@@ -462,6 +476,47 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool nextSubpass(const SUBPASS_CONTENTS contents);
         bool endRenderPass();
 
+        //! Begin/End Dynamic Rendering
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html
+        struct SRenderingAttachmentInfoBase
+        {
+            // nullptr means the slot is unused and writes to it are discarded
+            const IGPUImageView* imageView = nullptr;
+            const IGPUImageView* resolveImageView = nullptr;
+        };
+        struct SColorAttachmentInfo : SRenderingAttachmentInfoBase
+        {
+            // a non-null `resolveImageView` resolves with AVERAGE, or SAMPLE_ZERO for integer formats
+            IGPUImage::LAYOUT imageLayout = IGPUImage::LAYOUT::ATTACHMENT_OPTIMAL;
+            IGPUImage::LAYOUT resolveImageLayout = IGPUImage::LAYOUT::ATTACHMENT_OPTIMAL;
+            IGPURenderpass::LOAD_OP loadOp = IGPURenderpass::LOAD_OP::DONT_CARE;
+            IGPURenderpass::STORE_OP storeOp = IGPURenderpass::STORE_OP::STORE;
+            SClearColorValue clearValue = {};
+        };
+        struct SDepthStencilAttachmentInfo : SRenderingAttachmentInfoBase
+        {
+            IGPUImage::SDepthStencilLayout imageLayout = {};
+            IGPUImage::SDepthStencilLayout resolveImageLayout = {};
+            IGPURenderpass::SCreationParams::DepthStencilOp<IGPURenderpass::LOAD_OP> loadOp = {};
+            IGPURenderpass::SCreationParams::DepthStencilOp<IGPURenderpass::STORE_OP> storeOp = {};
+            IGPURenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::ResolveMode resolveMode = {};
+            SClearDepthStencilValue clearValue = {};
+        };
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html
+        struct SRenderingInfo
+        {
+            using FLAGS = RENDERING_FLAGS;
+
+            core::bitflag<FLAGS> flags = FLAGS::NONE;
+            VkRect2D renderArea = {};
+            uint32_t layerCount = 1u;
+            uint32_t viewMask = 0u;
+            const SDepthStencilAttachmentInfo* depthStencilAttachment = nullptr;
+            std::span<const SColorAttachmentInfo> colorAttachments = {};
+        };
+        bool beginRendering(const SRenderingInfo& info);
+        bool endRendering();
+
         struct SClearAttachments
         {
             struct SRegion
@@ -706,6 +761,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool nextSubpass_impl(const SUBPASS_CONTENTS contents) = 0;
         virtual bool endRenderPass_impl() = 0;
 
+        virtual bool beginRendering_impl(const SRenderingInfo& info) = 0;
+        virtual bool endRendering_impl() = 0;
+
         virtual bool clearAttachments_impl(const SClearAttachments& info) = 0;
 
         virtual bool draw_impl(const uint32_t vertexCount, const uint32_t instanceCount, const uint32_t firstVertex, const uint32_t firstInstance) = 0;
@@ -784,6 +842,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         };
         using queue_flags_t = IQueue::FAMILY_FLAGS;
         bool checkStateBeforeRecording(const core::bitflag<queue_flags_t> allowedQueueFlags=~queue_flags_t::NONE, const core::bitflag<RENDERPASS_SCOPE> renderpassScope=RENDERPASS_SCOPE::BOTH);
+
+        inline bool withinRenderpassOrRendering() const {return m_cachedInheritanceInfo.subpass!=SInheritanceInfo{}.subpass;}
+        inline bool withinDynamicRendering() const {return withinRenderpassOrRendering() && !m_cachedInheritanceInfo.renderpass;}
 
         template<typename ResourceBarrier>
         bool invalidDependency(const SDependencyInfo<ResourceBarrier>& depInfo) const;

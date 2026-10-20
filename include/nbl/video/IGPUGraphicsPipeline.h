@@ -39,12 +39,13 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 if (!layout)
                     return {};
                 SSpecializationValidationResult retval = {.count=0,.dataSize=0};
-                if (!layout)
-                    return {};
 
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-dynamicRendering-06576
-                if (!renderpass || cached.subpassIx>=renderpass->getSubpassCount())
-                    return {};
+                if (renderpass)
+                {
+                    // https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06046
+                    if (cached.subpassIx>=renderpass->getSubpassCount())
+                        return {};
+                }
 
                 // TODO: check rasterization samples, etc.
                 //rp->getCreationParameters().subpasses[i]

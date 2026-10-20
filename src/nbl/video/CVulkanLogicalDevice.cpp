@@ -1643,6 +1643,8 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     core::vector<VkPipelineDepthStencilStateCreateInfo> vk_depthStencilStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,nullptr,0});
     core::vector<VkPipelineColorBlendStateCreateInfo> vk_colorBlendStates(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,nullptr,0});
     core::vector<VkPipelineColorBlendAttachmentState> vk_colorBlendAttachmentStates(createInfos.size()*IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments);
+    core::vector<VkPipelineRenderingCreateInfo> vk_renderingCreateInfos(createInfos.size(),{VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO,nullptr});
+    core::vector<VkFormat> vk_colorAttachmentFormats(createInfos.size()*asset::IGraphicsPipelineBase::SDynamicRenderingParams::MaxColorAttachments);
 
     auto outCreateInfo = vk_createInfos.data();
     auto outShaderStage = vk_shaderStage.data();
@@ -1663,6 +1665,8 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     auto outDepthStencil = vk_depthStencilStates.data();
     auto outColorBlend = vk_colorBlendStates.data();
     auto outColorBlendAttachmentState = vk_colorBlendAttachmentStates.data();
+    auto outRenderingCreateInfo = vk_renderingCreateInfos.data();
+    auto outColorAttachmentFormat = vk_colorAttachmentFormats.data();
 
     for (const auto& info : createInfos)
     {
@@ -1769,15 +1773,12 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         }
         {
             const auto& blend = info.cached.blend;
-            const auto& subpass = info.renderpass->getCreationParameters().subpasses[info.cached.subpassIx];
             //outColorBlend->flags no attachment order access yet
             outColorBlend->logicOpEnable = blend.logicOp!=asset::ELO_NO_OP;
             outColorBlend->logicOp = getVkLogicOpFromLogicOp(blend.logicOp);
             outColorBlend->pAttachments = outColorBlendAttachmentState;
-            for (auto i=0; i<IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
-            if (subpass.colorAttachments[i].render.used())
+            auto packBlendState = [&outColorBlendAttachmentState](const asset::SColorAttachmentBlendParams& params)->void
             {
-                const auto& params = blend.blendParams[i];
                 outColorBlendAttachmentState->blendEnable = params.blendEnabled();
                 outColorBlendAttachmentState->srcColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.srcColorFactor));
                 outColorBlendAttachmentState->dstColorBlendFactor = getVkBlendFactorFromBlendFactor(static_cast<asset::E_BLEND_FACTOR>(params.dstColorFactor));
@@ -1787,13 +1788,48 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
                 outColorBlendAttachmentState->alphaBlendOp = getVkBlendOpFromBlendOp(static_cast<asset::E_BLEND_OP>(params.alphaBlendOp));
                 outColorBlendAttachmentState->colorWriteMask = getVkColorComponentFlagsFromColorWriteMask(params.colorWriteMask);
                 outColorBlendAttachmentState++;
+            };
+            if (info.renderpass)
+            {
+                const auto& subpass = info.renderpass->getCreationParameters().subpasses[info.cached.subpassIx];
+                for (auto i=0; i<IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+                if (subpass.colorAttachments[i].render.used())
+                    packBlendState(blend.blendParams[i]);
+            }
+            else
+            {
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06055
+                for (auto i=0u; i<info.cached.dynamicRendering.getColorAttachmentCount(); i++)
+                    packBlendState(blend.blendParams[i]);
             }
             outColorBlend->attachmentCount = std::distance<const VkPipelineColorBlendAttachmentState*>(outColorBlend->pAttachments,outColorBlendAttachmentState);
             outCreateInfo->pColorBlendState = outColorBlend++;
         }
         outCreateInfo->pDynamicState = &vk_dynamicStateCreateInfo;
-        outCreateInfo->renderPass = static_cast<const CVulkanRenderpass*>(info.renderpass)->getInternalObject();
-        outCreateInfo->subpass = info.cached.subpassIx;
+        if (info.renderpass)
+        {
+            outCreateInfo->renderPass = static_cast<const CVulkanRenderpass*>(info.renderpass)->getInternalObject();
+            outCreateInfo->subpass = info.cached.subpassIx;
+        }
+        else
+        {
+            const auto& dynamicRendering = info.cached.dynamicRendering;
+            outRenderingCreateInfo->viewMask = dynamicRendering.viewMask;
+            outRenderingCreateInfo->colorAttachmentCount = dynamicRendering.getColorAttachmentCount();
+            outRenderingCreateInfo->pColorAttachmentFormats = outColorAttachmentFormat;
+            for (auto i=0u; i<outRenderingCreateInfo->colorAttachmentCount; i++)
+            {
+                const auto format = dynamicRendering.colorAttachmentFormats[i];
+                *(outColorAttachmentFormat++) = format!=asset::EF_UNKNOWN ? getVkFormatFromFormat(format):VK_FORMAT_UNDEFINED;
+            }
+            const auto depthStencilFormat = dynamicRendering.depthStencilAttachmentFormat;
+            const auto vk_depthStencilFormat = depthStencilFormat!=asset::EF_UNKNOWN ? getVkFormatFromFormat(depthStencilFormat):VK_FORMAT_UNDEFINED;
+            outRenderingCreateInfo->depthAttachmentFormat = asset::isStencilOnlyFormat(depthStencilFormat) ? VK_FORMAT_UNDEFINED:vk_depthStencilFormat;
+            outRenderingCreateInfo->stencilAttachmentFormat = asset::isDepthOnlyFormat(depthStencilFormat) ? VK_FORMAT_UNDEFINED:vk_depthStencilFormat;
+            outCreateInfo->pNext = outRenderingCreateInfo++;
+            outCreateInfo->renderPass = VK_NULL_HANDLE;
+            outCreateInfo->subpass = 0;
+        }
         outCreateInfo++;
     }
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);

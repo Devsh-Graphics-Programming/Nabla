@@ -1915,13 +1915,6 @@ bool ILogicalDevice::createGraphicsPipelines(
             return false;
         }
         
-        auto renderpass = ci.renderpass;
-        if (!renderpass->wasCreatedBy(this))
-        {
-            NBL_LOG_ERROR("Invalid renderpass was given (params[%u])", ix);
-            return false;
-        }
-
         const auto& rasterParams = ci.cached.rasterization;
         if (rasterParams.alphaToOneEnable && !features.alphaToOne)
         {
@@ -1942,66 +1935,125 @@ bool ILogicalDevice::createGraphicsPipelines(
         // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01505
         // baiscally the AMD version must have the rasterization samples equal to the maximum of all attachment samples counts
 
-        const auto& passParams = renderpass->getCreationParameters();
-        const auto& subpass = passParams.subpasses[ci.cached.subpassIx];
-        if (subpass.viewMask)
+        if (ci.renderpass)
         {
-            /*
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06047
-            if (!limits.multiviewTessellationShader && .test(tesS_contrOL))
+            auto renderpass = ci.renderpass;
+            if (!renderpass->wasCreatedBy(this))
+            {
+                NBL_LOG_ERROR("Invalid renderpass was given (params[%u])", ix);
                 return false;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06048
-            if (!limits.multiviewGeomtryShader && .test(GEOMETRY))
+            }
+
+            const auto& passParams = renderpass->getCreationParameters();
+            const auto& subpass = passParams.subpasses[ci.cached.subpassIx];
+            if (subpass.viewMask)
+            {
+                /*
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06047
+                if (!limits.multiviewTessellationShader && .test(tesS_contrOL))
+                    return false;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06048
+                if (!limits.multiviewGeomtryShader && .test(GEOMETRY))
+                    return false;
+                */
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06578
+                //NOTE: index of MSB must be less than maxMultiviewViewCount; wrong negation here, should be >=
+                if (hlsl::findMSB(subpass.viewMask) > limits.maxMultiviewViewCount)
+                {
+                    NBL_LOG_ERROR("Invalid viewMask (params[%u])", ix);
+                    return false;
+                }
+            }
+            if (subpass.depthStencilAttachment.render.used())
+            {
+                const auto& attachment = passParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
+
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
+                bool sampleCountNeedsToMatch = !features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01411
+                if (/*detect NV version && */(rasterParams.depthTestEnable() || rasterParams.stencilTestEnable() || rasterParams.depthBoundsTestEnable))
+                    sampleCountNeedsToMatch = true;
+                if (sampleCountNeedsToMatch && attachment.samples != samples)
+                {
+                    NBL_LOG_ERROR("Invalid depth stencil attachment (params[%u])", ix);
+                    return false;
+                }
+            }
+            for (auto i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+            {
+                const auto& render = subpass.colorAttachments[i].render;
+                if (render.used())
+                {
+                    const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
+                    if (ci.cached.blend.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
+                    {
+                        NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
+                        return false;
+                    }
+
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
+                    if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples != samples)
+                    {
+                        NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
+                        return false;
+                    }
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01412
+                    if (/*detect NV version && */(attachment.samples > samples))
+                    {
+                        NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
+                        return false;
+                    }
+                }
+            }
+        }
+        else
+        {
+            const auto& dynamicRendering = ci.cached.dynamicRendering;
+            const auto colorAttachmentCount = dynamicRendering.getColorAttachmentCount();
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkPipelineRenderingCreateInfo.html#VUID-VkPipelineRenderingCreateInfo-colorAttachmentCount-09533
+            if (colorAttachmentCount>limits.maxColorAttachments)
+            {
+                NBL_LOG_ERROR("Invalid color attachment count %u (params[%u])", colorAttachmentCount, ix);
                 return false;
-            */
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06578
-            //NOTE: index of MSB must be less than maxMultiviewViewCount; wrong negation here, should be >=
-            if (hlsl::findMSB(subpass.viewMask) > limits.maxMultiviewViewCount)
+            }
+            const auto& formatUsages = getPhysicalDevice()->getImageFormatUsagesOptimalTiling();
+            for (auto i=0u; i<colorAttachmentCount; i++)
+            {
+                const auto format = dynamicRendering.colorAttachmentFormats[i];
+                if (format==asset::EF_UNKNOWN)
+                    continue;
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06582
+                if (asset::isDepthOrStencilFormat(format) || !formatUsages[format].attachment)
+                {
+                    NBL_LOG_ERROR("Invalid color attachment format (params[%u].colorAttachmentFormats[%u])", ix, i);
+                    return false;
+                }
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06062
+                if (ci.cached.blend.blendParams[i].blendEnabled() && !formatUsages[format].attachmentBlend)
+                {
+                    NBL_LOG_ERROR("Invalid color attachment format (params[%u].colorAttachmentFormats[%u])", ix, i);
+                    return false;
+                }
+            }
+            const auto depthStencilFormat = dynamicRendering.depthStencilAttachmentFormat;
+            if (depthStencilFormat!=asset::EF_UNKNOWN)
+            {
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06585
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06586
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06587
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06588
+                if (!asset::isDepthOrStencilFormat(depthStencilFormat) || !formatUsages[depthStencilFormat].attachment)
+                {
+                    NBL_LOG_ERROR("Invalid depth stencil attachment format (params[%u])", ix);
+                    return false;
+                }
+            }
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06578
+            if (dynamicRendering.viewMask && hlsl::findMSB(dynamicRendering.viewMask)>=limits.maxMultiviewViewCount)
             {
                 NBL_LOG_ERROR("Invalid viewMask (params[%u])", ix);
                 return false;
-            }
-        }
-        if (subpass.depthStencilAttachment.render.used())
-        {
-            const auto& attachment = passParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
-
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
-            bool sampleCountNeedsToMatch = !features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01411
-            if (/*detect NV version && */(rasterParams.depthTestEnable() || rasterParams.stencilTestEnable() || rasterParams.depthBoundsTestEnable))
-                sampleCountNeedsToMatch = true;
-            if (sampleCountNeedsToMatch && attachment.samples != samples)
-            {
-                NBL_LOG_ERROR("Invalid depth stencil attachment (params[%u])", ix);
-                return false;
-            }
-        }
-        for (auto i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
-        {
-            const auto& render = subpass.colorAttachments[i].render;
-            if (render.used())
-            {
-                const auto& attachment = passParams.colorAttachments[render.attachmentIndex];
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
-                if (ci.cached.blend.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
-                {
-                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
-                    return false;
-                }
-
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
-                if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples != samples)
-                {
-                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
-                    return false;
-                }
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01412
-                if (/*detect NV version && */(attachment.samples > samples))
-                {
-                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
-                    return false;
-                }
             }
         }
 

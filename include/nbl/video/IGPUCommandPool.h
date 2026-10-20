@@ -122,6 +122,7 @@ class IGPUCommandPool : public IBackendObject
         class CIndirectCmd;
         class CDrawIndirectCountCmd;
         class CBeginRenderPassCmd;
+        class CBeginRenderingCmd;
         class CPipelineBarrierCmd;
         class CBindDescriptorSetsCmd;
         class CBindComputePipelineCmd;
@@ -682,6 +683,21 @@ class IGPUCommandPool::CBeginRenderPassCmd final : public IFixedSizeCommand<CBeg
     private:
         core::smart_refctd_ptr<const video::IGPURenderpass> m_renderpass;
         core::smart_refctd_ptr<const video::IGPUFramebuffer> m_framebuffer;
+};
+
+class IGPUCommandPool::CBeginRenderingCmd final : public IFixedSizeCommand<CBeginRenderingCmd>
+{
+        static inline constexpr auto MaxViewCount = 2*IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments+2;
+
+    public:
+        CBeginRenderingCmd(const uint32_t count, const IGPUImageView* const* const pViews)
+        {
+            for (auto i=0u; i<count; ++i)
+                m_views[i] = core::smart_refctd_ptr<const IGPUImageView>(pViews[i]);
+        }
+
+    private:
+        core::smart_refctd_ptr<const IGPUImageView> m_views[MaxViewCount];
 };
 
 class IGPUCommandPool::CPipelineBarrierCmd final : public IVariableSizeCommand<CPipelineBarrierCmd>

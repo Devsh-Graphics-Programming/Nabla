@@ -24,7 +24,7 @@ bool IGPUCommandBuffer::checkStateBeforeRecording(const core::bitflag<queue_flag
         NBL_LOG_ERROR("not in RECORDING state!");
         return false;
     }
-    const bool withinSubpass = m_cachedInheritanceInfo.subpass!=SInheritanceInfo{}.subpass;
+    const bool withinSubpass = withinRenderpassOrRendering();
     if (!renderpassScope.hasFlags(withinSubpass ? RENDERPASS_SCOPE::INSIDE:RENDERPASS_SCOPE::OUTSIDE))
     {
         NBL_LOG_ERROR(
@@ -95,19 +95,76 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
             return false;
         }
 
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00053
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00054
-        if (!inheritanceInfo || !inheritanceInfo->renderpass || !inheritanceInfo->renderpass->isCompatibleDevicewise(this) || inheritanceInfo->subpass<inheritanceInfo->renderpass->getSubpassCount())
+        if (inheritanceInfo->renderpass)
         {
-            NBL_LOG_ERROR("a secondary command buffer must have valid inheritance info with a valid renderpass!");
-            return false;
-        }
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00053
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00054
+            if (!inheritanceInfo || !inheritanceInfo->renderpass || !inheritanceInfo->renderpass->isCompatibleDevicewise(this) || inheritanceInfo->subpass<inheritanceInfo->renderpass->getSubpassCount())
+            {
+                NBL_LOG_ERROR("a secondary command buffer must have valid inheritance info with a valid renderpass!");
+                return false;
+            }
 
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00055
-        if (inheritanceInfo->framebuffer && !inheritanceInfo->framebuffer->isCompatibleDevicewise(this)/* TODO: better check needed || inheritanceInfo->framebuffer->getCreationParameters().renderpass != inheritanceInfo->renderpass*/)
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00055
+            if (inheritanceInfo->framebuffer && !inheritanceInfo->framebuffer->isCompatibleDevicewise(this)/* TODO: better check needed || inheritanceInfo->framebuffer->getCreationParameters().renderpass != inheritanceInfo->renderpass*/)
+            {
+                NBL_LOG_ERROR("a secondary command buffer must have compatible framebuffer!");
+                return false;
+            }
+        }
+        else
         {
-            NBL_LOG_ERROR("a secondary command buffer must have compatible framebuffer!");
-            return false;
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandBufferBeginInfo.html#VUID-VkCommandBufferBeginInfo-flags-00055
+            if (inheritanceInfo->framebuffer)
+            {
+                NBL_LOG_ERROR("a secondary command buffer continuing dynamic rendering must not have a framebuffer!");
+                return false;
+            }
+
+            const auto& limits = physDev->getLimits();
+            const auto& dynamicRendering = inheritanceInfo->dynamicRendering;
+            const auto colorAttachmentCount = dynamicRendering.getColorAttachmentCount();
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-colorAttachmentCount-06106
+            // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdExecuteCommands.html#VUID-vkCmdExecuteCommands-colorAttachmentCount-06027
+            if (colorAttachmentCount>limits.maxColorAttachments)
+            {
+                NBL_LOG_ERROR("color attachment count (%d) exceeds the maximum (%d)!", colorAttachmentCount, limits.maxColorAttachments);
+                return false;
+            }
+            const auto& formatUsages = physDev->getImageFormatUsagesOptimalTiling();
+            for (auto i=0u; i<colorAttachmentCount; i++)
+            {
+                const auto format = dynamicRendering.colorAttachmentFormats[i];
+                // https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandBufferInheritanceRenderingInfo.html#VUID-VkCommandBufferInheritanceRenderingInfo-pColorAttachmentFormats-06492
+                if (format!=asset::EF_UNKNOWN && (asset::isDepthOrStencilFormat(format) || !formatUsages[format].attachment))
+                {
+                    NBL_LOG_ERROR("invalid color attachment format (dynamicRendering.colorAttachmentFormats[%d])!", i);
+                    return false;
+                }
+            }
+            const auto depthStencilFormat = dynamicRendering.depthStencilAttachmentFormat;
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandBufferInheritanceRenderingInfo.html#VUID-VkCommandBufferInheritanceRenderingInfo-depthAttachmentFormat-06540
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandBufferInheritanceRenderingInfo.html#VUID-VkCommandBufferInheritanceRenderingInfo-stencilAttachmentFormat-06541
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandBufferInheritanceRenderingInfo.html#VUID-VkCommandBufferInheritanceRenderingInfo-depthAttachmentFormat-06007
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandBufferInheritanceRenderingInfo.html#VUID-VkCommandBufferInheritanceRenderingInfo-stencilAttachmentFormat-06199
+            if (depthStencilFormat!=asset::EF_UNKNOWN && (!asset::isDepthOrStencilFormat(depthStencilFormat) || !formatUsages[depthStencilFormat].attachment))
+            {
+                NBL_LOG_ERROR("invalid depth stencil attachment format!");
+                return false;
+            }
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandBufferInheritanceRenderingInfo.html#VUID-VkCommandBufferInheritanceRenderingInfo-viewMask-06009
+            if (dynamicRendering.viewMask && hlsl::findMSB(dynamicRendering.viewMask)>=limits.maxMultiviewViewCount)
+            {
+                NBL_LOG_ERROR("invalid viewMask!");
+                return false;
+            }
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandBufferInheritanceRenderingInfo.html#VUID-VkCommandBufferInheritanceRenderingInfo-colorAttachmentCount-06004
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkCommandBufferInheritanceRenderingInfo.html#VUID-VkCommandBufferInheritanceRenderingInfo-variableMultisampleRate-06005
+            if (inheritanceInfo->rasterizationSamplesLog2>hlsl::findMSB(IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_64_BIT))
+            {
+                NBL_LOG_ERROR("invalid rasterization sample count!");
+                return false;
+            }
         }
     }
     // extras from me (devsh)
@@ -149,17 +206,22 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
     m_state = STATE::RECORDING;
     if (inheritanceInfo)
     {
-        if (inheritanceInfo->framebuffer && !inheritanceInfo->framebuffer->getCreationParameters().renderpass->compatible(inheritanceInfo->renderpass))
+        if (inheritanceInfo->renderpass)
         {
-            NBL_LOG_ERROR("a secondary command buffer must have compatible renderpass!");
-            return false;
-        }
-        if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPURenderpass>(inheritanceInfo->renderpass),core::smart_refctd_ptr<const IGPUFramebuffer>(inheritanceInfo->framebuffer)))
-        {
-            NBL_LOG_ERROR("out of host memory!");
-            return false;
+            if (inheritanceInfo->framebuffer && !inheritanceInfo->framebuffer->getCreationParameters().renderpass->compatible(inheritanceInfo->renderpass))
+            {
+                NBL_LOG_ERROR("a secondary command buffer must have compatible renderpass!");
+                return false;
+            }
+            if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPURenderpass>(inheritanceInfo->renderpass),core::smart_refctd_ptr<const IGPUFramebuffer>(inheritanceInfo->framebuffer)))
+            {
+                NBL_LOG_ERROR("out of host memory!");
+                return false;
+            }
         }
         m_cachedInheritanceInfo = *inheritanceInfo;
+        if (whollyInsideRenderpass && !inheritanceInfo->renderpass)
+            m_cachedInheritanceInfo.subpass = 0;
     }
     else
         m_cachedInheritanceInfo = {};
@@ -371,9 +433,15 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
 
     if (invalidDependency(depInfo))
         return false;
-    
-    const bool withinSubpass = m_cachedInheritanceInfo.subpass!=SInheritanceInfo{}.subpass;
-    if (withinSubpass)
+
+    // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdPipelineBarrier2.html#VUID-vkCmdPipelineBarrier2-None-09553
+    if (withinDynamicRendering())
+    {
+        NBL_LOG_ERROR("pipeline barriers are not allowed within dynamic rendering!");
+        return false;
+    }
+
+    if (withinRenderpassOrRendering())
     {
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-bufferMemoryBarrierCount-01178
         if (!depInfo.bufBarriers.empty())
@@ -1510,6 +1578,12 @@ bool IGPUCommandBuffer::nextSubpass(const SUBPASS_CONTENTS contents)
         NBL_LOG_ERROR("primary command buffer must not include the RENDER_PASS_CONTINUE_BIT flag!");
         return false;
     }
+    // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdNextSubpass2.html#VUID-vkCmdNextSubpass2-None-03102
+    if (withinDynamicRendering())
+    {
+        NBL_LOG_ERROR("inside dynamic rendering, there are no subpasses to transit!");
+        return false;
+    }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdNextSubpass2KHR.html#VUID-vkCmdNextSubpass2-None-03102
     if (m_cachedInheritanceInfo.subpass+1>=m_cachedInheritanceInfo.renderpass->getSubpassCount())
     {
@@ -1526,6 +1600,12 @@ bool IGPUCommandBuffer::endRenderPass()
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
         return false;
+    // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdEndRenderPass2.html#VUID-vkCmdEndRenderPass2-None-06171
+    if (withinDynamicRendering())
+    {
+        NBL_LOG_ERROR("inside dynamic rendering, use endRendering!");
+        return false;
+    }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdEndRenderPass2KHR.html#VUID-vkCmdEndRenderPass2-None-03103
     if (m_cachedInheritanceInfo.subpass+1!=m_cachedInheritanceInfo.renderpass->getSubpassCount())
     {
@@ -1536,6 +1616,309 @@ bool IGPUCommandBuffer::endRenderPass()
     m_cachedInheritanceInfo.subpass = SInheritanceInfo{}.subpass;
     m_noCommands = false;
     return endRenderPass_impl();
+}
+
+bool IGPUCommandBuffer::beginRendering(const SRenderingInfo& info)
+{
+    // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdBeginRendering.html#VUID-vkCmdBeginRendering-commandBuffer-10914
+    if (m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT))
+    {
+        NBL_LOG_ERROR("command buffer must not include the RENDER_PASS_CONTINUE_BIT flag!");
+        return false;
+    }
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdBeginRendering.html#VUID-vkCmdBeginRendering-commandBuffer-06068
+    if (m_level==IGPUCommandPool::BUFFER_LEVEL::SECONDARY && info.flags.hasFlags(SRenderingInfo::FLAGS::CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT))
+    {
+        NBL_LOG_ERROR("a secondary command buffer must not begin rendering with CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT!");
+        return false;
+    }
+
+    const auto* device = getOriginDevice();
+    const auto& limits = device->getPhysicalDevice()->getLimits();
+    const auto& renderArea = info.renderArea;
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-None-08994
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-None-08995
+    if (renderArea.extent.width==0u || renderArea.extent.height==0u)
+    {
+        NBL_LOG_ERROR("invalid extent size [%d, %d]!", renderArea.extent.width, renderArea.extent.height);
+        return false;
+    }
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pNext-06077
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pNext-06078
+    if (renderArea.offset.x<0 || renderArea.offset.y<0)
+    {
+        NBL_LOG_ERROR("invalid render area offset [%d, %d]!", renderArea.offset.x, renderArea.offset.y);
+        return false;
+    }
+    const uint32_t renderAreaEndX = renderArea.offset.x+renderArea.extent.width;
+    const uint32_t renderAreaEndY = renderArea.offset.y+renderArea.extent.height;
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pNext-07815
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pNext-07816
+    if (renderAreaEndX>limits.maxFramebufferWidth || renderAreaEndY>limits.maxFramebufferHeight)
+    {
+        NBL_LOG_ERROR("render area [%d, %d] exceeds the maximum framebuffer size [%d, %d]!", renderAreaEndX, renderAreaEndY, limits.maxFramebufferWidth, limits.maxFramebufferHeight);
+        return false;
+    }
+
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-viewMask-06069
+    if (!info.viewMask && info.layerCount==0u)
+    {
+        NBL_LOG_ERROR("layerCount must not be 0 when viewMask is 0!");
+        return false;
+    }
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-layerCount-07817
+    if (info.layerCount>limits.maxFramebufferLayers)
+    {
+        NBL_LOG_ERROR("layerCount (%d) exceeds the maximum (%d)!", info.layerCount, limits.maxFramebufferLayers);
+        return false;
+    }
+    const int32_t viewMaskMSB = hlsl::findMSB(info.viewMask);
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-viewMask-06128
+    if (viewMaskMSB>=limits.maxMultiviewViewCount)
+    {
+        NBL_LOG_ERROR("invalid viewMask!");
+        return false;
+    }
+
+    constexpr auto MaxColorAttachments = asset::IGraphicsPipelineBase::SDynamicRenderingParams::MaxColorAttachments;
+    // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-colorAttachmentCount-06106
+    if (info.colorAttachments.size()>limits.maxColorAttachments || info.colorAttachments.size()>MaxColorAttachments)
+    {
+        NBL_LOG_ERROR("color attachment count (%d) exceeds the maximum (%d)!", static_cast<uint32_t>(info.colorAttachments.size()), limits.maxColorAttachments);
+        return false;
+    }
+
+    auto invalidLayout = [](const IGPUImage::LAYOUT layout, const bool resolve)->bool
+    {
+        switch (layout)
+        {
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06135
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06136
+            case IGPUImage::LAYOUT::UNDEFINED: [[fallthrough]];
+            case IGPUImage::LAYOUT::TRANSFER_SRC_OPTIMAL: [[fallthrough]];
+            case IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL: [[fallthrough]];
+            case IGPUImage::LAYOUT::PREINITIALIZED: [[fallthrough]];
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06145
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06146
+            case IGPUImage::LAYOUT::PRESENT_SRC:
+                return true;
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06142
+            case IGPUImage::LAYOUT::READ_ONLY_OPTIMAL:
+                return resolve;
+            default:
+                break;
+        }
+        return false;
+    };
+    auto invalidView = [&](const IGPUImageView* const view, const bool resolve)->bool
+    {
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-parameter
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-resolveImageView-parameter
+        if (!this->isCompatibleDevicewise(view))
+            return true;
+        const auto& viewParams = view->getCreationParameters();
+        const auto& imgParams = viewParams.image->getCreationParameters();
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-colorAttachmentCount-06087
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pDepthAttachment-06088
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pStencilAttachment-06089
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-colorAttachmentCount-09476
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pDepthAttachment-09477
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pStencilAttachment-09478
+        if (!viewParams.actualUsages().hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT))
+            return true;
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-12470
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-resolveImageView-12471
+        if (viewParams.viewType==IGPUImageView::ET_3D)
+            return true;
+        const auto& range = viewParams.subresourceRange;
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-12486
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-resolveImageView-12487
+        const auto levelCount = range.levelCount!=IGPUImageView::remaining_mip_levels ? range.levelCount:(imgParams.mipLevels-range.baseMipLevel);
+        if (levelCount!=1u)
+            return true;
+        if (!resolve)
+        {
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pNext-06079
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pNext-06080
+            const auto mipSize = viewParams.image->getMipSize(range.baseMipLevel);
+            if (renderAreaEndX>mipSize.x || renderAreaEndY>mipSize.y)
+                return true;
+        }
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-viewMask-10859
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-viewMask-10860
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-viewMask-10861
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-viewMask-12403
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-viewMask-12404
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-viewMask-12405
+        const auto layerCount = range.layerCount!=IGPUImageView::remaining_array_layers ? range.layerCount:(imgParams.arrayLayers-range.baseArrayLayer);
+        if (info.viewMask ? (static_cast<int32_t>(layerCount)<=viewMaskMSB):(layerCount<info.layerCount))
+            return true;
+        return false;
+    };
+    using sample_count_t = IGPUImage::E_SAMPLE_COUNT_FLAGS;
+    auto getSamples = [](const IGPUImageView* const view)->sample_count_t
+    {
+        return view->getCreationParameters().image->getCreationParameters().samples;
+    };
+
+    const IGPUImageView* views[2*MaxColorAttachments+2];
+    uint32_t viewCount = 0u;
+    auto colorSamples = static_cast<sample_count_t>(0);
+    for (auto i=0u; i<info.colorAttachments.size(); i++)
+    {
+        const auto& attachment = info.colorAttachments[i];
+        if (!attachment.imageView)
+            continue;
+        const auto format = attachment.imageView->getCreationParameters().format;
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-colorAttachmentCount-06087
+        if (invalidView(attachment.imageView,false) || asset::isDepthOrStencilFormat(format) || invalidLayout(attachment.imageLayout,false))
+        {
+            NBL_LOG_ERROR("invalid color attachment (colorAttachments[%d])!", i);
+            return false;
+        }
+        const auto samples = getSamples(attachment.imageView);
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-imageView-09429
+        if (colorSamples && samples!=colorSamples)
+        {
+            NBL_LOG_ERROR("all color attachments must have the same sample count (colorAttachments[%d])!", i);
+            return false;
+        }
+        colorSamples = samples;
+        views[viewCount++] = attachment.imageView;
+
+        if (const auto* const resolveView=attachment.resolveImageView; resolveView)
+        {
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06861
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06864
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06865
+            if (invalidView(resolveView,true) || invalidLayout(attachment.resolveImageLayout,true) || samples==sample_count_t::ESCF_1_BIT || getSamples(resolveView)!=sample_count_t::ESCF_1_BIT || resolveView->getCreationParameters().format!=format)
+            {
+                NBL_LOG_ERROR("invalid color resolve attachment (colorAttachments[%d])!", i);
+                return false;
+            }
+            views[viewCount++] = resolveView;
+        }
+    }
+
+    auto depthStencilFormat = asset::EF_UNKNOWN;
+    auto depthStencilSamples = static_cast<sample_count_t>(0);
+    if (const auto* const attachment=info.depthStencilAttachment; attachment && attachment->imageView)
+    {
+        depthStencilFormat = attachment->imageView->getCreationParameters().format;
+        const bool hasDepth = !asset::isStencilOnlyFormat(depthStencilFormat);
+        const bool hasStencil = !asset::isDepthOnlyFormat(depthStencilFormat);
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pDepthAttachment-06547
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pStencilAttachment-06548
+        if (invalidView(attachment->imageView,false) || !asset::isDepthOrStencilFormat(depthStencilFormat))
+        {
+            NBL_LOG_ERROR("invalid depth stencil attachment!");
+            return false;
+        }
+        if ((hasDepth && invalidLayout(attachment->imageLayout.depth,false)) || (hasStencil && invalidLayout(attachment->imageLayout.actualStencilLayout(),false)))
+        {
+            NBL_LOG_ERROR("invalid depth stencil attachment layout!");
+            return false;
+        }
+        depthStencilSamples = getSamples(attachment->imageView);
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-multisampledRenderToSingleSampled-06857
+        if (!device->getEnabledFeatures().mixedAttachmentSamples && colorSamples && depthStencilSamples!=colorSamples)
+        {
+            NBL_LOG_ERROR("depth stencil attachment must have the same sample count as the color attachments!");
+            return false;
+        }
+        views[viewCount++] = attachment->imageView;
+
+        const auto depthResolve = static_cast<hlsl::ResolveModeFlags>(attachment->resolveMode.depth);
+        const auto stencilResolve = static_cast<hlsl::ResolveModeFlags>(attachment->resolveMode.stencil);
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pDepthAttachment-06102
+        if (hasDepth && !limits.supportedDepthResolveModes.hasFlags(depthResolve))
+        {
+            NBL_LOG_ERROR("unsupported depth resolve mode!");
+            return false;
+        }
+        // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingInfo.html#VUID-VkRenderingInfo-pStencilAttachment-06103
+        if (hasStencil && !limits.supportedStencilResolveModes.hasFlags(stencilResolve))
+        {
+            NBL_LOG_ERROR("unsupported stencil resolve mode!");
+            return false;
+        }
+        const bool resolveDepth = hasDepth && depthResolve!=hlsl::ResolveModeFlags::NONE;
+        const bool resolveStencil = hasStencil && stencilResolve!=hlsl::ResolveModeFlags::NONE;
+        if (resolveDepth || resolveStencil)
+        {
+            const auto* const resolveView = attachment->resolveImageView;
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06862
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06861
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06864
+            // https://docs.vulkan.org/refpages/latest/refpages/source/VkRenderingAttachmentInfo.html#VUID-VkRenderingAttachmentInfo-imageView-06865
+            if (!resolveView || invalidView(resolveView,true) || depthStencilSamples==sample_count_t::ESCF_1_BIT || getSamples(resolveView)!=sample_count_t::ESCF_1_BIT || resolveView->getCreationParameters().format!=depthStencilFormat)
+            {
+                NBL_LOG_ERROR("invalid depth stencil resolve attachment!");
+                return false;
+            }
+            if ((resolveDepth && invalidLayout(attachment->resolveImageLayout.depth,true)) || (resolveStencil && invalidLayout(attachment->resolveImageLayout.actualStencilLayout(),true)))
+            {
+                NBL_LOG_ERROR("invalid depth stencil resolve attachment layout!");
+                return false;
+            }
+            views[viewCount++] = resolveView;
+        }
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderingCmd>(m_commandList,viewCount,views))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_noCommands = false;
+    if (!beginRendering_impl(info))
+        return false;
+    m_cachedInheritanceInfo.renderpass = nullptr;
+    m_cachedInheritanceInfo.subpass = 0;
+    m_cachedInheritanceInfo.framebuffer = nullptr;
+    m_cachedInheritanceInfo.dynamicRendering = {};
+    for (auto i=0u; i<info.colorAttachments.size(); i++)
+    if (const auto* const view=info.colorAttachments[i].imageView; view)
+        m_cachedInheritanceInfo.dynamicRendering.colorAttachmentFormats[i] = view->getCreationParameters().format;
+    m_cachedInheritanceInfo.dynamicRendering.depthStencilAttachmentFormat = depthStencilFormat;
+    m_cachedInheritanceInfo.dynamicRendering.viewMask = info.viewMask;
+    m_cachedInheritanceInfo.renderingFlags = info.flags;
+    const auto rasterizationSamples = colorSamples ? colorSamples:depthStencilSamples;
+    m_cachedInheritanceInfo.rasterizationSamplesLog2 = rasterizationSamples ? static_cast<uint8_t>(hlsl::findLSB(rasterizationSamples)):0u;
+    m_cachedInheritanceInfo.layerCount = info.layerCount;
+    return true;
+}
+
+bool IGPUCommandBuffer::endRendering()
+{
+    // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdEndRendering.html#VUID-vkCmdEndRendering-commandBuffer-06162
+    if (m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT))
+    {
+        NBL_LOG_ERROR("command buffer must not include the RENDER_PASS_CONTINUE_BIT flag!");
+        return false;
+    }
+    if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::INSIDE))
+        return false;
+    // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdEndRendering.html#VUID-vkCmdEndRendering-None-06161
+    if (!withinDynamicRendering())
+    {
+        NBL_LOG_ERROR("inside a renderpass, use endRenderPass!");
+        return false;
+    }
+
+    m_noCommands = false;
+    if (!endRendering_impl())
+        return false;
+    m_cachedInheritanceInfo.subpass = SInheritanceInfo{}.subpass;
+    m_cachedInheritanceInfo.dynamicRendering = {};
+    m_cachedInheritanceInfo.renderingFlags = SRenderingInfo::FLAGS::NONE;
+    m_cachedInheritanceInfo.rasterizationSamplesLog2 = 0u;
+    m_cachedInheritanceInfo.layerCount = 0u;
+    return true;
 }
 
 
@@ -1550,49 +1933,91 @@ bool IGPUCommandBuffer::clearAttachments(const SClearAttachments& info)
         return false;
     }
 
-    const auto& rpassParams = m_cachedInheritanceInfo.renderpass->getCreationParameters();
-    const auto& subpass = rpassParams.subpasses[m_cachedInheritanceInfo.subpass];
-    if (info.clearDepth||info.clearStencil)
+    if (withinDynamicRendering())
     {
-        if (!subpass.depthStencilAttachment.render.used())
+        const auto& dynamicRendering = m_cachedInheritanceInfo.dynamicRendering;
+        const auto colorAttachmentCount = dynamicRendering.getColorAttachmentCount();
+        for (auto i=0u; i<sizeof(info.clearColorMask)*8; i++)
         {
-            NBL_LOG_ERROR("current subpass attachment and the clear format doesn't match!");
-            return false;
+            // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07271
+            if (info.clearColor(i) && i>=colorAttachmentCount)
+            {
+                NBL_LOG_ERROR("color attachment %d is not used by the current dynamic rendering!", i);
+                return false;
+            }
         }
-        const auto& depthStencilAttachment = rpassParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07884
-        if (info.clearDepth && asset::isStencilOnlyFormat(depthStencilAttachment.format))
+
+        if (dynamicRendering.viewMask)
         {
-            NBL_LOG_ERROR("stencil only asset can't be cleared with the 'clearDepth' parameter!");
-            return false;
+            for (const SClearAttachments::SRegion& region : info.regions)
+            {
+                // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-baseArrayLayer-00018
+                if (region.baseArrayLayer!=0u || region.layerCount!=1u)
+                {
+                    NBL_LOG_ERROR("region must have a baseArrayLayer of 0 and a layerCount of 1 when rendering with multiview!");
+                    return false;
+                }
+            }
         }
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07885
-        if (info.clearStencil && asset::isDepthOnlyFormat(depthStencilAttachment.format))
+        else if (m_cachedInheritanceInfo.layerCount)
         {
-            NBL_LOG_ERROR("depth only asset can't be cleared with the 'clearStencil' parameter!");
-            return false;
+            for (const SClearAttachments::SRegion& region : info.regions)
+            {
+                // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-pRects-06937
+                if (region.baseArrayLayer+region.layerCount>m_cachedInheritanceInfo.layerCount)
+                {
+                    NBL_LOG_ERROR("region layers (%d) exceeds the valid amount (%d)!", region.baseArrayLayer + region.layerCount, m_cachedInheritanceInfo.layerCount);
+                    return false;
+                }
+            }
         }
     }
-    for (auto i=0; i<sizeof(info.clearColorMask)*8; i++)
+    else
     {
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07271
-        if (info.clearColor(i) && !subpass.colorAttachments[i].render.used())
+        const auto& rpassParams = m_cachedInheritanceInfo.renderpass->getCreationParameters();
+        const auto& subpass = rpassParams.subpasses[m_cachedInheritanceInfo.subpass];
+        if (info.clearDepth||info.clearStencil)
         {
-            NBL_LOG_ERROR("current subpass attachment and the clear format doesn't match!");
-            return false;
+            if (!subpass.depthStencilAttachment.render.used())
+            {
+                NBL_LOG_ERROR("current subpass attachment and the clear format doesn't match!");
+                return false;
+            }
+            const auto& depthStencilAttachment = rpassParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07884
+            if (info.clearDepth && asset::isStencilOnlyFormat(depthStencilAttachment.format))
+            {
+                NBL_LOG_ERROR("stencil only asset can't be cleared with the 'clearDepth' parameter!");
+                return false;
+            }
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07885
+            if (info.clearStencil && asset::isDepthOnlyFormat(depthStencilAttachment.format))
+            {
+                NBL_LOG_ERROR("depth only asset can't be cleared with the 'clearStencil' parameter!");
+                return false;
+            }
         }
-    }
+        for (auto i=0; i<sizeof(info.clearColorMask)*8; i++)
+        {
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07271
+            if (info.clearColor(i) && !subpass.colorAttachments[i].render.used())
+            {
+                NBL_LOG_ERROR("current subpass attachment and the clear format doesn't match!");
+                return false;
+            }
+        }
     
-    // cannot validate without tracking more stuff
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-pRects-00016
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-pRects-06937
-    // TODO: if (m_cachedInheritanceInfo.renderpass->getUsesMultiview()) then, instead check https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-baseArrayLayer-00018
-    for (const SClearAttachments::SRegion& region : info.regions)
-    {
-        if (region.baseArrayLayer+region.layerCount>m_cachedInheritanceInfo.framebuffer->getCreationParameters().layers)
+        // cannot validate without tracking more stuff
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-pRects-00016
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-pRects-06937
+        // TODO: if (m_cachedInheritanceInfo.renderpass->getUsesMultiview()) then, instead check https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-baseArrayLayer-00018
+        for (const SClearAttachments::SRegion& region : info.regions)
         {
-            NBL_LOG_ERROR("region layers (%d) exceeds the valid amount (%d)!", region.baseArrayLayer + region.layerCount, m_cachedInheritanceInfo.framebuffer->getCreationParameters().layers);
-            return false;
+            if (region.baseArrayLayer+region.layerCount>m_cachedInheritanceInfo.framebuffer->getCreationParameters().layers)
+            {
+                NBL_LOG_ERROR("region layers (%d) exceeds the valid amount (%d)!", region.baseArrayLayer + region.layerCount, m_cachedInheritanceInfo.framebuffer->getCreationParameters().layers);
+                return false;
+            }
         }
     }
 
@@ -2033,6 +2458,13 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT))
         return false;
+
+    // https://docs.vulkan.org/refpages/latest/refpages/source/vkCmdExecuteCommands.html#VUID-vkCmdExecuteCommands-flags-06024
+    if (withinDynamicRendering() && !m_cachedInheritanceInfo.renderingFlags.hasFlags(SRenderingInfo::FLAGS::CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT))
+    {
+        NBL_LOG_ERROR("dynamic rendering must be begun with CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT to execute secondary command buffers!");
+        return false;
+    }
 
     for (uint32_t i=0u; i<count; ++i)
     {

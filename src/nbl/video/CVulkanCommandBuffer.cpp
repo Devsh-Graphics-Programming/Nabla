@@ -34,10 +34,36 @@ bool CVulkanCommandBuffer::begin_impl(const core::bitflag<USAGE> recordingFlags,
     beginInfo.flags = static_cast<VkCommandBufferUsageFlags>(recordingFlags.value);
 
     VkCommandBufferInheritanceInfo vk_inheritanceInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO };
+    VkCommandBufferInheritanceRenderingInfo vk_inheritanceRenderingInfo = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO };
+    VkFormat vk_colorAttachmentFormats[asset::IGraphicsPipelineBase::SDynamicRenderingParams::MaxColorAttachments];
     if (inheritanceInfo)
     {
-        vk_inheritanceInfo.renderPass = static_cast<const CVulkanRenderpass*>(inheritanceInfo->renderpass)->getInternalObject();
-        vk_inheritanceInfo.subpass = inheritanceInfo->subpass;
+        if (inheritanceInfo->renderpass)
+        {
+            vk_inheritanceInfo.renderPass = static_cast<const CVulkanRenderpass*>(inheritanceInfo->renderpass)->getInternalObject();
+            vk_inheritanceInfo.subpass = inheritanceInfo->subpass;
+        }
+        else
+        {
+            const auto& dynamicRendering = inheritanceInfo->dynamicRendering;
+            vk_inheritanceRenderingInfo.flags = static_cast<VkRenderingFlags>(inheritanceInfo->renderingFlags.value);
+            vk_inheritanceRenderingInfo.viewMask = dynamicRendering.viewMask;
+            vk_inheritanceRenderingInfo.colorAttachmentCount = dynamicRendering.getColorAttachmentCount();
+            for (auto i=0u; i<vk_inheritanceRenderingInfo.colorAttachmentCount; i++)
+            {
+                const auto format = dynamicRendering.colorAttachmentFormats[i];
+                vk_colorAttachmentFormats[i] = format!=asset::EF_UNKNOWN ? getVkFormatFromFormat(format):VK_FORMAT_UNDEFINED;
+            }
+            vk_inheritanceRenderingInfo.pColorAttachmentFormats = vk_colorAttachmentFormats;
+            const auto depthStencilFormat = dynamicRendering.depthStencilAttachmentFormat;
+            const auto vk_depthStencilFormat = depthStencilFormat!=asset::EF_UNKNOWN ? getVkFormatFromFormat(depthStencilFormat):VK_FORMAT_UNDEFINED;
+            vk_inheritanceRenderingInfo.depthAttachmentFormat = asset::isStencilOnlyFormat(depthStencilFormat) ? VK_FORMAT_UNDEFINED:vk_depthStencilFormat;
+            vk_inheritanceRenderingInfo.stencilAttachmentFormat = asset::isDepthOnlyFormat(depthStencilFormat) ? VK_FORMAT_UNDEFINED:vk_depthStencilFormat;
+            vk_inheritanceRenderingInfo.rasterizationSamples = static_cast<VkSampleCountFlagBits>(0x1u<<inheritanceInfo->rasterizationSamplesLog2);
+            vk_inheritanceInfo.pNext = &vk_inheritanceRenderingInfo;
+            vk_inheritanceInfo.renderPass = VK_NULL_HANDLE;
+            vk_inheritanceInfo.subpass = 0;
+        }
         // From the spec:
         // Specifying the exact framebuffer that the secondary command buffer will be
         // executed with may result in better performance at command buffer execution time.
@@ -698,6 +724,105 @@ bool CVulkanCommandBuffer::endRenderPass_impl()
 {
     const VkSubpassEndInfo vk_subpassEndInfo = {VK_STRUCTURE_TYPE_SUBPASS_END_INFO,nullptr};
     getFunctionTable().vkCmdEndRenderPass2(m_cmdbuf,&vk_subpassEndInfo);
+    return true;
+}
+
+bool CVulkanCommandBuffer::beginRendering_impl(const SRenderingInfo& info)
+{
+    uint32_t colorAttachmentCount = 0u;
+    for (auto i=0u; i<info.colorAttachments.size(); i++)
+    if (info.colorAttachments[i].imageView)
+        colorAttachmentCount = i+1;
+    IGPUCommandPool::StackAllocation<VkRenderingAttachmentInfo> vk_attachments(m_cmdpool,colorAttachmentCount+2);
+    if (!vk_attachments)
+        return false;
+
+    auto getVkImageView = [](const IGPUImageView* const view)->VkImageView
+    {
+        return view ? static_cast<const CVulkanImageView*>(view)->getInternalObject():VK_NULL_HANDLE;
+    };
+    for (auto i=0u; i<colorAttachmentCount; i++)
+    {
+        const auto& attachment = info.colorAttachments[i];
+        const bool resolve = attachment.imageView && attachment.resolveImageView;
+        VkResolveModeFlagBits resolveMode = VK_RESOLVE_MODE_NONE;
+        if (resolve)
+            resolveMode = asset::isIntegerFormat(attachment.imageView->getCreationParameters().format) ? VK_RESOLVE_MODE_SAMPLE_ZERO_BIT:VK_RESOLVE_MODE_AVERAGE_BIT;
+        vk_attachments[i] = {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .pNext = nullptr,
+            .imageView = getVkImageView(attachment.imageView),
+            .imageLayout = getVkImageLayoutFromImageLayout(attachment.imageLayout),
+            .resolveMode = resolveMode,
+            .resolveImageView = resolve ? getVkImageView(attachment.resolveImageView):VK_NULL_HANDLE,
+            .resolveImageLayout = getVkImageLayoutFromImageLayout(attachment.resolveImageLayout),
+            .loadOp = getVkAttachmentLoadOpFrom(attachment.loadOp),
+            .storeOp = getVkAttachmentStoreOpFrom(attachment.storeOp)
+        };
+        std::copy_n(attachment.clearValue.uint32,4,vk_attachments[i].clearValue.color.uint32);
+    }
+
+    VkRenderingAttachmentInfo* vk_depthAttachment = nullptr;
+    VkRenderingAttachmentInfo* vk_stencilAttachment = nullptr;
+    if (const auto* const attachment=info.depthStencilAttachment; attachment && attachment->imageView)
+    {
+        const auto format = attachment->imageView->getCreationParameters().format;
+        const VkClearValue vk_clearValue = {.depthStencil={.depth=attachment->clearValue.depth,.stencil=attachment->clearValue.stencil}};
+        if (!asset::isStencilOnlyFormat(format))
+        {
+            const auto resolveMode = static_cast<VkResolveModeFlagBits>(attachment->resolveMode.depth);
+            vk_depthAttachment = &vk_attachments[colorAttachmentCount];
+            *vk_depthAttachment = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .pNext = nullptr,
+                .imageView = getVkImageView(attachment->imageView),
+                .imageLayout = getVkImageLayoutFromImageLayout(attachment->imageLayout.depth),
+                .resolveMode = resolveMode,
+                .resolveImageView = resolveMode!=VK_RESOLVE_MODE_NONE ? getVkImageView(attachment->resolveImageView):VK_NULL_HANDLE,
+                .resolveImageLayout = getVkImageLayoutFromImageLayout(attachment->resolveImageLayout.depth),
+                .loadOp = getVkAttachmentLoadOpFrom(attachment->loadOp.depth),
+                .storeOp = getVkAttachmentStoreOpFrom(attachment->storeOp.depth),
+                .clearValue = vk_clearValue
+            };
+        }
+        if (!asset::isDepthOnlyFormat(format))
+        {
+            const auto resolveMode = static_cast<VkResolveModeFlagBits>(attachment->resolveMode.stencil);
+            vk_stencilAttachment = &vk_attachments[colorAttachmentCount+1];
+            *vk_stencilAttachment = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .pNext = nullptr,
+                .imageView = getVkImageView(attachment->imageView),
+                .imageLayout = getVkImageLayoutFromImageLayout(attachment->imageLayout.actualStencilLayout()),
+                .resolveMode = resolveMode,
+                .resolveImageView = resolveMode!=VK_RESOLVE_MODE_NONE ? getVkImageView(attachment->resolveImageView):VK_NULL_HANDLE,
+                .resolveImageLayout = getVkImageLayoutFromImageLayout(attachment->resolveImageLayout.actualStencilLayout()),
+                .loadOp = getVkAttachmentLoadOpFrom(attachment->loadOp.actualStencilOp()),
+                .storeOp = getVkAttachmentStoreOpFrom(attachment->storeOp.actualStencilOp()),
+                .clearValue = vk_clearValue
+            };
+        }
+    }
+
+    const VkRenderingInfo vk_renderingInfo = {
+        .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+        .pNext = nullptr,
+        .flags = static_cast<VkRenderingFlags>(info.flags.value),
+        .renderArea = info.renderArea,
+        .layerCount = info.layerCount,
+        .viewMask = info.viewMask,
+        .colorAttachmentCount = colorAttachmentCount,
+        .pColorAttachments = vk_attachments.data(),
+        .pDepthAttachment = vk_depthAttachment,
+        .pStencilAttachment = vk_stencilAttachment
+    };
+    getFunctionTable().vkCmdBeginRendering(m_cmdbuf,&vk_renderingInfo);
+    return true;
+}
+
+bool CVulkanCommandBuffer::endRendering_impl()
+{
+    getFunctionTable().vkCmdEndRendering(m_cmdbuf);
     return true;
 }
 
