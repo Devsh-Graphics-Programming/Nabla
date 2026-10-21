@@ -118,7 +118,6 @@ using bda_pointer_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = vk::SpirvT
 // `OpTypePointer`, whatever its storage class.
 //
 // Neither form can see the storage class of the pointer, so the caller chooses the memory scope and semantics
-// (https://github.com/microsoft/DirectXShaderCompiler/issues/6508).
 template<typename T>
 struct is_pointer : false_type {};
 template<typename I, I StorageClass, typename TT>
