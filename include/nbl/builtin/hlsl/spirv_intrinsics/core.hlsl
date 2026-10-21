@@ -98,23 +98,37 @@ template<uint32_t StorageClass, typename T>
 using pointer_t = vk::SpirvOpaqueType<spv::OpTypePointer,vk::Literal<vk::integral_constant<uint32_t,StorageClass> >,T>;
 
 template<typename T>
+using bda_pointer_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = vk::SpirvType<spv::OpTypePointer, sizeof(uint64_t),alignment_of_v<uint64_t>, vk::Literal<vk::integral_constant<uint32_t, spv::StorageClassPhysicalStorageBuffer> >, T>;
+
+// Reference form and pointer form
+//
+// SPIR-V instructions that access memory (OpLoad, OpStore, OpAtomic*, OpCopyLogical) take a pointer operand.
+// HLSL has no pointers or references, so those intrinsics come in two overloads:
+//
+// - Reference form: `[[vk::ext_reference]] T ptr`. DXC passes the pointer of the argument itself, so the argument
+//   must be an lvalue DXC already has a pointer for: a groupshared variable, a buffer element, a local, a member
+//   of one of those, or `vk::BufferPointer<T>::Get()`.
+// - Pointer form: `Ptr_T ptr`, where `Ptr_T` is a pointer type made with `vk::SpirvOpaqueType` or `vk::SpirvType`
+//   (`pointer_t`, `bda_pointer_t`), or a `vk::BufferPointer<T>`. DXC passes the value as the operand unchanged.
+//   Use it when there is no lvalue to bind, since DXC can't turn a pointer value back into one: a BDA reference
+//   (`bda::__ref<T>::__get_spv_ptr()`), or a pointer made with `accessChain` or `copyObject`.
+//
+// Both forms are templates over the same arguments. The pointer form is constrained on `is_pointer_v<Ptr_T>`, so
+// it's never picked for a plain value and the call can't be ambiguous. `is_pointer_v` is true for any
+// `OpTypePointer`, whatever its storage class.
+//
+// Neither form can see the storage class of the pointer, so the caller chooses the memory scope and semantics
+// (https://github.com/microsoft/DirectXShaderCompiler/issues/6508).
+template<typename T>
 struct is_pointer : false_type {};
 template<typename I, I StorageClass, typename TT>
 struct is_pointer<vk::SpirvOpaqueType<spv::OpTypePointer,vk::Literal<vk::integral_constant<I,StorageClass> >,TT> > : is_integral<I> {};
 template<uint32_t Size, uint32_t Alignment, typename I, I StorageClass, typename TT>
 struct is_pointer<vk::SpirvType<spv::OpTypePointer,Size,Alignment,vk::Literal<vk::integral_constant<I,StorageClass> >,TT> > : is_integral<I> {};
+template<typename T, uint32_t Alignment>
+struct is_pointer<vk::BufferPointer<T,Alignment> > : true_type {};
 template<class T>
 NBL_CONSTEXPR_STATIC_INLINE bool is_pointer_v = is_pointer<T>::value;
-
-template<typename T>
-using bda_pointer_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = vk::SpirvType<spv::OpTypePointer, sizeof(uint64_t),alignment_of_v<uint64_t>, vk::Literal<vk::integral_constant<uint32_t, spv::StorageClassPhysicalStorageBuffer> >, T>;
-
-template<typename T>
-struct is_bda_pointer : false_type {};
-template<typename I, typename TT>
-struct is_pointer<vk::SpirvType<spv::OpTypePointer,sizeof(uint64_t),alignment_of_v<uint64_t>,vk::Literal<vk::integral_constant<I, spv::StorageClassPhysicalStorageBuffer> >, TT> > : is_integral<I> {};
-template<class T>
-NBL_CONSTEXPR_STATIC_INLINE bool is_bda_pointer_v = is_bda_pointer<T>::value;
 
 
 //! General Operations
@@ -138,120 +152,148 @@ template<typename T, typename U>
 T copyObject(U v);
 
 // unfortunately without reflection we can't validate that objects "logically match" in a concept
+// reference form: `v` is the object itself, e.g. a local, `buf[i]` or `bufferPtr.Get().member`
 template<typename T, typename U>
 [[vk::ext_instruction(spv::OpCopyLogical)]]
 enable_if_t<!is_same_v<T,U>,T> copyLogical([[vk::ext_reference]] U v);
+// pointer form: `v` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
 template<typename T, typename Ptr_U>
 [[vk::ext_instruction(spv::OpCopyLogical)]]
 enable_if_t<is_pointer_v<Ptr_U>/* && !is_same_v<T,U>*/,T> copyLogical(Ptr_U v);
 
 // Here's the thing with atomics, it's not only the data type that dictates whether you can do an atomic or not.
 // It's the storage class that has the most effect (shared vs storage vs image) and we can't check that easily
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
 enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
 enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
 enable_if_t<is_same_v<T,uint64_t> || is_same_v<T,int64_t>, T> atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
 enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint64_t> || is_same_v<T,int64_t>), T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
 [[vk::ext_instruction(spv::OpAtomicISub)]]
 enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicISub([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicISub)]]
 enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
 [[vk::ext_instruction(spv::OpAtomicISub)]]
 enable_if_t<is_same_v<T,uint64_t> || is_same_v<T,int64_t>, T> atomicISub([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
 [[vk::ext_instruction(spv::OpAtomicISub)]]
 enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint64_t> || is_same_v<T,int64_t>), T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicAnd)]]
 enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicAnd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicAnd)]]
 enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicAnd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicOr)]]
 enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicOr([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicOr)]]
 enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicOr(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicXor)]]
 enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicXor([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicXor)]]
 enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicXor(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename Signed>
 [[vk::ext_instruction( spv::OpAtomicSMin )]]
 enable_if_t<is_same_v<Signed,int32_t>, Signed> atomicSMin([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
-template<typename Signed, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename Signed, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicSMin)]]
 enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Signed,int32_t>, Signed> atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpAtomicUMin )]]
 enable_if_t<is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMin([[vk::ext_reference]] Unsigned ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
-template<typename Unsigned, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename Unsigned, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicUMin)]]
 enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename Signed>
 [[vk::ext_instruction( spv::OpAtomicSMax )]]
 enable_if_t<is_same_v<Signed,int32_t>, Signed> atomicSMax([[vk::ext_reference]] Signed ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
-template<typename Signed, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename Signed, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicSMax)]]
 enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Signed,int32_t>, Signed> atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpAtomicUMax )]]
 enable_if_t<is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMax([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
-template<typename Unsigned, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename Unsigned, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicUMax)]]
 enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicExchange)]]
 T atomicExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicExchange)]]
 enable_if_t<is_pointer_v<Ptr_T>, T> atomicExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
 T atomicCompareExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
 
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
 enable_if_t<is_pointer_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
 
@@ -261,6 +303,7 @@ __NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpLoad)]]
 T load(bda_pointer_t<T> pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
+// pointer form for logical pointers, e.g. a `pointer_t<spv::StorageClassWorkgroup, T>`; physical pointers (`bda_pointer_t`, `vk::BufferPointer<T>`) must be Aligned, so a `bda_pointer_t` goes to `load<T, alignment>(ptr)` instead
 template<typename T, typename P>
 [[vk::ext_instruction(spv::OpLoad)]]
 enable_if_t<is_pointer_v<P>,T> load(P pointer);
@@ -270,6 +313,7 @@ __NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpStore)]]
 void store(bda_pointer_t<T> pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
+// pointer form for logical pointers, e.g. a `pointer_t<spv::StorageClassWorkgroup, T>`; physical pointers (`bda_pointer_t`, `vk::BufferPointer<T>`) must be Aligned, so a `bda_pointer_t` goes to `store<T, alignment>(ptr, obj)` instead
 template<typename T, typename P>
 [[vk::ext_instruction(spv::OpStore)]]
 enable_if_t<is_pointer_v<P>,void> store(P pointer, T obj);
