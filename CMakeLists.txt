@@ -51,6 +51,7 @@ option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
 option(NBL_COMPILER_DYNAMIC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
 option(NBL_DEBUG_RTC_ENABLED "Enable Runtime Checks for Debug builds" OFF)
+option(NBL_USE_CONAN "Use Conan to fetch dependencies" ON)
 
 set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT $<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>) # ignored on non xMSVC-ABI targets
 
@@ -60,6 +61,10 @@ else()
 	if(NOT NBL_COMPILER_DYNAMIC_RUNTIME)
 		message(FATAL_ERROR "Turn NBL_COMPILER_DYNAMIC_RUNTIME on! For dynamic Nabla builds dynamic runtime is mandatory!")
 	endif()
+endif()
+
+if (NBL_USE_CONAN)
+	include(cmake/conan.cmake)
 endif()
 
 find_package(Vulkan)
