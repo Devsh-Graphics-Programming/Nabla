@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP2_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP2_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
+// TODO: `glsl::subgroupShuffleUp` and `glsl::subgroupShuffleXor` are only used for their default `spv::ScopeSubgroup`, drop this dependency on the `glsl` namespace once the subgroup utilities move to a better namespace
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_arithmetic.hlsl"
 
@@ -148,7 +149,7 @@ struct inclusive_scan_impl
     {
         inclusive_scan_impl<BinOp> retval;
         retval.value = _value;
-        retval.subgroupInvocation = glsl::gl_SubgroupInvocationID();
+        retval.subgroupInvocation = spirv::SubgroupLocalInvocationId;
         return retval;
     }
 
@@ -200,7 +201,7 @@ struct exclusive_scan<Params, BinOp, 1, false>
         // sync up each subgroup invocation so it runs in lockstep
         spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsMaskNone);
 
-        scalar_t left = hlsl::mix(binop_t::identity, glsl::subgroupShuffleUp<scalar_t>(value,1), bool(glsl::gl_SubgroupInvocationID()));
+        scalar_t left = hlsl::mix(binop_t::identity, glsl::subgroupShuffleUp<scalar_t>(value,1), bool(spirv::SubgroupLocalInvocationId));
         return inclusive_scan<Params, BinOp, 1, false>::__call(left);
     }
 };

@@ -168,7 +168,7 @@ struct FFTIndexingUtils
 
 #include "nbl/builtin/hlsl/subgroup/fft.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/subgroup_basic.hlsl"
 #include "nbl/builtin/hlsl/workgroup/shuffle.hlsl"
 #include "nbl/builtin/hlsl/mpl.hlsl"
 #include "nbl/builtin/hlsl/memory_accessor.hlsl"
@@ -251,7 +251,7 @@ struct FFTMirrorTradeUtils
     static NablaMirrorGlobalInfo getNablaMirrorGlobalInfo(uint32_t globalElementIndex)
     {
         const uint32_t otherElementIndex = indexing_utils_t::getNablaMirrorIndex(globalElementIndex);
-        const uint32_t mirrorGlobalIndex = glsl::bitfieldInsert<uint32_t>(otherElementIndex, workgroup::SubgroupContiguousIndex(), 0, uint32_t(WorkgroupSizeLog2));
+        const uint32_t mirrorGlobalIndex = spirv::bitFieldInsert<uint32_t>(otherElementIndex, workgroup::SubgroupContiguousIndex(), 0, uint32_t(WorkgroupSizeLog2));
         const uint32_t otherThreadID = otherElementIndex & (WorkgroupSize - 1);
         const NablaMirrorGlobalInfo info = { otherThreadID, mirrorGlobalIndex };
         return info;
@@ -339,7 +339,7 @@ struct FFT<false, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device
         accessor.get(hiIx, hi);
 
         // If for some reason you're running a small FFT, skip all the bigger-than-subgroup steps
-        if (WorkgroupSize > glsl::gl_SubgroupSize())
+        if (WorkgroupSize > spirv::SubgroupSize)
         {
             // Set up the memory adaptor
             using adaptor_t = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor,uint32_t,uint32_t,1,WorkgroupSize>;
@@ -351,14 +351,14 @@ struct FFT<false, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device
 
             // Run bigger steps until Subgroup-sized
             [unroll]
-            for (uint32_t stride = WorkgroupSize >> 1; stride > glsl::gl_SubgroupSize(); stride >>= 1)
+            for (uint32_t stride = WorkgroupSize >> 1; stride > spirv::SubgroupSize; stride >>= 1)
             {   
                 FFT_loop< adaptor_t >(stride, lo, hi, threadID, sharedmemAdaptor);
                 sharedmemAdaptor.workgroupExecutionAndMemoryBarrier(); 
             }
 
             // special last workgroup-shuffle     
-            fft::impl::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
+            fft::impl::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, spirv::SubgroupSize, sharedmemAdaptor);
             
             // Remember to update the accessor's state
             sharedmemAccessor = sharedmemAdaptor.accessor;
@@ -408,7 +408,7 @@ struct FFT<true, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device_
         subgroup::FFT<true, Scalar, device_capabilities>::__call(lo, hi);
         
         // If for some reason you're running a small FFT, skip all the bigger-than-subgroup steps
-        if (WorkgroupSize > glsl::gl_SubgroupSize()) 
+        if (WorkgroupSize > spirv::SubgroupSize) 
         { 
             // Set up the memory adaptor
             using adaptor_t = accessor_adaptors::StructureOfArrays<SharedMemoryAccessor,uint32_t,uint32_t,1,WorkgroupSize>;
@@ -416,11 +416,11 @@ struct FFT<true, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device_
             sharedmemAdaptor.accessor = sharedmemAccessor;
 
             // special first workgroup-shuffle
-            fft::impl::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
+            fft::impl::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, spirv::SubgroupSize, sharedmemAdaptor);
         
             // The bigger steps
             [unroll]
-            for (uint32_t stride = glsl::gl_SubgroupSize() << 1; stride < WorkgroupSize; stride <<= 1)
+            for (uint32_t stride = spirv::SubgroupSize << 1; stride < WorkgroupSize; stride <<= 1)
             {   
                 // Order of waiting for shared mem writes is also reversed here, since the shuffle came earlier
                 sharedmemAdaptor.workgroupExecutionAndMemoryBarrier(); 
@@ -430,8 +430,8 @@ struct FFT<true, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device_
             // special last iteration 
             hlsl::fft::DIT<Scalar>::radix2(hlsl::fft::twiddle<true, Scalar>(threadID, WorkgroupSize), lo, hi); 
             divides_assign< complex_t<Scalar> > divAss;
-            divAss(lo, Scalar(WorkgroupSize / glsl::gl_SubgroupSize()));
-            divAss(hi, Scalar(WorkgroupSize / glsl::gl_SubgroupSize()));  
+            divAss(lo, Scalar(WorkgroupSize / spirv::SubgroupSize));
+            divAss(hi, Scalar(WorkgroupSize / spirv::SubgroupSize));  
 
             // Remember to update the accessor's state
             sharedmemAccessor = sharedmemAdaptor.accessor;

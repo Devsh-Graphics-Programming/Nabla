@@ -52,7 +52,7 @@ struct WorkgroupDataProxy
 
     void workgroupExecutionAndMemoryBarrier()
     {
-        glsl::barrier();
+        spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
         //glsl::memoryBarrierShared(); implied by the above
     }
 
@@ -106,7 +106,7 @@ struct Scan
 
             // should be the last element of the last workgroup thread
             // don't know what it's like if virtual workgroup size doesn't divide by workgroup size exactly
-            const uint32_t lastInvocIx = glsl::gl_SubgroupSize() * glsl::gl_NumSubgroups() - 1u;
+            const uint32_t lastInvocIx = spirv::SubgroupSize * spirv::NumSubgroups - 1u;
             scalar_t lastElem;
             if (invocIx == lastInvocIx)
                 lastElem = wgDataAccessor.preloaded[wg_data_proxy_t::PreloadedDataCount-1u][Config::ItemsPerInvocation_0-1u];

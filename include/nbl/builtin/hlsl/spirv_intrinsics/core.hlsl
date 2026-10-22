@@ -82,6 +82,8 @@ static float32_t4 Position;
 [[vk::ext_builtin_input(spv::BuiltInNumWorkgroups)]]
 static const uint32_t3 NumWorkGroups;
 // TODO: Doesn't work, find out why and file issue on DXC!
+// Reply: not a DXC bug, SPIR-V requires `WorkgroupSize` to decorate a constant, never an input variable
+// (spirv-val: "BuiltIn decoration on target <id> must be a constant for WorkgroupSize"), see `glsl::gl_WorkGroupSize`
 //[[vk::ext_builtin_input(spv::BuiltInWorkgroupSize)]]
 //static const uint32_t3 WorkgroupSize;
 [[vk::ext_builtin_input(spv::BuiltInWorkgroupId)]]

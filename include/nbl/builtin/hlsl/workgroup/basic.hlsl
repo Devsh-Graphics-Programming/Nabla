@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_BASIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_BASIC_INCLUDED_
 
+// TODO: `glsl::subgroupBroadcastFirst` is only used for its default `spv::ScopeSubgroup`, drop this dependency on the `glsl` namespace once the subgroup utilities move to a better namespace
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_ballot.hlsl"
 
 //! all functions must be called in uniform control flow (all workgroup invocations active)
@@ -25,14 +26,14 @@ uint16_t Volume()
     
 uint16_t SubgroupContiguousIndex()
 {
-    const uint16_t retval = (uint16_t(glsl::gl_SubgroupID())<<glsl::gl_SubgroupSizeLog2())+uint16_t(glsl::gl_SubgroupInvocationID());
+    const uint16_t retval = (uint16_t(spirv::SubgroupId)<<glsl::gl_SubgroupSizeLog2())+uint16_t(spirv::SubgroupLocalInvocationId);
     assert(retval<Volume());
     return retval;
 }
     
 bool Elect()
 {
-    return glsl::gl_SubgroupID()==0 && glsl::gl_SubgroupInvocationID()==0;
+    return spirv::SubgroupId==0 && spirv::SubgroupLocalInvocationId==0;
 }
 
 uint16_t ElectedSubgroupContiguousIndex()

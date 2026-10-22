@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_BALLOT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_BALLOT_INCLUDED_
 
+// TODO: `glsl::subgroupBallot`, `glsl::subgroupBallotFindMSB`, `glsl::subgroupBroadcast` and `glsl::subgroupBroadcastFirst` are only used for their default `spv::ScopeSubgroup`, drop this dependency on the `glsl` namespace once the subgroup utilities move to a better namespace
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_ballot.hlsl"
 #include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 
@@ -24,7 +25,7 @@ uint32_t LastSubgroupInvocation()
 
 bool ElectLast()
 {
-    return glsl::gl_SubgroupInvocationID()==LastSubgroupInvocation();
+    return spirv::SubgroupLocalInvocationId==LastSubgroupInvocation();
 }
 
 template<typename T>
@@ -34,7 +35,7 @@ T BroadcastLast(T value)
 }
 
 uint32_t ElectedSubgroupInvocationID() {
-    return glsl::subgroupBroadcastFirst<uint32_t>(glsl::gl_SubgroupInvocationID());
+    return glsl::subgroupBroadcastFirst<uint32_t>(spirv::SubgroupLocalInvocationId);
 }
 
 }

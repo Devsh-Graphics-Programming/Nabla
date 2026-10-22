@@ -16,6 +16,11 @@ namespace nbl
 {
 namespace hlsl
 {
+// TODO: rename this namespace to `glsl_compat`
+// The functions in this namespace are meant for porting GLSL shaders with minimal changes.
+// Many of them are also handy utilities (default scopes and memory semantics, signed/unsigned/float dispatch, 16-bit emulation,
+// a C++ path) and get called all over the codebase because they are easier to use than the raw `spirv::` intrinsics.
+// Avoid calling them from code that isn't a GLSL port; those utilities need a home outside the `glsl` namespace.
 namespace glsl
 {
 
@@ -260,7 +265,11 @@ uint32_t gl_InstanceIndex() {return spirv::InstanceIndex;}
 
 // TODO: Extemely annoying that HLSL doesn't have references, so we can't transparently alias the variables as `const&` :(
 uint32_t3 gl_NumWorkGroups() {return spirv::NumWorkGroups;}
-// TODO: DXC BUG prevents us from defining this!
+// Not a DXC bug: SPIR-V only lets a shader declare its workgroup size, there is nothing to read back.
+// `[numthreads]` emits the `LocalSize` execution mode, whose operands are literals that no instruction can reference.
+// `LocalSizeId` and the `WorkgroupSize` builtin take ids instead, but those must be constants (`WorkgroupSize` on an input
+// variable is invalid), so "reading" them just means reusing the constant that declared the size in the first place.
+// Hence the user defines this, returning the same compile-time constant they pass to `[numthreads]`.
 uint32_t3 gl_WorkGroupSize();
 uint32_t3 gl_WorkGroupID() {return spirv::WorkgroupId;}
 uint32_t3 gl_LocalInvocationID() {return spirv::LocalInvocationId;}
@@ -369,6 +378,8 @@ struct bitfieldExtract<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegral<typename
 };
 }
 
+// TODO: `bitfieldInsert` and `bitfieldExtract` are used as general utilities outside GLSL ports (16-bit emulation, C++ path),
+// they need a home outside the `glsl` namespace
 template<typename T>
 T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
 {
@@ -484,6 +495,7 @@ struct notEqual_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectori
 #endif
 }
 
+// TODO: `equal` and `notEqual` are used as general utilities outside GLSL ports (C++ path), they need a home outside the `glsl` namespace
 template<typename T>
 inline vector<bool,vector_traits<T>::Dimension> equal(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
 {
