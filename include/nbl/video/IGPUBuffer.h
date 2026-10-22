@@ -11,6 +11,8 @@
 #include "nbl/video/decl/IBackendObject.h"
 #include "nbl/video/IDeviceMemoryBacked.h"
 
+#include "nbl/builtin/hlsl/bda/ptr.hlsl"
+
 
 namespace nbl::video
 {
@@ -48,6 +50,56 @@ class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked
 };
 
 } // end namespace nbl::video
+
+namespace nbl::hlsl::impl
+{
+
+template<typename T, uint32_t Alignment, typename BufferT> requires std::is_base_of_v<video::IGPUBuffer,BufferT>
+struct static_cast_helper<bda::ptr<T,Alignment>,BufferT*,void>
+{
+	static inline bda::ptr<T,Alignment> cast(const BufferT* buffer)
+	{
+		if (!buffer)
+			return bda::ptr<T,Alignment>(0ull);
+		assert(buffer->getDeviceAddress()!=0ull);
+		return bda::ptr<T,Alignment>(buffer->getDeviceAddress());
+	}
+};
+
+template<typename T, uint32_t Alignment, typename BufferT> requires std::is_base_of_v<video::IGPUBuffer,BufferT>
+struct static_cast_helper<bda::ptr<T,Alignment>,core::smart_refctd_ptr<BufferT>,void>
+{
+	static inline bda::ptr<T,Alignment> cast(const core::smart_refctd_ptr<BufferT>& buffer)
+	{
+		return _static_cast<bda::ptr<T,Alignment>>(buffer.get());
+	}
+};
+
+template<typename T, uint32_t Alignment, typename BufferT> requires std::is_base_of_v<video::IGPUBuffer,BufferT>
+struct static_cast_helper<bda::ptr<T,Alignment>,asset::SBufferBinding<BufferT>,void>
+{
+	static inline bda::ptr<T,Alignment> cast(const asset::SBufferBinding<BufferT>& binding)
+	{
+		if (!binding.buffer)
+			return bda::ptr<T,Alignment>(0ull);
+		assert(binding.isValid());
+		return _static_cast<bda::ptr<T,Alignment>>(binding.buffer.get()).offsetBytes(binding.offset);
+	}
+};
+
+template<typename T, uint32_t Alignment, typename BufferT> requires std::is_base_of_v<video::IGPUBuffer,BufferT>
+struct static_cast_helper<bda::ptr<T,Alignment>,asset::SBufferRange<BufferT>,void>
+{
+	static inline bda::ptr<T,Alignment> cast(const asset::SBufferRange<BufferT>& range)
+	{
+		if (!range.buffer)
+			return bda::ptr<T,Alignment>(0ull);
+		assert(range.isValid());
+		return _static_cast<bda::ptr<T,Alignment>>(range.buffer.get()).offsetBytes(range.offset);
+	}
+};
+
+}
 
 #endif
 
