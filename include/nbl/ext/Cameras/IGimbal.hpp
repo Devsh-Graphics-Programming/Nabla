@@ -13,9 +13,11 @@ namespace nbl::ext::cameras
 {
     /// @brief World-space pose: position plus unit orientation.
     ///
-    /// The gimbal stores nothing but the pose and a count of the manipulations applied to it. Basis vectors and
-    /// the world matrix are computed from the orientation on every call. Every setter reports whether the stored
-    /// pose changed, and a changed pose advances the manipulation counter by one.
+    /// The gimbal stores nothing but the pose and a count of the manipulations applied to it. Every setter reports
+    /// whether the stored pose changed, and a changed pose advances the manipulation counter by one.
+    ///
+    /// The world matrix is the quaternion's rotation with the position in the last column. The camera's physical
+    /// axes depend on its handedness and are read through `ICamera::getBasis`.
     class IGimbal
     {
     public:
@@ -53,8 +55,8 @@ namespace nbl::ext::cameras
             return countManipulation(positionChanged || orientationChanged);
         }
 
-        /// @brief Decompose one world-space transform (basis in the columns, translation in the last column) and store
-        /// it as the pose. A positive scale is dropped.
+        /// @brief Decompose one world-space transform in the layout `getWorldMatrix` produces (the camera's local X, Y,
+        /// Z in the columns, translation in the last column) and store it as the pose. A positive scale is dropped.
         /// @return whether `rigidTransform` decomposed and was therefore applied; a sheared, mirrored or degenerate
         /// transform is rejected and leaves the pose untouched.
         inline bool setPose(const hlsl::float64_t4x4& rigidTransform)
@@ -76,19 +78,7 @@ namespace nbl::ext::cameras
         /// @brief Position and orientation as one value.
         inline const SCameraRigPose& getPose() const { return m_pose; }
 
-        /// @brief Orthonormal local basis rotated into world space, as three named vectors.
-        inline SCameraBasis<hlsl::float64_t> getBasis() const { return CCameraMathUtilities::getOrientationBasis(m_pose.orientation); }
-
-        /// @brief Local +X in world space.
-        inline hlsl::float64_t3 getRight() const { return m_pose.orientation.transformVector(CCameraMathUtilities::getCameraWorldRight<hlsl::float64_t>(), true); }
-
-        /// @brief Local +Y in world space.
-        inline hlsl::float64_t3 getUp() const { return m_pose.orientation.transformVector(CCameraMathUtilities::getCameraWorldUp<hlsl::float64_t>(), true); }
-
-        /// @brief Local +Z in world space.
-        inline hlsl::float64_t3 getForward() const { return m_pose.orientation.transformVector(CCameraMathUtilities::getCameraWorldForward<hlsl::float64_t>(), true); }
-
-        /// @brief Rigid local-to-world matrix: basis vectors in the columns, position in the last column.
+        /// @brief Rigid local-to-world matrix: the camera's local X, Y, Z in the columns, position in the last column.
         inline hlsl::float64_t3x4 getWorldMatrix() const
         {
             const auto transform = CCameraMathUtilities::composeTransformMatrix(m_pose.position, m_pose.orientation);

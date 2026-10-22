@@ -5,6 +5,7 @@
 #ifndef _C_FPS_CAMERA_HPP_
 #define _C_FPS_CAMERA_HPP_
 
+#include <algorithm>
 #include <cmath>
 
 #include "ICamera.hpp"
@@ -12,24 +13,28 @@
 namespace nbl::ext::cameras
 {
 
-/// @brief Free-position camera with world-space translation and yaw/pitch rotation.
+/// @brief Free-position camera with camera-relative translation and yaw/pitch rotation.
 ///
-/// Holding roll at zero is this rig's contract, not a missing feature: the state is a position plus an
-/// orientation rebuilt every step from yaw and a pitch bounded short of straight up and down, which is
-/// what keeps the horizon level. Use `CFreeCamera` when you want the roll.
+/// Holding roll at zero is this rig's contract, not a missing feature: the state is a position plus a yaw and a
+/// pitch, from which the orientation is rebuilt every step with the frame's up as the up hint, which is what keeps
+/// the horizon level. Use `CFreeCamera` when you want the roll.
 ///
-/// Controls: `translate` in the camera's own frame (x right, y up, z forward), world units. `rotate.x` pitch,
-/// clamped short of straight up and down; `rotate.y` yaw about the world up axis; radians.
+/// The two angles are measured in the camera's `SWorldFrame`: yaw 0 and pitch 0 look along the frame's forward,
+/// positive yaw turns the look direction toward the frame's right about its up, positive pitch lifts it toward the
+/// up. See `directionFromYawPitch`.
+///
+/// Controls: `translate` in the camera's own frame (x right, y up, z forward), world units. `rotate.y` turns the
+/// look direction toward the camera's right, `rotate.x` toward its down, radians; the pitch is clamped short of
+/// straight up and down.
 class CFPSCamera final : public ICamera
 {
 public:
     using base_t = ICamera;
 
-    CFPSCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::math::quaternion<hlsl::float64_t>::identity())
-        : base_t(), m_gimbal(SCameraRigPose{ .position = position, .orientation = orientation })
+    CFPSCamera(const hlsl::float64_t3& position, const hlsl::math::quaternion<hlsl::float64_t>& orientation = hlsl::math::quaternion<hlsl::float64_t>::identity(), const SWorldFrame& frame = SWorldFrame::yUpLeftHanded())
+        : base_t(frame), m_gimbal(SCameraRigPose{ .position = position, .orientation = orientation })
     {
-        const auto pitchYawRoll = CCameraMathUtilities::getPitchYawRollRadians(m_gimbal.getOrientation());
-        m_gimbal.setOrientation(hlsl::math::quaternion<hlsl::float64_t>::createFromYawPitchRoll(pitchYawRoll.y, pitchYawRoll.x, 0.0));
+        setPose(m_gimbal.getPose());
     }
 	~CFPSCamera() = default;
 
@@ -40,22 +45,19 @@ public:
 
     using base_t::setPose;
 
-    /// @brief Place the rig at the position of `pose` and at the pitch and yaw its orientation encodes.
+    /// @brief Place the rig at the position of `pose` and at the yaw and pitch of its look direction; roll is dropped.
     virtual bool setPose(const SCameraRigPose& pose) override
     {
-        if (!CCameraMathUtilities::isFiniteVec3(pose.position))
+        if (!CCameraMathUtilities::isFiniteVec3(pose.position) || !CCameraMathUtilities::isFiniteQuaternion(pose.orientation))
             return false;
 
-        const auto pitchYawRoll = CCameraMathUtilities::getPitchYawRollRadians(pose.orientation);
-        if (!CCameraMathUtilities::isFiniteScalar(pitchYawRoll.x) || !CCameraMathUtilities::isFiniteScalar(pitchYawRoll.y))
-            return false;
+        const auto& frame = getFrame();
+        const auto forward = CCameraMathUtilities::basisFromOrientation(pose.orientation, frame.handedness).forward;
+        const auto yawPitch = CCameraMathUtilities::yawPitchFromDirection(frame.right, frame.up, frame.forward, forward);
 
-        const auto pitch = std::clamp<hlsl::float64_t>(pitchYawRoll.x, MinVerticalAngle, MaxVerticalAngle);
-        m_gimbal.setPose(SCameraRigPose{
-            .position = pose.position,
-            .orientation = hlsl::math::quaternion<hlsl::float64_t>::createFromYawPitchRoll(pitchYawRoll.y, pitch, 0.0)
-        });
-
+        m_yaw = yawPitch.x;
+        m_pitch = std::clamp<hlsl::float64_t>(yawPitch.y, MinVerticalAngle, MaxVerticalAngle);
+        rebuildGimbal(pose.position);
         return true;
     }
 
@@ -79,18 +81,27 @@ public:
 protected:
     virtual bool applyControls(const SCameraControls& controls) override
     {
-        // a copy, because the pose is replaced below while its orientation still anchors the translation
-        const auto anchor = m_gimbal.getPose();
-        const auto pitchYawRoll = CCameraMathUtilities::getPitchYawRollRadians(m_gimbal.getOrientation());
+        // the translation is resolved in the basis the controls were issued in, before the rotation changes it
+        const auto basis = getBasis();
+        const auto newPosition = m_gimbal.getPosition() + CCameraMathUtilities::transformLocalVectorToWorldBasis(controls.translate, basis.right, basis.up, basis.forward);
 
-        const auto newPitch = std::clamp<hlsl::float64_t>(pitchYawRoll.x + controls.rotate.x, MinVerticalAngle, MaxVerticalAngle);
-        const auto newYaw = pitchYawRoll.y + controls.rotate.y;
+        m_yaw += controls.rotate.y;
+        // `rotate.x` tilts toward down, so it lowers the elevation
+        m_pitch = std::clamp<hlsl::float64_t>(m_pitch - controls.rotate.x, MinVerticalAngle, MaxVerticalAngle);
+        return rebuildGimbal(newPosition);
+    }
 
-        // the translation is applied in the anchor frame, so it is resolved before the pose is replaced
-        const auto newPosition = anchor.position + anchor.orientation.transformVector(controls.translate, true);
+    /// @brief Write the pose for the current yaw and pitch at `position` into the gimbal.
+    bool rebuildGimbal(const hlsl::float64_t3& position)
+    {
+        const auto& frame = getFrame();
+        const auto forward = CCameraMathUtilities::directionFromYawPitch(frame.right, frame.up, frame.forward, m_yaw, m_pitch);
+        // the up hint is the frame's up, so the result has no roll; the pitch clamp keeps forward away from it
+        SCameraBasis<hlsl::float64_t> basis;
+        CCameraMathUtilities::tryBuildBasis(forward, frame.up, frame, basis);
         return m_gimbal.setPose(SCameraRigPose{
-            .position = newPosition,
-            .orientation = hlsl::math::quaternion<hlsl::float64_t>::createFromYawPitchRoll(newYaw, newPitch, 0.0)
+            .position = position,
+            .orientation = CCameraMathUtilities::orientationFromBasis(basis, frame.handedness)
         });
     }
 
@@ -101,9 +112,12 @@ public:
 
 private:
     CCameraGimbal m_gimbal;
+    /// @brief Yaw in `getFrame()`, radians, unbounded; `rotate.y` adds to it.
+    hlsl::float64_t m_yaw = 0.0;
+    /// @brief Elevation in radians within [MinVerticalAngle, MaxVerticalAngle]; `rotate.x` subtracts from it.
+    hlsl::float64_t m_pitch = 0.0;
 };
 
 }
 
 #endif // _C_FPS_CAMERA_HPP_
-

@@ -22,8 +22,8 @@ class COrbitCamera final : public CSphericalTargetCamera
 public:
     using base_t = CSphericalTargetCamera;
 
-    COrbitCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target)
-        : base_t(position, target)
+    COrbitCamera(const hlsl::float64_t3& position, const hlsl::float64_t3& target, const SWorldFrame& frame = SWorldFrame::yUpLeftHanded())
+        : base_t(position, target, frame)
     {
         m_orbit.distance = std::clamp(hlsl::length(m_orbit.target - position), MinDistance, MaxDistance);
         updateGimbal();
@@ -38,7 +38,7 @@ public:
     virtual bool setPose(const SCameraRigPose& pose) override
     {
         STargetOrbit orbit = {};
-        if (!CCameraMathUtilities::tryBuildOrbitFromPosition(m_orbit.target, pose.position, MinDistance, MaxDistance, orbit))
+        if (!CCameraMathUtilities::tryBuildOrbitFromPosition(m_orbit.target, pose.position, MinDistance, MaxDistance, getFrame(), orbit))
             return false;
 
         m_orbit = orbit;
