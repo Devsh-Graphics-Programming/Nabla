@@ -23,7 +23,10 @@ uint16_t Volume()
     const uint16_t3 dims = uint16_t3(glsl::gl_WorkGroupSize());
     return dims.x*dims.y*dims.z;
 }
-    
+
+// Use this instead of `LocalInvocationIndex`: that doesn't guarantee indices 0..31 come from the first subgroup (with a SubgroupSize of 32), this function does.
+// Vulkan defines no relationship between `SubgroupLocalInvocationId` and `LocalInvocationIndex`, and suggests this formula instead,
+// valid only with full subgroups: https://docs.vulkan.org/refpages/latest/refpages/source/SubgroupLocalInvocationId.html
 uint16_t SubgroupContiguousIndex()
 {
     const uint16_t retval = (uint16_t(spirv::SubgroupId)<<glsl::gl_SubgroupSizeLog2())+uint16_t(spirv::SubgroupLocalInvocationId);
