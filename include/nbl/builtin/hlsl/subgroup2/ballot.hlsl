@@ -31,6 +31,7 @@ bool ElectLast()
 template<uint32_t SubgroupSizeLog2>
 struct Configuration
 {
+    // smallest type holding one bit per subgroup invocation, for ballot-style masks: `uint32_t1` up to a SubgroupSize of 32, `uint32_t2` for 64, `uint32_t4` for 128
     using mask_t = conditional_t<SubgroupSizeLog2 < 7, conditional_t<SubgroupSizeLog2 < 6, uint32_t1, uint32_t2>, uint32_t4>;
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SizeLog2 = uint16_t(SubgroupSizeLog2);
