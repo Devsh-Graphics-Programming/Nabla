@@ -2,7 +2,8 @@
 #define _NBL_BUILTIN_HLSL_SUBGROUP_FFT_INCLUDED_
 
 #include "nbl/builtin/hlsl/fft/common.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/subgroup_basic.hlsl"
+// TODO: `glsl::subgroupShuffleXor` is only used for its default `spv::ScopeSubgroup`, drop this dependency on the `glsl` namespace once the subgroup utilities move to a better namespace
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
 
 namespace nbl 
@@ -26,7 +27,7 @@ struct FFT<false, Scalar, device_capabilities>
 {
     static void FFT_loop(uint32_t stride, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
     {
-        const bool topHalf = bool(glsl::gl_SubgroupInvocationID() & stride);
+        const bool topHalf = bool(spirv::SubgroupLocalInvocationId & stride);
         const vector <Scalar, 2> toTrade = topHalf ? vector <Scalar, 2>(lo.real(), lo.imag()) : vector <Scalar, 2>(hi.real(), hi.imag());
         const vector <Scalar, 2> exchanged = glsl::subgroupShuffleXor< vector <Scalar, 2> > (toTrade, stride);
         if (topHalf)
@@ -40,15 +41,15 @@ struct FFT<false, Scalar, device_capabilities>
             hi.imag(exchanged.y);
         }
         // Get twiddle with k = subgroupInvocation mod stride, halfN = stride
-        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID() & (stride - 1), stride), lo, hi);
+        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(spirv::SubgroupLocalInvocationId & (stride - 1), stride), lo, hi);
     }
 
     static void __call(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi) 
     {
-        const uint32_t subgroupSize = glsl::gl_SubgroupSize();  //This is N/2
+        const uint32_t subgroupSize = spirv::SubgroupSize;  //This is N/2
 
         // special first iteration
-        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(glsl::gl_SubgroupInvocationID(), subgroupSize), lo, hi);                                                                                   
+        fft::DIF<Scalar>::radix2(fft::twiddle<false, Scalar>(spirv::SubgroupLocalInvocationId, subgroupSize), lo, hi);                                                                                   
         
         // Decimation in Frequency
         [unroll]
@@ -66,9 +67,9 @@ struct FFT<true, Scalar, device_capabilities>
     static void FFT_loop(uint32_t stride, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
     {
         // Get twiddle with k = subgroupInvocation mod stride, halfN = stride
-        fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID() & (stride - 1), stride), lo, hi);   
+        fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(spirv::SubgroupLocalInvocationId & (stride - 1), stride), lo, hi);   
 
-        const bool topHalf = bool(glsl::gl_SubgroupInvocationID() & stride);
+        const bool topHalf = bool(spirv::SubgroupLocalInvocationId & stride);
         const vector <Scalar, 2> toTrade = topHalf ? vector <Scalar, 2>(lo.real(), lo.imag()) : vector <Scalar, 2>(hi.real(), hi.imag());
         const vector <Scalar, 2> exchanged = glsl::subgroupShuffleXor< vector <Scalar, 2> > (toTrade, stride);
         if (topHalf)
@@ -85,7 +86,7 @@ struct FFT<true, Scalar, device_capabilities>
 
     static void __call(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi) 
     {
-        const uint32_t subgroupSize = glsl::gl_SubgroupSize();  //This is N/2
+        const uint32_t subgroupSize = spirv::SubgroupSize;  //This is N/2
         const uint32_t doubleSubgroupSize = subgroupSize << 1;  //This is N                                                                           
         
         // Decimation in Time
@@ -94,7 +95,7 @@ struct FFT<true, Scalar, device_capabilities>
             FFT_loop(stride, lo, hi);
         
         // special last iteration 
-        fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(glsl::gl_SubgroupInvocationID(), subgroupSize), lo, hi);
+        fft::DIT<Scalar>::radix2(fft::twiddle<true, Scalar>(spirv::SubgroupLocalInvocationId, subgroupSize), lo, hi);
         divides_assign< complex_t<Scalar> > divAss;
         divAss(lo, Scalar(doubleSubgroupSize));
         divAss(hi, Scalar(doubleSubgroupSize));
