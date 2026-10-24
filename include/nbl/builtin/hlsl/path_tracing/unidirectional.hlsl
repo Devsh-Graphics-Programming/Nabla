@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/sampling/basic.hlsl>
 #include <nbl/builtin/hlsl/path_tracing/concepts.hlsl>
+#include <nbl/builtin/hlsl/sampling/uniform_spheres.hlsl>
 
 namespace nbl
 {
@@ -67,11 +68,11 @@ struct Unidirectional
             const typename nee_type::light_id_type lightID = matLightID.getLightID();
             if (ray.shouldDoMIS() && matLightID.isLight())
             {
-                emissive *= ray.getPayloadThroughput();
                 const scalar_type weight = nee.backwardWeight(scene, lightID, ray);
                 assert(!hlsl::isinf(weight));
                 emissive *= ray.foundEmissiveMIS(weight * weight);
             }
+            emissive *= ray.getPayloadThroughput();
             ray.addPayloadContribution(emissive);
         }
 
@@ -86,7 +87,7 @@ struct Unidirectional
         const vector3_type intersectP = intersectData.getPosition();
 
         // sample lights
-        const scalar_type neeProbability = bxdf.getNEEProb();
+        const scalar_type neeProbability = useNEE ? bxdf.getNEEProb() : scalar_type(0);
         scalar_type rcpChoiceProb;
         sampling::PartitionRandVariable<scalar_type> partitionRandVariable;
         partitionRandVariable.leftProb = neeProbability;
@@ -103,7 +104,7 @@ struct Unidirectional
             // So we need to weigh the Delta lobes as if the MIS weight is always 1, but other areas regularly.
             // Meaning that eval's weight should equal quotient's weight, this way even the diffuse contributions coming from within a specular lobe get a MIS weight near 0 for NEE.
             // This stops a discrepancy in MIS weights and NEE mistakenly trying to add non-delta lobe contributions with a MIS weight > 0 and creating energy from thin air.
-            const scalar_type neeWeight = neeContrib.weight();
+            const scalar_type neeWeight = hlsl::max(neeContrib.weight() - krivanekCoeff, scalar_type(0));
             if (neeWeight > scalar_type(0.0))
             {
                 const sample_type nee_sample = ret.getSample();
@@ -124,6 +125,7 @@ struct Unidirectional
                 nee_ray.template setInteraction<anisotropic_interaction_type>(interaction);
                 nee_ray.setT(ret.getT()-0.00001f); // avoid self-intersect
                 tolerance_method_type::template adjust<ray_type>(nee_ray, intersectData.getGeometricNormal(), depth);
+                neeQuotient *= ray.getPayloadThroughput();
                 if (getLuma(neeQuotient) > lumaContributionThreshold)
                     ray.addPayloadContribution(neeQuotient * intersector_type::traceShadowRay(scene, nee_ray, ret.getLightObjectID()));
             }
@@ -137,11 +139,19 @@ struct Unidirectional
             cache_type _cache;
             sample_type bsdf_sample = materialSystem.generate(matID, interaction, eps1, _cache);
 
+            // ray_dir_info_type L;
+            // L.setDirection(sampling::UniformSphere<scalar_type>::generate(eps1.xy));
+            // sample_type bsdf_sample = sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
+
             if (!bsdf_sample.isValid())
                 return false;
 
+
             // the value of the bsdf divided by the probability of the sample being generated
             quotient_weight_type bsdf_quotient_weight = materialSystem.quotientAndWeight(matID, bsdf_sample, interaction, _cache);
+            // value_weight_type bsdf_eval_weight = materialSystem.evalAndWeight(matID, bsdf_sample, interaction);
+            // quotient_weight_type bsdf_quotient_weight = quotient_weight_type::create(bsdf_eval_weight.value() / sampling::UniformSphere<scalar_type>::backwardPdf(L.getDirection()),
+            //   sampling::UniformSphere<scalar_type>::backwardWeight(L.getDirection()));
             throughput *= bsdf_quotient_weight.quotient();
             bxdfWeight = bsdf_quotient_weight.weight();
             bxdfSample = bsdf_sample.getL().getDirection();
@@ -171,12 +181,13 @@ struct Unidirectional
     void missProgram(NBL_REF_ARG(ray_type) ray)
     {
         measure_type finalContribution = nee.getEnvRadiance(ray);
-        typename nee_type::light_id_type env_light_id = nee.getEnvLightId();
-        const scalar_type weight = nee.backwardWeight(scene, env_light_id, ray);
+        const scalar_type weight = hlsl::max(nee.backwardWeight(scene, nee.getEnvLightId(), ray) - krivanekCoeff, scalar_type(0));
+        if (ray.shouldDoMIS())
+          finalContribution *= ray.foundEmissiveMIS(weight * weight);
+
         finalContribution *= ray.getPayloadThroughput();
-        if (weight > scalar_type(0.0))
-            finalContribution *= ray.foundEmissiveMIS(weight * weight);
-        ray.addPayloadContribution(finalContribution);
+        if (getLuma(finalContribution) > lumaContributionThreshold)
+          ray.addPayloadContribution(finalContribution);
     }
 
     // Li
@@ -194,7 +205,9 @@ struct Unidirectional
 
             notMissed = intersection.foundHit();
             if (notMissed)
-                continuePath = closestHitProgram(d==maxDepth, d, sampleIndex, ray, intersection);
+              continuePath = closestHitProgram(d == maxDepth, d, sampleIndex, ray, intersection);
+            else
+              continuePath = false;
         }
         if (!notMissed)
             missProgram(ray);
@@ -213,6 +226,8 @@ struct Unidirectional
     scalar_type bxdfWeightThreshold;
     scalar_type lumaContributionThreshold; // OETF smallest perceptible value
     spectral_type spectralTypeToLumaCoeffs;
+    scalar_type krivanekCoeff;
+    bool useNEE;
 };
 
 }
