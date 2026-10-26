@@ -167,6 +167,23 @@ set(PNG_TESTS OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
 
+# curl
+set(BUILD_CURL_EXE OFF)
+set(BUILD_STATIC_LIBS ON)
+set(BUILD_LIBCURL_DOCS OFF)
+set(BUILD_MISC_DOCS OFF)
+set(ENABLE_CURL_MANUAL OFF)
+set(CURL_DISABLE_INSTALL ON)
+set(HTTP_ONLY ON)
+set(CURL_USE_SCHANNEL ON)
+set(CURL_USE_LIBPSL OFF)
+set(CURL_USE_LIBSSH2 OFF)
+set(USE_NGHTTP2 OFF)
+set(CURL_ZLIB OFF)
+set(CURL_BROTLI OFF)
+set(CURL_ZSTD OFF)
+add_subdirectory(curl curl EXCLUDE_FROM_ALL)
+
 # OpenEXR
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
 
