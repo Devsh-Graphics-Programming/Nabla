@@ -599,7 +599,7 @@ core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(cons
 			return nullptr;
 	}
 
-	if (options.writeCache)
+	if (retVal && options.writeCache)
 	{
 		if (entry.setContent(retVal->getContent()))
 			options.writeCache->insert(std::move(entry));
