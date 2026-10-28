@@ -4,6 +4,7 @@
 
 #include "nbl/ui/CWindowManagerWin32.h"
 #include "nbl/ui/CClipboardManagerWin32.h"
+#include "nbl/ui/ICursorControl.h"
 
 #include <cstdint>
 #include <queue>
