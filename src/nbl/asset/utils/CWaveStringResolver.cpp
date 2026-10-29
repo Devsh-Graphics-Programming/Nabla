@@ -13,11 +13,10 @@
 #include <boost/wave/util/insert_whitespace_detection.hpp>
 #include <algorithm>
 #include <optional>
+#include "nbl/asset/utils/waveContext.h"
 
 using namespace nbl;
 using namespace nbl::asset;
-
-#include "nbl/asset/utils/waveContext.h"
 
 namespace
 {

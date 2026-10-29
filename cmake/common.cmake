@@ -1264,11 +1264,12 @@ struct DeviceConfigCaps
 	endif()
 
 	if(_NBL_NSC_USE_HOST_BUILTINS)
+		find_package(Boost CONFIG REQUIRED)
 		list(APPEND REQUIRED_OPTIONS
 			-no-nbl-builtins
 			-isystem "${NBL_ROOT_PATH}/include"
 			-isystem "${NBL_ROOT_PATH}/3rdparty/dxc/dxc/external/SPIRV-Headers/include"
-			-isystem "${NBL_ROOT_PATH}/3rdparty/boost/superproject/libs/preprocessor/include"
+			-isystem "${Boost_INCLUDE_DIRS}"
 			-isystem "${NBL_ROOT_PATH_BINARY}/src/nbl/device/include"
 		)
 	endif()

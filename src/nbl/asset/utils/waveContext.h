@@ -311,14 +311,14 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
                 return false;
             }
             auto shaderStageIdentifier = std::string(valueIter->get_value().c_str());
-            const static core::unordered_map<std::string,IShader::E_SHADER_STAGE> stageFromIdent =
+            const static core::unordered_map<std::string, asset::IShader::E_SHADER_STAGE> stageFromIdent =
             {
-                { "vertex", IShader::E_SHADER_STAGE::ESS_VERTEX },
-                { "fragment", IShader::E_SHADER_STAGE::ESS_FRAGMENT },
-                { "tesscontrol", IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL },
-                { "tesseval", IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION },
-                { "geometry", IShader::E_SHADER_STAGE::ESS_GEOMETRY },
-                { "compute", IShader::E_SHADER_STAGE::ESS_COMPUTE }
+                { "vertex", asset::IShader::E_SHADER_STAGE::ESS_VERTEX },
+                { "fragment", asset::IShader::E_SHADER_STAGE::ESS_FRAGMENT },
+                { "tesscontrol", asset::IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL },
+                { "tesseval", asset::IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION },
+                { "geometry", asset::IShader::E_SHADER_STAGE::ESS_GEOMETRY },
+                { "compute", asset::IShader::E_SHADER_STAGE::ESS_COMPUTE }
             };
             auto found = stageFromIdent.find(shaderStageIdentifier);
             if (found == stageFromIdent.end())
@@ -727,7 +727,7 @@ class context : private boost::noncopyable
             cachingRequested = b;
         }
 
-        std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency>&& get_dependencies() {
+        std::vector<asset::IShaderCompiler::CCache::SEntry::SPreprocessingDependency>&& get_dependencies() {
             return std::move(dependencies);
         }
 
@@ -751,7 +751,7 @@ class context : private boost::noncopyable
         std::unordered_map<std::string, std::string> include_resolution_cache;
         // Cache Additions 
         bool cachingRequested = false;
-        std::vector<IShaderCompiler::CCache::SEntry::SPreprocessingDependency> dependencies = {};
+        std::vector<asset::IShaderCompiler::CCache::SEntry::SPreprocessingDependency> dependencies = {};
         // Nabla Additions End
 
         boost::wave::util::if_block_stack ifblocks;   // conditional compilation contexts
@@ -795,7 +795,7 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     if (ctx.get_hooks().found_include_directive(ctx.derived(),f,false))
         return true;    // client returned false: skip file to include
 
-    IShaderCompiler::IIncludeLoader::found_t result;
+    nbl::asset::IShaderCompiler::IIncludeLoader::found_t result;
     auto* includeFinder = ctx.get_hooks().m_includeFinder;
     bool standardInclude;
     std::string cachedAbsolutePath;
@@ -870,7 +870,7 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
     if (perfStats.enabled && perfStats.includeDetailsEnabled)
         ++perfStats.resolvedIncludePathCounts[result.absolutePath.generic_string()];
 
-    const bool systemHeader = result.classification.headerClass == IShaderCompiler::HeaderClass::System;
+    const bool systemHeader = result.classification.headerClass == nbl::asset::IShaderCompiler::HeaderClass::System;
 
     // If caching was requested, push a new SDependency onto dependencies
     if (ctx.cachingRequested) {

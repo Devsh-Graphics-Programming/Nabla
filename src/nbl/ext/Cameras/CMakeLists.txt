@@ -23,6 +23,13 @@ nbl_create_ext_library_project(
     ""
 )
 
+find_package(glm CONFIG REQUIRED)
+find_package(gtl CONFIG REQUIRED)
+find_package(Imath CONFIG REQUIRED)
+find_package(blake3 CONFIG REQUIRED)
+find_package(Boost CONFIG REQUIRED)
+target_link_libraries(${LIB_NAME} PRIVATE glm::glm gtl::gtl Imath::Imath BLAKE3::blake3 boost::boost)
+
 # installed from src/nbl as the "Cameras" component of the Nabla package
 set_target_properties(${LIB_NAME} PROPERTIES
     EXPORT_NAME "ext::Cameras"

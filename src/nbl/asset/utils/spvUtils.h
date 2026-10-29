@@ -5,7 +5,7 @@
 #define _NBL_ASSET_C_SPV_UTILS_H_INCLUDED_
 
 #include "nbl/asset/IShader.h"
-#include "nbl_spirv_cross/spirv_cross.hpp"
+#include "spirv_cross/spirv_cross.hpp"
 
 namespace nbl
 {
