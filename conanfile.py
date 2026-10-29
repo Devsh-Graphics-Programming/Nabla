@@ -43,11 +43,11 @@ class NablaConan(ConanFile):
         self.requires("gli/cci.20210515")
 
         # imgui libs (from nabla conan index)
-        self.requires("nabla_imgui/1.91.8")
+        self.requires("imgui/1.91.8-devsh.1")
 
         # vulkan libs all have related dependencies
         self.requires("vulkan-headers/1.4.357.0")
-        self.requires("nabla_volk/1.4.357.0")
+        self.requires("volk/1.4.357.0-devsh.1")
         self.requires("glslang/1.4.357.0", options={"shared": False})
         self.requires("shaderc/2026.4", options={"shared": False})
         self.requires("spirv-tools/1.4.357.0", options={"shared": False})

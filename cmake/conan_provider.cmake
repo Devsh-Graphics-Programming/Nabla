@@ -554,6 +554,21 @@ function(conan_version_check)
 endfunction()
 
 
+function(conan_config_remote)
+    message(STATUS "CMake-Conan: Setting conan remotes")
+    execute_process(
+        COMMAND ${CONAN_COMMAND} config install remotes.json
+        RESULT_VARIABLE return_code
+        OUTPUT_VARIABLE conan_stdout
+        ERROR_VARIABLE conan_stderr
+        ECHO_ERROR_VARIABLE
+    )
+    if(NOT "${return_code}" STREQUAL "0")
+        message(FATAL_ERROR "Conan config install failed='${return_code}'")
+    endif()
+endfunction()
+
+
 macro(construct_profile_argument argument_variable profile_list)
     set(${argument_variable} "")
     if("${profile_list}" STREQUAL "CONAN_HOST_PROFILE")
@@ -579,6 +594,7 @@ macro(conan_provide_dependency method package_name)
         find_program(CONAN_COMMAND "conan" REQUIRED)
         conan_get_version("${CONAN_COMMAND}" CONAN_CURRENT_VERSION)
         conan_version_check(MINIMUM ${CONAN_MINIMUM_VERSION} CURRENT ${CONAN_CURRENT_VERSION})
+        conan_config_remote()
         message(STATUS "CMake-Conan: first find_package() found. Installing dependencies with Conan")
         if("default" IN_LIST CONAN_HOST_PROFILE OR "default" IN_LIST CONAN_BUILD_PROFILE)
             conan_profile_detect_default()
