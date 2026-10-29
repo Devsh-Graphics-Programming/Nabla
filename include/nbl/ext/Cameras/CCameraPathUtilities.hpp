@@ -204,12 +204,14 @@ struct CCameraPathUtilities final
         const hlsl::float64_t3& targetPosition,
         const hlsl::float64_t3& position,
         double minU,
+        const SWorldFrame& frame,
         ICamera::PathState& outState);
 
     static bool tryResolvePathState(
         const hlsl::float64_t3& targetPosition,
         const hlsl::float64_t3& position,
         const SCameraPathLimits& limits,
+        const SWorldFrame& frame,
         const ICamera::PathState* requestedState,
         ICamera::PathState& outState);
 
@@ -217,12 +219,14 @@ struct CCameraPathUtilities final
         const hlsl::float64_t3& targetPosition,
         const ICamera::PathState& state,
         const SCameraPathLimits& limits,
+        const SWorldFrame& frame,
         SCameraPathPose& outPose);
 
     static bool tryBuildPathPoseFromState(
         const hlsl::float64_t3& targetPosition,
         const ICamera::PathState& state,
         const SCameraPathLimits& limits,
+        const SWorldFrame& frame,
         hlsl::float64_t3& outPosition,
         hlsl::math::quaternion<hlsl::float64_t>& outOrientation,
         hlsl::float64_t* outAppliedDistance = nullptr,
@@ -252,6 +256,7 @@ struct CCameraPathUtilities final
         const hlsl::float64_t3& targetPosition,
         const ICamera::PathState& state,
         const SCameraPathLimits& limits,
+        const SWorldFrame& frame,
         SCameraCanonicalPathState& outState);
 
     static bool tryApplyPathStateDelta(
@@ -270,11 +275,13 @@ struct CCameraPathUtilities final
         const hlsl::float64_t3& currentPosition,
         const hlsl::float64_t3& desiredPosition,
         const SCameraPathLimits& limits,
+        const SWorldFrame& frame,
         const ICamera::PathState* currentStateOverride,
         const ICamera::PathState* desiredStateOverride,
         SCameraPathStateTransition& outTransition);
 
-    static SCameraPathModel makeDefaultPathModel();
+    /// @brief The built-in model; `frame` is the camera's and is baked into every state and pose the model evaluates.
+    static SCameraPathModel makeDefaultPathModel(const SWorldFrame& frame = SWorldFrame::yUpLeftHanded());
 };
 
 } // namespace nbl::ext::cameras

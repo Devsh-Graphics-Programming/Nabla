@@ -62,56 +62,65 @@ genIUType bitfieldReverse(genIUType const& Value)
 * Generic SPIR-V
 */
 
-// Fun fact: ideally atomics should detect the address space of `ptr` and narrow down the sync-scope properly
-// https://github.com/microsoft/DirectXShaderCompiler/issues/6508
-// Would need own meta-type/tagged-type to implement, without & and fancy operator overloads... not posssible
+// Each atomic has a reference form and a pointer form, see "Reference form and pointer form" in spirv_intrinsics/core.hlsl.
+// These wrappers always use Device scope and relaxed semantics.
 // TODO: we can template on `StorageClass` instead of Ptr_T then resolve the memory scope and semantics properly
+// reference form: `ptr` is the variable itself, e.g. `buf[i]`, `bufferPtr.Get().member`, or a groupshared variable with `T` given explicitly
 template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicIAdd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicAdd(Ptr_T ptr, T value)
 {
     return spirv::atomicIAdd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
+// reference form: `ptr` is the variable itself, e.g. `buf[i]`, `bufferPtr.Get().member`, or a groupshared variable with `T` given explicitly
 template<typename T>
 T atomicSub(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicISub<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicSub(Ptr_T ptr, T value)
 {
     return spirv::atomicISub<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
+// reference form: `ptr` is the variable itself, e.g. `buf[i]`, `bufferPtr.Get().member`, or a groupshared variable with `T` given explicitly
 template<typename T>
 T atomicAnd(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicAnd(Ptr_T ptr, T value)
 {
     return spirv::atomicAnd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
+// reference form: `ptr` is the variable itself, e.g. `buf[i]`, `bufferPtr.Get().member`, or a groupshared variable with `T` given explicitly
 template<typename T>
 T atomicOr(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicOr<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicOr(Ptr_T ptr, T value)
 {
     return spirv::atomicOr<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
+// reference form: `ptr` is the variable itself, e.g. `buf[i]`, `bufferPtr.Get().member`, or a groupshared variable with `T` given explicitly
 template<typename T>
 T atomicXor(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicXor<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicXor(Ptr_T ptr, T value)
 {
     return spirv::atomicXor<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
@@ -126,22 +135,26 @@ T atomicMax(NBL_REF_ARG(T) ptr, T value)
 {
 }
 */
+// reference form: `ptr` is the variable itself, e.g. `buf[i]`, `bufferPtr.Get().member`, or a groupshared variable with `T` given explicitly
 template<typename T>
 T atomicExchange(NBL_REF_ARG(T) ptr, T value)
 {
     return spirv::atomicExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicExchange(Ptr_T ptr, T value)
 {
     return spirv::atomicExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
+// reference form: `ptr` is the variable itself, e.g. `buf[i]`, `bufferPtr.Get().member`, or a groupshared variable with `T` given explicitly
 template<typename T>
 T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
 {
     return spirv::atomicCompareExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
-template<typename T, typename Ptr_T> // DXC Workaround
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename T, typename Ptr_T>
 enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T comparator, T value)
 {
     return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);

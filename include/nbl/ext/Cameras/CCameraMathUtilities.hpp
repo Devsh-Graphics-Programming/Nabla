@@ -107,24 +107,6 @@ struct CCameraMathUtilities final
         return hlsl::approx::absRelEqual<T>(hlsl::length(delta), T(0), epsilon, T(0));
     }
 
-    template<typename T>
-    static inline constexpr hlsl::vector<T, 3> getCameraWorldRight()
-    {
-        return hlsl::vector<T, 3>(T(1), T(0), T(0));
-    }
-
-    template<typename T>
-    static inline constexpr hlsl::vector<T, 3> getCameraWorldUp()
-    {
-        return hlsl::vector<T, 3>(T(0), T(1), T(0));
-    }
-
-    template<typename T>
-    static inline constexpr hlsl::vector<T, 3> getCameraWorldForward()
-    {
-        return hlsl::vector<T, 3>(T(0), T(0), T(1));
-    }
-
     // TODO: candidate for nbl::hlsl (`quaternion<T>` has no factory taking the four components)
     template<typename T>
     static inline hlsl::math::quaternion<T> makeQuaternionFromComponents(const T x, const T y, const T z, const T w)
@@ -161,15 +143,16 @@ struct CCameraMathUtilities final
         return value / len;
     }
 
-    /// @brief Orthonormal camera basis looking along `forwardHint`, with up as close to `upHint` as the forward allows.
+    /// @brief Orthonormal camera basis looking along `forwardHint`, with up as close to `upHint` as the forward allows
+    /// and right the physical right of the frame's handedness.
     ///
-    /// Gram-Schmidt on (forward, up hint) finished with a cross product, the same frame `hlsl::math::linalg::lhLookAt`
-    /// builds. When the hint is zero or parallel to forward, whichever of world up and world forward is further from
-    /// forward stands in for it. Fails only for a zero or non-finite `forwardHint`.
+    /// When the hint is zero or parallel to forward, whichever of the frame's up and forward is further from forward
+    /// stands in for it. Fails only for a zero or non-finite `forwardHint`.
     template<typename T>
-    static inline bool tryBuildCameraBasisFromForwardUpHint(
+    static inline bool tryBuildBasis(
         const hlsl::vector<T, 3>& forwardHint,
         const hlsl::vector<T, 3>& upHint,
+        const SWorldFrame& frame,
         SCameraBasis<T>& outBasis)
     {
         constexpr T Epsilon = hlsl::numeric_limits<T>::epsilon;
@@ -177,60 +160,125 @@ struct CCameraMathUtilities final
         if (!isFiniteVec3(forwardHint) || isNearlyZeroVector(forwardHint, Epsilon))
             return false;
 
-        const auto forward = safeNormalizeVec3(forwardHint, getCameraWorldForward<T>());
-        auto right = hlsl::cross(safeNormalizeVec3(upHint, getCameraWorldUp<T>()), forward);
+        const hlsl::vector<T, 3> frameUp(frame.up);
+        const hlsl::vector<T, 3> frameForward(frame.forward);
+        const hlsl::vector<T, 3> frameRight(frame.right);
+
+        const T sign = handednessSign<T>(frame.handedness);
+        const auto forward = safeNormalizeVec3(forwardHint, frameForward);
+        auto right = hlsl::cross(safeNormalizeVec3(upHint, frameUp), forward) * sign;
         if (!isFiniteVec3(right) || isNearlyZeroVector(right, Epsilon))
         {
             // the axis with the smaller component along forward, so the cross product below is at least 1/sqrt(2) long
-            const auto fallbackUp = hlsl::abs(forward.y) <= hlsl::abs(forward.z) ?
-                getCameraWorldUp<T>() :
-                getCameraWorldForward<T>();
-            right = hlsl::cross(fallbackUp, forward);
+            const auto fallbackUp = hlsl::abs(hlsl::dot(forward, frameUp)) <= hlsl::abs(hlsl::dot(forward, frameForward)) ? frameUp : frameForward;
+            right = hlsl::cross(fallbackUp, forward) * sign;
         }
-        right = safeNormalizeVec3(right, getCameraWorldRight<T>());
+        right = safeNormalizeVec3(right, frameRight);
 
         outBasis.right = right;
-        outBasis.up = hlsl::cross(forward, right);
+        outBasis.up = hlsl::cross(forward, right) * sign;
         outBasis.forward = forward;
         return true;
     }
 
-    // `orbitUv.x` is the azimuth in the XZ plane from +Z towards +X, `orbitUv.y` the elevation above it, so the
-    // polar axis is +Y, matching `getCameraWorldUp`.
+    /// @brief The quaternion whose local X, Y, Z are `basis.right`, `basis.up` and `forward` for a left-handed
+    /// camera or `-forward` for a right-handed one.
+    ///
+    /// Not normalized, and NaN when the three columns are not a rotation (an orthonormal basis of the other
+    /// handedness is a mirror).
     template<typename T>
-    static inline hlsl::vector<T, 3> makeSphericalOffsetFromOrbit(const hlsl::vector<T, 2>& orbitUv, const T distance)
+    static inline hlsl::math::quaternion<T> orientationFromBasis(const SCameraBasis<T>& basis, const ECameraHandedness handedness)
     {
-        return hlsl::vector<T, 3>(
-            hlsl::cos(orbitUv.y) * hlsl::sin(orbitUv.x) * distance,
-            hlsl::sin(orbitUv.y) * distance,
-            hlsl::cos(orbitUv.y) * hlsl::cos(orbitUv.x) * distance);
+        // a quaternion can only hold a proper rotation (det +1). `(right, up, forward)` has det +1 in a left-handed
+        // world but det -1 in a right-handed one, so there the forward has to be negated to land on local Z; this is
+        // also where the right-handed projection looks (-Z of view space)
+        const auto localZ = basis.forward * handednessSign<T>(handedness);
+        const hlsl::matrix<T, 3, 3> columns(
+            hlsl::vector<T, 3>(basis.right.x, basis.up.x, localZ.x),
+            hlsl::vector<T, 3>(basis.right.y, basis.up.y, localZ.y),
+            hlsl::vector<T, 3>(basis.right.z, basis.up.z, localZ.z));
+        return hlsl::math::quaternion<T>::createFromRotationMatrix(columns, true);
     }
 
-    // d(makeSphericalOffsetFromOrbit)/d(elevation), normalized: tangent to the orbit sphere and therefore
-    // perpendicular to the offset, which is what makes it a usable up hint.
+    /// @brief The camera's physical axes for `orientation`: right is local X, up is local Y, and forward is local Z
+    /// for a left-handed camera and local -Z for a right-handed one. The inverse of `orientationFromBasis`.
     template<typename T>
-    static inline hlsl::vector<T, 3> makeSphericalUpFromOrbit(const hlsl::vector<T, 2>& orbitUv)
+    static inline SCameraBasis<T> basisFromOrientation(const hlsl::math::quaternion<T>& orientation, const ECameraHandedness handedness)
     {
-        return hlsl::vector<T, 3>(
-            -hlsl::sin(orbitUv.y) * hlsl::sin(orbitUv.x),
-            hlsl::cos(orbitUv.y),
-            -hlsl::sin(orbitUv.y) * hlsl::cos(orbitUv.x));
+        const auto normalized = hlsl::normalize(orientation);
+        SCameraBasis<T> basis;
+        basis.right = normalized.transformVector(hlsl::vector<T, 3>(T(1), T(0), T(0)), true);
+        basis.up = normalized.transformVector(hlsl::vector<T, 3>(T(0), T(1), T(0)), true);
+        basis.forward = normalized.transformVector(hlsl::vector<T, 3>(T(0), T(0), handednessSign<T>(handedness)), true);
+        return basis;
     }
 
-    /// @brief Orientation of a camera at `position` looking at `targetPosition`, with up as close to `preferredUp` as
-    /// the view direction allows. Fails when the two positions coincide or are not finite.
+    /// @brief Unit direction at `yaw` and `pitch` measured in the orthonormal frame (`right`, `up`, `forward`): yaw
+    /// turns `forward` toward `right`, pitch lifts it toward `up`; radians.
+    template<typename T>
+    static inline hlsl::vector<T, 3> directionFromYawPitch(
+        const hlsl::vector<T, 3>& right,
+        const hlsl::vector<T, 3>& up,
+        const hlsl::vector<T, 3>& forward,
+        const T yaw,
+        const T pitch)
+    {
+        const T cosPitch = hlsl::cos(pitch);
+        return forward * (cosPitch * hlsl::cos(yaw)) + right * (cosPitch * hlsl::sin(yaw)) + up * hlsl::sin(pitch);
+    }
+
+    /// @brief d(`directionFromYawPitch`)/d(pitch), a unit vector: tangent to the unit sphere at the direction, pointing
+    /// toward increasing pitch, and therefore perpendicular to the direction, which makes it a usable up hint for a
+    /// camera placed there, including at the poles.
+    template<typename T>
+    static inline hlsl::vector<T, 3> upHintFromYawPitch(
+        const hlsl::vector<T, 3>& right,
+        const hlsl::vector<T, 3>& up,
+        const hlsl::vector<T, 3>& forward,
+        const T yaw,
+        const T pitch)
+    {
+        const T sinPitch = hlsl::sin(pitch);
+        return up * hlsl::cos(pitch) - forward * (sinPitch * hlsl::cos(yaw)) - right * (sinPitch * hlsl::sin(yaw));
+    }
+
+    /// @brief Inverse of `directionFromYawPitch` for a unit `direction`: `.x` yaw in (-pi, pi], `.y` pitch in
+    /// [-pi/2, pi/2]. Yaw is zero (not NaN) when `direction` is along `up`.
+    template<typename T>
+    static inline hlsl::vector<T, 2> yawPitchFromDirection(
+        const hlsl::vector<T, 3>& right,
+        const hlsl::vector<T, 3>& up,
+        const hlsl::vector<T, 3>& forward,
+        const hlsl::vector<T, 3>& direction)
+    {
+        return hlsl::vector<T, 2>(
+            hlsl::atan2(hlsl::dot(direction, right), hlsl::dot(direction, forward)),
+            hlsl::asin(hlsl::clamp(hlsl::dot(direction, up), T(-1), T(1))));
+    }
+
+    /// @brief `from` rotated by `angle` radians toward `toward` in the plane of the two, for orthonormal `from` and
+    /// `toward`: `from * cos + toward * sin`. The rotation of the pair itself is `rotateTowards(toward, -from, angle)`.
+    template<typename T>
+    static inline hlsl::vector<T, 3> rotateTowards(const hlsl::vector<T, 3>& from, const hlsl::vector<T, 3>& toward, const T angle)
+    {
+        return from * hlsl::cos(angle) + toward * hlsl::sin(angle);
+    }
+
+    /// @brief Orientation of a camera of `frame` at `position` looking at `targetPosition`, with up as close to
+    /// `preferredUp` as the view direction allows. Fails when the two positions coincide or are not finite.
     template<typename T>
     static inline bool tryCreateQuaternionFromLookAt(
         const hlsl::vector<T, 3>& position,
         const hlsl::vector<T, 3>& targetPosition,
         const hlsl::vector<T, 3>& preferredUp,
+        const SWorldFrame& frame,
         hlsl::math::quaternion<T>& outOrientation)
     {
         SCameraBasis<T> basis;
-        if (!tryBuildCameraBasisFromForwardUpHint(targetPosition - position, preferredUp, basis))
+        if (!tryBuildBasis(targetPosition - position, preferredUp, frame, basis))
             return false;
 
-        const auto orientation = hlsl::math::quaternion<T>::createFromRotationMatrix(basis.getRotationMatrix(), true);
+        const auto orientation = orientationFromBasis(basis, frame.handedness);
         if (!isFiniteQuaternion(orientation))
             return false;
 
@@ -238,7 +286,8 @@ struct CCameraMathUtilities final
         return true;
     }
 
-    /// @brief Orbit state -> camera pose: the camera sits at `target + offset(angles, distance)` and looks at the target.
+    /// @brief Orbit state -> camera pose: the camera sits at `target + direction(angles) * distance` in the frame
+    /// (see `STargetOrbit::angles`) and looks at the target, its up along increasing elevation.
     ///
     /// `distance` is clamped to `[minDistance, maxDistance]` before use; the value actually used is reported
     /// through the optional `outAppliedDistance` (pointer = optional, may be null).
@@ -247,6 +296,7 @@ struct CCameraMathUtilities final
         const STargetOrbit& orbit,
         const hlsl::float64_t minDistance,
         const hlsl::float64_t maxDistance,
+        const SWorldFrame& frame,
         SCameraRigPose& outPose,
         hlsl::float64_t* outAppliedDistance = nullptr)
     {
@@ -256,13 +306,13 @@ struct CCameraMathUtilities final
             return false;
 
         const hlsl::float64_t appliedDistance = hlsl::clamp(orbit.distance, minDistance, maxDistance);
-        const auto spherePosition = makeSphericalOffsetFromOrbit(orbit.angles, appliedDistance);
-        const auto upHint = safeNormalizeVec3(makeSphericalUpFromOrbit(orbit.angles), getCameraWorldUp<hlsl::float64_t>());
+        const auto spherePosition = directionFromYawPitch(frame.right, frame.up, frame.forward, orbit.angles.x, orbit.angles.y) * appliedDistance;
+        const auto upHint = upHintFromYawPitch(frame.right, frame.up, frame.forward, orbit.angles.x, orbit.angles.y);
         SCameraBasis<hlsl::float64_t> basis;
-        if (!tryBuildCameraBasisFromForwardUpHint(-spherePosition, upHint, basis))
+        if (!tryBuildBasis(-spherePosition, upHint, frame, basis))
             return false;
 
-        const auto orientation = hlsl::math::quaternion<hlsl::float64_t>::createFromRotationMatrix(basis.getRotationMatrix(), true);
+        const auto orientation = orientationFromBasis(basis, frame.handedness);
         if (!isFiniteQuaternion(orientation))
             return false;
 
@@ -283,6 +333,7 @@ struct CCameraMathUtilities final
         const hlsl::float64_t3& cameraPosition,
         const hlsl::float64_t minDistance,
         const hlsl::float64_t maxDistance,
+        const SWorldFrame& frame,
         STargetOrbit& outOrbit)
     {
         const auto offset = cameraPosition - target;
@@ -290,10 +341,7 @@ struct CCameraMathUtilities final
         if (!isFiniteScalar(distance) || distance <= hlsl::numeric_limits<hlsl::float64_t>::epsilon)
             return false;
 
-        const auto local = offset / distance;
-        const auto angles = hlsl::float64_t2(
-            hlsl::atan2(local.x, local.z),
-            hlsl::asin(hlsl::clamp(local.y, -1.0, 1.0)));
+        const auto angles = yawPitchFromDirection(frame.right, frame.up, frame.forward, offset / distance);
         const auto appliedDistance = hlsl::clamp(distance, minDistance, maxDistance);
         if (!isFiniteScalar(angles.x) || !isFiniteScalar(angles.y) || !isFiniteScalar(appliedDistance))
             return false;
@@ -342,30 +390,27 @@ struct CCameraMathUtilities final
         return hlsl::normalize(hlsl::inverse(orientation)).transformVector(worldVector, true);
     }
 
-    template<typename T>
-    static inline SCameraBasis<T> getOrientationBasis(const hlsl::math::quaternion<T>& orientation)
-    {
-        const auto normalized = hlsl::normalize(orientation);
-        SCameraBasis<T> basis;
-        basis.right = normalized.transformVector(getCameraWorldRight<T>(), true);
-        basis.up = normalized.transformVector(getCameraWorldUp<T>(), true);
-        basis.forward = normalized.transformVector(getCameraWorldForward<T>(), true);
-        return basis;
-    }
-
     // TODO: candidate for nbl::hlsl (inverse of `quaternion<T>::createFromYawPitchRoll`, returned as (pitch, yaw, roll))
+    // Euler decomposition of the rotation about the world Y, X and Z axes in that order, the inverse of
+    // `createFromYawPitchRoll`. No handedness: the angles describe where the quaternion's local +Z and local +X go,
+    // so they read as the look direction's heading and pitch only for a camera whose look direction is local +Z.
     template<typename T>
     static inline hlsl::vector<T, 3> getPitchYawRollRadians(const hlsl::math::quaternion<T>& orientation)
     {
-        const auto basis = getOrientationBasis(orientation);
-        const T yaw = hlsl::atan2(basis.forward.x, basis.forward.z);
-        const T c2 = hlsl::length(hlsl::vector<T, 2>(basis.right.y, basis.up.y));
-        const T pitch = hlsl::atan2(-basis.forward.y, c2);
+        // columns are the local axes in world space
+        const auto rotation = hlsl::_static_cast<hlsl::matrix<T, 3, 3>>(hlsl::normalize(orientation));
+        const auto localX = hlsl::vector<T, 3>(rotation[0][0], rotation[1][0], rotation[2][0]);
+        const auto localY = hlsl::vector<T, 3>(rotation[0][1], rotation[1][1], rotation[2][1]);
+        const auto localZ = hlsl::vector<T, 3>(rotation[0][2], rotation[1][2], rotation[2][2]);
+
+        const T yaw = hlsl::atan2(localZ.x, localZ.z);
+        const T c2 = hlsl::length(hlsl::vector<T, 2>(localX.y, localY.y));
+        const T pitch = hlsl::atan2(-localZ.y, c2);
         const T s1 = hlsl::sin(yaw);
         const T c1 = hlsl::cos(yaw);
         const T roll = hlsl::atan2(
-            s1 * basis.up.z - c1 * basis.up.x,
-            c1 * basis.right.x - s1 * basis.right.z);
+            s1 * localY.z - c1 * localY.x,
+            c1 * localX.x - s1 * localX.z);
         return hlsl::vector<T, 3>(pitch, yaw, roll);
     }
 
@@ -390,31 +435,28 @@ struct CCameraMathUtilities final
         return getPitchYawRollRadians(deltaQuat);
     }
 
-    // Engine layout: basis vectors in the columns, translation in the last column, so `mul(M, float4(v, 1))`
-    // transforms a point.
+    // Engine layout: the quaternion's local axes in the columns, translation in the last column, so
+    // `mul(M, float4(v, 1))` transforms a point.
     template<typename T>
     static inline hlsl::matrix<T, 4, 4> composeTransformMatrix(
         const hlsl::vector<T, 3>& translation,
         const hlsl::math::quaternion<T>& orientation,
         const hlsl::vector<T, 3>& scale = hlsl::vector<T, 3>(T(1)))
     {
-        const auto basis = getOrientationBasis(orientation);
-        const auto scaledRight = basis.right * scale.x;
-        const auto scaledUp = basis.up * scale.y;
-        const auto scaledForward = basis.forward * scale.z;
+        const auto rotation = hlsl::_static_cast<hlsl::matrix<T, 3, 3>>(hlsl::normalize(orientation));
 
-        return hlsl::matrix<T, 4, 4>(
-            hlsl::vector<T, 4>(scaledRight.x, scaledUp.x, scaledForward.x, translation.x),
-            hlsl::vector<T, 4>(scaledRight.y, scaledUp.y, scaledForward.y, translation.y),
-            hlsl::vector<T, 4>(scaledRight.z, scaledUp.z, scaledForward.z, translation.z),
-            hlsl::vector<T, 4>(T(0), T(0), T(0), T(1)));
+        hlsl::matrix<T, 4, 4> result;
+        for (uint32_t row = 0u; row < 3u; ++row)
+            result[row] = hlsl::vector<T, 4>(rotation[row][0] * scale.x, rotation[row][1] * scale.y, rotation[row][2] * scale.z, translation[row]);
+        result[3] = hlsl::vector<T, 4>(T(0), T(0), T(0), T(1));
+        return result;
     }
 
     /// @brief Position and orientation of a transform in the engine layout (see `composeTransformMatrix`).
     ///
-    /// Any positive scale is divided out of the basis and dropped. Fails for zero-length or non-finite columns, for a
-    /// shear (the basis is not orthogonal) and for a mirror (negative determinant), none of which a position and a
-    /// quaternion can hold.
+    /// Any positive scale is divided out of the columns and dropped. Fails for zero-length or non-finite columns, for
+    /// a shear (the columns are not orthogonal) and for a mirror (negative determinant), none of which a position
+    /// and a quaternion can hold.
     template<typename T>
     static inline bool tryExtractPositionAndQuaternionFromTransform(
         const hlsl::matrix<T, 4, 4>& transform,
@@ -423,11 +465,11 @@ struct CCameraMathUtilities final
     {
         const auto position = hlsl::vector<T, 3>(transform[0].w, transform[1].w, transform[2].w);
 
-        auto right = hlsl::vector<T, 3>(transform[0].x, transform[1].x, transform[2].x);
-        auto up = hlsl::vector<T, 3>(transform[0].y, transform[1].y, transform[2].y);
-        auto forward = hlsl::vector<T, 3>(transform[0].z, transform[1].z, transform[2].z);
+        auto localX = hlsl::vector<T, 3>(transform[0].x, transform[1].x, transform[2].x);
+        auto localY = hlsl::vector<T, 3>(transform[0].y, transform[1].y, transform[2].y);
+        auto localZ = hlsl::vector<T, 3>(transform[0].z, transform[1].z, transform[2].z);
 
-        const auto scale = hlsl::vector<T, 3>(hlsl::length(right), hlsl::length(up), hlsl::length(forward));
+        const auto scale = hlsl::vector<T, 3>(hlsl::length(localX), hlsl::length(localY), hlsl::length(localZ));
 
         if (!isFiniteVec3(position) || !isFiniteVec3(scale))
             return false;
@@ -436,11 +478,15 @@ struct CCameraMathUtilities final
         if (scale.x <= Epsilon || scale.y <= Epsilon || scale.z <= Epsilon)
             return false;
 
-        right /= scale.x;
-        up /= scale.y;
-        forward /= scale.z;
+        localX /= scale.x;
+        localY /= scale.y;
+        localZ /= scale.z;
 
-        const auto orientation = hlsl::math::quaternion<T>::createFromRotationMatrix(SCameraBasis<T>{ right, up, forward }.getRotationMatrix(), true);
+        const hlsl::matrix<T, 3, 3> rotation(
+            hlsl::vector<T, 3>(localX.x, localY.x, localZ.x),
+            hlsl::vector<T, 3>(localX.y, localY.y, localZ.y),
+            hlsl::vector<T, 3>(localX.z, localY.z, localZ.z));
+        const auto orientation = hlsl::math::quaternion<T>::createFromRotationMatrix(rotation, true);
         if (!isFiniteQuaternion(orientation))
             return false;
 
