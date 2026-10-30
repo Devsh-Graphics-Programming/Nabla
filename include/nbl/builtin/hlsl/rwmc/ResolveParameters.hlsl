@@ -41,7 +41,7 @@ struct SResolveParameters
 	}
 
 	template<typename SampleType, typename Colorspace = colorspace::scRGB>
-	scalar_t calcLuma(NBL_CONST_REF_ARG(SampleType) col)
+	scalar_t calcLuma(NBL_CONST_REF_ARG(SampleType) col) NBL_CONST_MEMBER_FUNC
 	{
 		return hlsl::dot<SampleType>(hlsl::transpose(Colorspace::ToXYZ())[1], col);
 	}

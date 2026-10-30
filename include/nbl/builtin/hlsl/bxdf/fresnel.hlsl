@@ -138,7 +138,7 @@ struct ComputeMicrofacetNormal
     // VdotH <= 1-orientedEta2 for orientedEta<1 -> VdotH<0
     // VdotH <= 0 for orientedEta>1
     // so for transmission VdotH<=0, H needs to be flipped to be consistent with oriented eta
-    vector_type unnormalized(const bool _refract)
+    vector_type unnormalized(const bool _refract) NBL_CONST_MEMBER_FUNC
     {
         assert(hlsl::dot(V, L) <= -hlsl::min(orientedEta, scalar_type(1.0) / orientedEta));
         const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta, _refract);
@@ -148,7 +148,7 @@ struct ComputeMicrofacetNormal
     }
 
     // returns normalized vector, but NaN when result is length 0
-    vector_type normalized(const bool _refract)
+    vector_type normalized(const bool _refract) NBL_CONST_MEMBER_FUNC
     {
         const vector_type H = unnormalized(_refract);
         return hlsl::normalize<vector_type>(H);
