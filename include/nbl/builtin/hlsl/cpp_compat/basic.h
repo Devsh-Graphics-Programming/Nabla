@@ -51,7 +51,7 @@ namespace nbl::hlsl
 #define NBL_CONSTEXPR_STATIC_INLINE const static
 #define NBL_CONSTEXPR_INLINE_FUNC inline
 #define NBL_CONSTEXPR_FORCED_INLINE_FUNC inline
-#define NBL_CONST_MEMBER_FUNC 
+#define NBL_CONST_MEMBER_FUNC const
 #define NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR const static
 #define NBL_CONSTEXPR_FUNC_SCOPE_VAR const
 #define NBL_CONSTEXPR_OOL_MEMBER const
