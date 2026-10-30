@@ -123,7 +123,7 @@ void IAssetManager::initializeMeshTools()
 void IAssetManager::addLoadersAndWriters()
 {
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>());
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>());
