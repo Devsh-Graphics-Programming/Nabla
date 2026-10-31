@@ -4,8 +4,6 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP_BASIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP_BASIC_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
-
 namespace nbl 
 {
 namespace hlsl
