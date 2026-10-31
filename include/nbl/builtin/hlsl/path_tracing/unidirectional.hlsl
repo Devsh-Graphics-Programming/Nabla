@@ -180,6 +180,8 @@ struct Unidirectional
 
     void missProgram(NBL_REF_ARG(ray_type) ray)
     {
+        if (!useEnvmap) return;
+
         measure_type finalContribution = nee.getEnvRadiance(ray);
         const scalar_type weight = hlsl::max(nee.backwardWeight(scene, nee.getEnvLightId(), ray) - krivanekCoeff, scalar_type(0));
         if (ray.shouldDoMIS())
@@ -228,6 +230,7 @@ struct Unidirectional
     spectral_type spectralTypeToLumaCoeffs;
     scalar_type krivanekCoeff;
     bool useNEE;
+    bool useEnvmap;
 };
 
 }
