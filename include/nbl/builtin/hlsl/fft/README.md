@@ -1,5 +1,7 @@
 # For Users
 
+Part of the [Nabla HLSL builtin library](../README.md).
+
 This will be a walkthrough of how to set up the code to run an FFT and an explanation of most stuff found in the FFT library (all the structs detailed here are in the workgroup namespace). The first thing to clarify is that since we're using Cooley-Tukey, we ONLY perform FFTs on power-of-two (PoT for short) sized arrays. If your array isn't PoT-sized, make sure to pad the array in whichever way you see fit up to a power of two.
 
 To run an FFT, you need to call the FFT struct's static `__call` method. You do this like so: 

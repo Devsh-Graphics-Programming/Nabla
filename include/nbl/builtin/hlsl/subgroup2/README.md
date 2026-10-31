@@ -1,5 +1,7 @@
 # subgroup2 arithmetic
 
+Part of the [Nabla HLSL builtin library](../README.md).
+
 Not every device supports subgroup arithmetic (`VK_SUBGROUP_FEATURE_ARITHMETIC_BIT`). So `subgroup2::reduction`, `subgroup2::inclusive_scan` and `subgroup2::exclusive_scan` either use the native subgroup instructions or emulate them with subgroup shuffles. The choice is made at compile time from `device_capabilities::shaderSubgroupArithmetic`, which you set from the device's limits on the host.
 
 Both paths combine values across one subgroup, and the rest of the configuration comes from the `ArithmeticParams` you pass in.
