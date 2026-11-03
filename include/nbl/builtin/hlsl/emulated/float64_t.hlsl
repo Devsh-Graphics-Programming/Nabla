@@ -206,12 +206,12 @@ namespace hlsl
                 return bit_cast<this_t>(0xdeadbeefbadcaffeull);
         }
 
-        this_t operator+(float rhs)
+        this_t operator+(const float rhs) NBL_CONST_MEMBER_FUNC
         {
             return bit_cast<this_t>(data) + create(rhs);
         }
 
-        this_t operator-(this_t rhs) NBL_CONST_MEMBER_FUNC
+        this_t operator-(const this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             this_t lhs = bit_cast<this_t>(data);
             this_t rhsFlipped = rhs.flipSign();
@@ -219,12 +219,12 @@ namespace hlsl
             return lhs + rhsFlipped;
         }
 
-        this_t operator-(float rhs) NBL_CONST_MEMBER_FUNC
+        this_t operator-(const float rhs) NBL_CONST_MEMBER_FUNC
         {
             return bit_cast<this_t>(data) - create(rhs);
         }
 
-        this_t operator*(this_t rhs) NBL_CONST_MEMBER_FUNC
+        this_t operator*(const this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if(FlushDenormToZero)
             {
@@ -278,7 +278,7 @@ namespace hlsl
             }
         }
 
-        this_t operator*(float rhs)
+        this_t operator*(const float rhs) NBL_CONST_MEMBER_FUNC
         {
             return bit_cast<this_t>(data) * create(rhs);
         }
@@ -359,29 +359,29 @@ namespace hlsl
 
             return data == rhs.data;
         }
-        bool operator!=(this_t rhs) NBL_CONST_MEMBER_FUNC
+        bool operator!=(const this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if (!FastMath && (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) == rhs);
         }
-        bool operator<(this_t rhs) NBL_CONST_MEMBER_FUNC
+        bool operator<(const this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             return emulated_float64_t_impl::operatorLessAndGreaterCommonImplementation<FastMath, hlsl::less<uint64_t> >(data, rhs.data);
         }
-        bool operator>(this_t rhs) NBL_CONST_MEMBER_FUNC
+        bool operator>(const this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             return emulated_float64_t_impl::operatorLessAndGreaterCommonImplementation<FastMath, hlsl::greater<uint64_t> >(data, rhs.data);
         }
-        bool operator<=(this_t rhs) NBL_CONST_MEMBER_FUNC 
+        bool operator<=(const this_t rhs) NBL_CONST_MEMBER_FUNC 
         { 
             if (!FastMath && (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) > bit_cast<this_t>(rhs.data));
         }
-        bool operator>=(this_t rhs)
+        bool operator>=(const this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if (!FastMath && (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data)))
                 return false;
@@ -389,7 +389,7 @@ namespace hlsl
             return !(bit_cast<this_t>(data) < bit_cast<this_t>(rhs.data));
         }
 
-        this_t flipSign()
+        this_t flipSign() NBL_CONST_MEMBER_FUNC
         {
             return bit_cast<this_t>(data ^ ieee754::traits<float64_t>::signMask);
         }
