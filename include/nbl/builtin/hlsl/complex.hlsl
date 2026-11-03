@@ -94,8 +94,8 @@ struct complex_t
     {
         m_imag = value;
     }
-    // ------------------------- Arithmetic operators -------------------------------   
-    complex_t operator+(const complex_t rhs)
+    // ------------------------- Arithmetic operators -------------------------------
+    complex_t operator+(const complex_t rhs) const
     {
         complex_t result;
         result.m_real = m_real + rhs.m_real;
@@ -103,8 +103,8 @@ struct complex_t
 
         return result;
     }
-            
-    complex_t operator-(const complex_t rhs)
+
+    complex_t operator-(const complex_t rhs) const
     {
         complex_t result;
 
@@ -114,7 +114,7 @@ struct complex_t
         return result;
     }
 
-    complex_t operator*(const complex_t rhs)
+    complex_t operator*(const complex_t rhs) const
     {
         complex_t result;
 
@@ -123,9 +123,8 @@ struct complex_t
 
         return result;
     }
-            
-    // multiply by scalar
-    complex_t operator*(const Scalar scalar)
+
+    complex_t operator*(const Scalar scalar) const
     {
         complex_t result;
         result.m_real = m_real * scalar;
@@ -133,9 +132,8 @@ struct complex_t
 
         return result;
     }
-            
-    // Divide by scalar
-    complex_t operator/(const Scalar scalar)
+
+    complex_t operator/(const Scalar scalar) const
     {
         complex_t result;
         result.m_real = m_real / scalar;
@@ -143,8 +141,8 @@ struct complex_t
 
         return result;
     }
-            
-    complex_t operator/(const complex_t rhs)
+
+    complex_t operator/(const complex_t rhs) const
     {
         complex_t result;
 
@@ -158,11 +156,11 @@ struct complex_t
     // ----------------- Relational operators -----------------------------
     bool operator==(const complex_t rhs)
     {
-            return m_real == rhs.m_real && m_imag == rhs.m_imag;
+        return m_real == rhs.m_real && m_imag == rhs.m_imag;
     }
     bool operator!=(const complex_t rhs)
     {
-            return m_real != rhs.m_real || m_imag != rhs.m_imag;
+        return m_real != rhs.m_real || m_imag != rhs.m_imag;
     }
 };
 
@@ -179,7 +177,7 @@ struct plus< complex_t<Scalar> >
 
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
-        return lhs + rhs;                                                             
+        return lhs + rhs;
     }
 
     NBL_CONSTEXPR_STATIC_INLINE complex_t<Scalar> identity;                                          
@@ -192,7 +190,7 @@ struct minus< complex_t<Scalar> >
 
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
-        return lhs - rhs;                                                             
+        return lhs - rhs;
     }
 
     NBL_CONSTEXPR_STATIC_INLINE complex_t<Scalar> identity;                                          
@@ -205,12 +203,12 @@ struct multiplies< complex_t<Scalar> >
 
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
-        return lhs * rhs;                                                             
+        return lhs * rhs;
     }
 
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(Scalar) rhs) 
     {
-        return lhs * rhs;                                                             
+        return lhs * rhs;
     }
 
     NBL_CONSTEXPR_STATIC_INLINE complex_t<Scalar> identity;                                          
@@ -223,12 +221,12 @@ struct divides< complex_t<Scalar> >
 
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
-        return lhs / rhs;                                                             
+        return lhs / rhs;
     }
 
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(Scalar) rhs) 
     {
-        return lhs / rhs;                                                             
+        return lhs / rhs;
     }
 
     NBL_CONSTEXPR_STATIC_INLINE complex_t<Scalar> identity;                                          
@@ -277,7 +275,7 @@ struct plus_assign< complex_t<Scalar> >
     base_t baseOp;
     void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
-        lhs = baseOp(lhs, rhs);                                                             
+        lhs = baseOp(lhs, rhs);
     }
 
     NBL_CONSTEXPR_STATIC_INLINE complex_t<Scalar> identity;                                          
@@ -291,7 +289,7 @@ struct minus_assign< complex_t<Scalar> >
     base_t baseOp;
     void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
-        lhs = baseOp(lhs, rhs);                                                             
+        lhs = baseOp(lhs, rhs);
     }
 
     NBL_CONSTEXPR_STATIC_INLINE complex_t<Scalar> identity;                                          
@@ -305,12 +303,12 @@ struct multiplies_assign< complex_t<Scalar> >
     base_t baseOp;
     void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
-        lhs = baseOp(lhs, rhs);                                                           
+        lhs = baseOp(lhs, rhs);
     }
     
     void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(Scalar) rhs) 
     {
-        lhs = baseOp(lhs, rhs);                                                           
+        lhs = baseOp(lhs, rhs);
     }
 
     NBL_CONSTEXPR_STATIC_INLINE complex_t<Scalar> identity;                                     
@@ -324,12 +322,12 @@ struct divides_assign< complex_t<Scalar> >
     base_t baseOp;
     void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
-        lhs = baseOp(lhs, rhs);                                                        
+        lhs = baseOp(lhs, rhs);
     }
 
     void operator()(NBL_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(Scalar) rhs) 
     {
-        lhs = baseOp(lhs, rhs);                                                           
+        lhs = baseOp(lhs, rhs);
     }
 
     NBL_CONSTEXPR_STATIC_INLINE complex_t<Scalar> identity;                                        

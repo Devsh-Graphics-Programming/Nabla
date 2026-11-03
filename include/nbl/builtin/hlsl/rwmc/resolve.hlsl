@@ -46,7 +46,7 @@ struct SResolveAccessorAdaptor
 	NBL_CONSTEXPR_STATIC_INLINE int32_t image_dimension = 2;
 
 	template<typename OutputScalarType, int32_t Dimension>
-	void get(NBL_REF_ARG(output_t) value, vector<uint16_t, 2> uv, uint16_t layer, uint16_t level)
+	void get(NBL_REF_ARG(output_t) value, vector<uint16_t, 2> uv, uint16_t layer, uint16_t level) NBL_CONST_MEMBER_FUNC
 	{
 		typename AccessorType::output_t sampled;
 		accessor.template get<typename AccessorType::output_scalar_t, Dimension>(sampled, uv, layer, level);
@@ -82,7 +82,7 @@ struct SResolver
 		return retval;
 	}
 
-	output_t operator()(NBL_REF_ARG(CascadeAccessor) acc, const int16_t2 coord)
+	output_t operator()(NBL_REF_ARG(CascadeAccessor) acc, const int16_t2 coord) NBL_CONST_MEMBER_FUNC
 	{
 		scalar_t reciprocalBaseI = 1.f;
 		SCascadeSample curr = __sampleCascade(acc, coord, 0u, reciprocalBaseI);
@@ -150,7 +150,7 @@ struct SResolver
 
 	// pseudo private stuff:
 
-	SCascadeSample __sampleCascade(NBL_REF_ARG(CascadeAccessor) acc, int16_t2 coord, uint16_t cascadeIndex, scalar_t reciprocalBaseI)
+	SCascadeSample __sampleCascade(NBL_REF_ARG(CascadeAccessor) acc, int16_t2 coord, uint16_t cascadeIndex, scalar_t reciprocalBaseI) NBL_CONST_MEMBER_FUNC
 	{
 		output_t sampleValue;
 		scalar_t excl_hood_luma_sum = 0.f;
