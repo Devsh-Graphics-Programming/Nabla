@@ -5,9 +5,9 @@
 #include <aesGladman/fileenc.h>
 
 #include <zconf.h>
-#include <zlib/zlib.h>
+#include <zlib.h>
 
-#include <bzip2/bzlib.h>
+#include <bzlib.h>
 
 
 #include "nbl/nblpack.h"

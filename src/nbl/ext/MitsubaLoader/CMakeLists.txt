@@ -44,11 +44,6 @@ set(NBL_EXT_MITSUBA_LOADER_SRC
 #	CMitsubaMaterialCompilerFrontend.cpp
 )
 
-set(NBL_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE
-	"${NBL_ROOT_PATH}/3rdparty"
-	"${NBL_ROOT_PATH}/3rdparty/libexpat"
-)
-
 nbl_create_ext_library_project(
 	MITSUBA_LOADER
 	"${NBL_EXT_MITSUBA_LOADER_H}"
@@ -62,3 +57,11 @@ add_compile_definitions(XML_STATIC)
 
 add_dependencies(NblExtMITSUBA_LOADER ${MITSUBA_LOADER_DEPENDENTS})
 target_link_libraries(NblExtMITSUBA_LOADER INTERFACE ${MITSUBA_LOADER_DEPENDENT_LIBS})
+
+find_package(glm CONFIG REQUIRED)
+find_package(gtl CONFIG REQUIRED)
+find_package(Imath CONFIG REQUIRED)
+find_package(blake3 CONFIG REQUIRED)
+find_package(Boost CONFIG REQUIRED)
+find_package(expat CONFIG REQUIRED)
+target_link_libraries(NblExtMITSUBA_LOADER PRIVATE glm::glm gtl::gtl Imath::Imath BLAKE3::blake3 boost::boost expat::expat)

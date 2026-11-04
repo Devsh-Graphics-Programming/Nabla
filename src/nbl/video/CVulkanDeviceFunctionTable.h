@@ -1,7 +1,7 @@
 #ifndef _C_VULKAN_FUNCTION_TABLE_H_INCLUDED_
 #define _C_VULKAN_FUNCTION_TABLE_H_INCLUDED_
 
-#include <volk/volk.h>
+#include <volk.h>
 
 namespace nbl::video
 {

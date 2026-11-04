@@ -8,7 +8,7 @@
 #   include "nbl/ui/IWindowWin32.h"
 #endif
 
-#include <volk/volk.h>
+#include <volk.h>
 
 namespace nbl::video
 {

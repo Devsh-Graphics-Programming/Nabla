@@ -1,6 +1,6 @@
 #include "nbl/asset/utils/ISPIRVEntryPointTrimmer.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
-#include "nbl_spirv_cross/spirv.hpp"
+#include "spirv_cross/spirv.hpp"
 
 #include "nbl/core/declarations.h"
 #include "nbl/system/ILogger.h"
