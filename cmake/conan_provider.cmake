@@ -557,7 +557,7 @@ endfunction()
 function(conan_config_remote)
     message(STATUS "CMake-Conan: Setting conan remotes")
     execute_process(
-        COMMAND ${CONAN_COMMAND} config install remotes.json
+        COMMAND ${CONAN_COMMAND} config install ${CMAKE_SOURCE_DIR}/remotes.json
         RESULT_VARIABLE return_code
         OUTPUT_VARIABLE conan_stdout
         ERROR_VARIABLE conan_stderr

@@ -21,8 +21,8 @@ nbl_create_ext_library_project(
     ""
 )
 
-find_package(nabla_imgui CONFIG REQUIRED)
-target_link_libraries(${LIB_NAME} PUBLIC nabla_imgui::imtestengine nabla_imgui::imguizmo)
+find_package(imgui CONFIG REQUIRED)
+target_link_libraries(${LIB_NAME} PUBLIC imgui::imtestengine imgui::imguizmo)
 
 find_package(glm CONFIG REQUIRED)
 find_package(gtl CONFIG REQUIRED)
