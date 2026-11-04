@@ -282,6 +282,18 @@ template<typename Unsigned, typename Ptr_T>
 enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
 // reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
+template<typename Unsigned>
+[[vk::ext_capability(spv::CapabilityInt64Atomics)]]
+[[vk::ext_instruction( spv::OpAtomicUMax )]]
+enable_if_t<is_same_v<Unsigned,uint64_t>, Unsigned> atomicUMax([[vk::ext_reference]] uint64_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+
+// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+template<typename Unsigned, typename Ptr_T>
+[[vk::ext_capability(spv::CapabilityInt64Atomics)]]
+[[vk::ext_instruction(spv::OpAtomicUMax)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Unsigned,uint64_t>, Unsigned> atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+
+// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicExchange)]]
 T atomicExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
