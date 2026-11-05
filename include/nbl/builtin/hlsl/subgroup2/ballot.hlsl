@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP2_BALLOT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP2_BALLOT_INCLUDED_
 
+// TODO: `glsl::subgroupBallot` and `glsl::subgroupBallotFindMSB` are only used for their default `spv::ScopeSubgroup`, drop this dependency on the `glsl` namespace once the subgroup utilities move to a better namespace
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_ballot.hlsl"
 
 namespace nbl 
@@ -17,19 +18,20 @@ template<int32_t AssumeAllActive=false>
 uint32_t LastSubgroupInvocation()
 {
     if (AssumeAllActive)
-        return glsl::gl_SubgroupSize()-1;
+        return spirv::SubgroupSize-1;
     else
         return glsl::subgroupBallotFindMSB(glsl::subgroupBallot(true));
 }
 
 bool ElectLast()
 {
-    return glsl::gl_SubgroupInvocationID()==LastSubgroupInvocation();
+    return spirv::SubgroupLocalInvocationId==LastSubgroupInvocation();
 }
 
 template<uint32_t SubgroupSizeLog2>
 struct Configuration
 {
+    // smallest type holding one bit per subgroup invocation, for ballot-style masks: `uint32_t1` up to a SubgroupSize of 32, `uint32_t2` for 64, `uint32_t4` for 128
     using mask_t = conditional_t<SubgroupSizeLog2 < 7, conditional_t<SubgroupSizeLog2 < 6, uint32_t1, uint32_t2>, uint32_t4>;
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SizeLog2 = uint16_t(SubgroupSizeLog2);

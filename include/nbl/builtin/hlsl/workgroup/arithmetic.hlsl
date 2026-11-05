@@ -115,7 +115,7 @@ uint16_t ballotScanBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_
         arithmeticAccessor.set(subgroupIndex,count);
     arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
     arithmeticAccessor.get(bitfieldIndex, count);
-    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[getDWORD(uint16_t(glsl::gl_SubgroupInvocationID()))])+count);
+    return uint16_t(countbits(localBitfield&(Exclusive ? spirv::BuiltInSubgroupLtMask : spirv::BuiltInSubgroupLeMask)[getDWORD(uint16_t(spirv::SubgroupLocalInvocationId))])+count);
 }
 }
 

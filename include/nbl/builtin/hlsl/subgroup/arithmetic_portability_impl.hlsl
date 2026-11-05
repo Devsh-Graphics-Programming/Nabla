@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_SUBGROUP_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
 
+// TODO: `glsl::subgroupShuffleUp` is only used for its default `spv::ScopeSubgroup`, drop this dependency on the `glsl` namespace once the subgroup utilities move to a better namespace
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_arithmetic.hlsl"
 
@@ -94,8 +95,8 @@ struct inclusive_scan<Binop, false>
     static type_t __call(type_t value)
     {
         Binop op;
-        const uint subgroupInvocation = glsl::gl_SubgroupInvocationID();
-        const uint halfSubgroupSize = glsl::gl_SubgroupSize() >> 1u;
+        const uint subgroupInvocation = spirv::SubgroupLocalInvocationId;
+        const uint halfSubgroupSize = spirv::SubgroupSize >> 1u;
     
         type_t rhs = glsl::subgroupShuffleUp<type_t>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
         value = op(value, subgroupInvocation<1u ? Binop::identity:rhs);
@@ -121,7 +122,7 @@ struct exclusive_scan<Binop, false>
         // can't risk getting short-circuited, need to store to a var
         type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
         // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
-        return bool(glsl::gl_SubgroupInvocationID()) ? left:Binop::identity;
+        return bool(spirv::SubgroupLocalInvocationId) ? left:Binop::identity;
     }
 };
 

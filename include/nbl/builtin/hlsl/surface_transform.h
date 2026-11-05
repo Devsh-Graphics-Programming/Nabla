@@ -5,7 +5,6 @@
 #define _NBL_BUILTIN_HLSL_SURFACE_TRANSFORM_INCLUDED_
 #include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 
 namespace nbl
 {

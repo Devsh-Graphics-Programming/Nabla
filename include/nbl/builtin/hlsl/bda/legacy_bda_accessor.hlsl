@@ -9,7 +9,7 @@
 #ifndef _NBL_BUILTIN_HLSL_LEGACY_BDA_ACCESSOR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_LEGACY_BDA_ACCESSOR_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/bda/__ptr.hlsl"
 
 

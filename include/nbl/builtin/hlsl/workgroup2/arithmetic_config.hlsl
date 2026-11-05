@@ -79,7 +79,7 @@ struct ArithmeticConfiguration
 #ifdef __HLSL_VERSION
     static bool electLast()
     {
-        return glsl::gl_SubgroupInvocationID()==SubgroupSize-1;
+        return spirv::SubgroupLocalInvocationId==SubgroupSize-1;
     }
 #endif
 

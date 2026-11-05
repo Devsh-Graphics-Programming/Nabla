@@ -6,7 +6,8 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
+// TODO: `glsl::subgroupElect` and `glsl::subgroupShuffleUp` are only used for their default `spv::ScopeSubgroup`, drop this dependency on the `glsl` namespace once the subgroup utilities move to a better namespace
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
 
 namespace nbl 
@@ -27,7 +28,7 @@ struct reduce
     void __call(NBL_CONST_REF_ARG(type_t) value, NBL_REF_ARG(Accessor) scratchAccessor)
     {
         const uint16_t lastInvocation = ItemCount-_static_cast<uint16_t>(1);
-        const uint16_t subgroupMask = _static_cast<uint16_t>(glsl::gl_SubgroupSize()-1u);
+        const uint16_t subgroupMask = _static_cast<uint16_t>(spirv::SubgroupSize-1u);
 
         subgroup::inclusive_scan<BinOp,device_capabilities> subgroupOp;
 
@@ -39,7 +40,7 @@ struct reduce
         type_t scan = firstLevelScan;
         
         // could use ElectLast() but we can optimize for full workgroups here
-        const bool isLastSubgroupInvocation = uint16_t(glsl::gl_SubgroupInvocationID())==subgroupMask;
+        const bool isLastSubgroupInvocation = uint16_t(spirv::SubgroupLocalInvocationId)==subgroupMask;
         
         // Since we are scanning the RESULT of the initial scan (which paired one input per subgroup invocation) 
         // every group of gl_SubgroupSz invocations has been coallesced into 1 result value. This means that the results of 
@@ -47,7 +48,7 @@ struct reduce
         // Consequently, those first gl_SubgroupSz^2 invocations will store their results on gl_SubgroupSz scratch slots 
         // and the next level will follow the same + the previous as an `offset`.
         
-        const uint16_t loadStoreIndexDiff = scanLoadIndex-_static_cast<uint16_t>(glsl::gl_SubgroupID());
+        const uint16_t loadStoreIndexDiff = scanLoadIndex-_static_cast<uint16_t>(spirv::SubgroupId);
         
         // to cancel out the index shift on the first iteration
         if (lastInvocationInLevel>subgroupMask)
@@ -91,13 +92,13 @@ struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShad
     {
         __base.template __call<Accessor>(value,scratchAccessor);
         
-        const uint16_t subgroupID = uint16_t(glsl::gl_SubgroupID());
+        const uint16_t subgroupID = uint16_t(spirv::SubgroupId);
         // abuse integer wraparound to map 0 to 0xffffu
         const uint16_t prevSubgroupID = subgroupID-_static_cast<uint16_t>(1);
         
         // important check to prevent weird `firstbithigh` overlflows
         const uint16_t lastInvocation = ItemCount-_static_cast<uint16_t>(1);
-        if(lastInvocation>=uint16_t(glsl::gl_SubgroupSize()))
+        if(lastInvocation>=uint16_t(spirv::SubgroupSize))
         {
             const uint16_t subgroupSizeLog2 = uint16_t(glsl::gl_SubgroupSizeLog2());
             // different than Upsweep cause we need to translate high level inclusive scans into exclusive on the fly, so we get the value of the subgroup behind our own in each level

@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_FUNCTIONAL_INCLUDED_
 
 
-#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/limits.hlsl"
 #include "nbl/builtin/hlsl/concepts/vector.hlsl"
 #include "nbl/builtin/hlsl/array_accessors.hlsl"

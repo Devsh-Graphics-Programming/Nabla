@@ -13,6 +13,8 @@ namespace hlsl
 namespace glsl
 {
     
+// TODO: these are used as general utilities outside GLSL ports (one name per operation for every type),
+// they need a home outside the `glsl` namespace, see the note above `namespace glsl` in glsl_compat/core.hlsl
 // TODO: @Hazardu this will need touching up in the impl when the `spirv::groupXXX` will change names to a predictable pattern from SPIR-V
 // TODO: Furthermore you'll need `bitfieldExtract`-like struct dispatcher to choose between int/float add/mul and sint/uint/float min/max
 template<typename T>

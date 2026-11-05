@@ -4,7 +4,6 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
 #include <nbl/builtin/hlsl/algorithm.hlsl>
-#include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 #include <nbl/builtin/hlsl/tgmath.hlsl>
 
 // TODO: when it will be possible, use this unions wherever they fit:
