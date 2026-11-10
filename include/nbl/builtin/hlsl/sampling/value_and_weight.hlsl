@@ -34,8 +34,8 @@ struct value_and_rcpWeight
 		return retval;
 	}
 
-	V value() { return _value; }
-	W rcpWeight() { return _rcpWeight; }
+	V value() NBL_CONST_MEMBER_FUNC { return _value; }
+	W rcpWeight() NBL_CONST_MEMBER_FUNC { return _rcpWeight; }
 
 	V _value;
 	W _rcpWeight;
@@ -63,8 +63,8 @@ struct value_and_weight
 		return retval;
 	}
 
-	V value() { return _value; }
-	W weight() { return _weight; }
+	V value() NBL_CONST_MEMBER_FUNC { return _value; }
+	W weight() NBL_CONST_MEMBER_FUNC { return _weight; }
 
 	V _value;
 	W _weight;

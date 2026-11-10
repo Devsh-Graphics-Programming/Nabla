@@ -29,8 +29,8 @@ struct value_and_rcpPdf
 		return retval;
 	}
 
-	V value() { return _base._value; }
-	P rcpPdf() { return _base._rcpWeight; }
+	V value() NBL_CONST_MEMBER_FUNC { return _base._value; }
+	P rcpPdf() NBL_CONST_MEMBER_FUNC { return _base._rcpWeight; }
 
 	base_t _base;
 };
@@ -49,8 +49,8 @@ struct value_and_pdf
 		return retval;
 	}
 
-	V value() { return _base._value; }
-	P pdf() { return _base._weight; }
+	V value() NBL_CONST_MEMBER_FUNC { return _base._value; }
+	P pdf() NBL_CONST_MEMBER_FUNC { return _base._weight; }
 
 	base_t _base;
 };

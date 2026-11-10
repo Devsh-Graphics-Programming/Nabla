@@ -48,7 +48,7 @@ struct SPackedSplattingParameters
         return retval;
     }
 
-    SSplattingParameters unpack()
+    SSplattingParameters unpack() NBL_CONST_MEMBER_FUNC
     {
         SSplattingParameters retval;
         const float32_t2 unpackedRcpLog2BaseAndLog2BaseRoot = hlsl::unpackHalf2x16(PackedRcpLog2BaseAndLog2BaseRoot);
