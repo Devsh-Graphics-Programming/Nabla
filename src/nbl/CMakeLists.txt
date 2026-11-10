@@ -341,10 +341,6 @@ set(NABLA_HEADERS "${NBL_ROOT_PATH}/include/nabla.h" ${NABLA_HEADERS_PUBLIC} ${N
 set(NBL_LIBRARY_CREATION_SOURCES 
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
-	$<TARGET_OBJECTS:aesGladman>
-	# $<TARGET_OBJECTS:lz4>
-	$<TARGET_OBJECTS:lzma>
-	# $<TARGET_OBJECTS:spirv_cross>
 )
 
 set(CMAKE_INCLUDE_CURRENT_DIR OFF)
@@ -481,6 +477,10 @@ if(_NBL_BUILD_DPL_)
 	target_link_libraries(Nabla PRIVATE onetbb::onetbb)
 endif()
 
+# aes
+find_package(aes REQUIRED CONFIG)
+target_link_libraries(Nabla PRIVATE aes::aes)
+
 # argparse
 find_package(argparse CONFIG REQUIRED)
 target_link_libraries(Nabla PRIVATE argparse::argparse)
@@ -555,6 +555,10 @@ target_link_libraries(Nabla PRIVATE simdjson::simdjson)
 # lz4
 find_package(lz4 CONFIG REQUIRED)
 target_link_libraries(Nabla PRIVATE LZ4::lz4_static)
+
+# lzma
+find_package(lzma REQUIRED CONFIG)
+target_link_libraries(Nabla PRIVATE lzma::lzma)
 
 # libjpeg
 find_package(libjpeg-turbo CONFIG REQUIRED)
@@ -649,10 +653,9 @@ list(APPEND PUBLIC_BUILD_INCLUDE_DIRS
 
 target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 
-# target_compile_definitions(Nabla 
-# 	PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
-# 	PUBLIC _NBL_PCH_IGNORE_PRIVATE_HEADERS # TODO: remove it
-# )
+# renderdoc api
+find_package(renderdoc REQUIRED CONFIG)
+target_link_libraries(Nabla PRIVATE renderdoc::renderdoc_app)
 
 if (NBL_BUILD_MITSUBA_LOADER)
 	find_package(expat CONFIG REQUIRED)

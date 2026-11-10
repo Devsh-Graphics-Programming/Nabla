@@ -32,19 +32,6 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	message(STATUS "_NBL_ENABLE_DXC_COMPILE_TESTS_ enabled, DXC compile test target will be executed at build time!")
 endif()
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	add_subdirectory(pstl pstl EXCLUDE_FROM_ALL)
-endif()
-
-add_library(lzma OBJECT
-	lzma/C/Alloc.c
-	lzma/C/LzFind.c
-	lzma/C/LzmaDec.c
-	lzma/C/LzmaEnc.c
-)
-target_compile_definitions(lzma PRIVATE _7ZIP_ST)
-
-
 # cmake-git-version-tracking
 # note that checking if a repository is dirty may cost build time (especially a lot if like us you have a lot of submodules) - by default we run with all checks but if you want to increase build time iterations I recommend to exclude this check
 option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will increase build time iterations at the expense of the meta information loss" OFF)
@@ -59,32 +46,10 @@ NBL_GENERATE_GIT_TRACKING_META()
 # NGFX
 include(ngfx/ngfx.cmake)
 
-add_library(aesGladman OBJECT
-	aesGladman/aes_ni.c
-	aesGladman/aescrypt.c
-	aesGladman/aeskey.c
-	aesGladman/aestab.c
-	aesGladman/fileenc.c
-	aesGladman/hmac.c
-	aesGladman/prng.c
-	aesGladman/pwd2key.c
-	aesGladman/sha1.c
-)
-
-if (NBL_BUILD_BULLET)
-	set(BULLET_INCLUDE_PATH
-		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
-	)
-
-	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
-endif()
-
 add_subdirectory(Vulkan-Tools/vulkaninfo vulkaninfo EXCLUDE_FROM_ALL)
 
 # Final gather
 set(NBL_3RDPARTY_TARGETS
-				lzma
-				aesGladman
 				vulkaninfo
 				${NBL_MSDFGEN_TARGETS}
 )
@@ -114,8 +79,6 @@ add_custom_target(3rdparty)
 add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
 NBL_ADJUST_FOLDERS(3rdparty)
-
-nbl_install_file_spec(renderdoc/renderdoc_app.h renderdoc)
 
 nbl_install_file(${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/git_info.h)
 

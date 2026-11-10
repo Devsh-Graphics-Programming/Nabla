@@ -18,6 +18,7 @@ class NablaConan(ConanFile):
         cmake_layout(self)
 
     def requirements(self):
+        self.requires("aes/1.0")
         self.requires("argparse/[>3.0]")
         self.requires("blake3/1.8.5", options={"shared": False})
         self.requires("boost/[>=1.91.0]", options={"shared": False, "magic_autolink": True, "without_test": True, "without_cobalt": True})
@@ -30,11 +31,13 @@ class NablaConan(ConanFile):
         self.requires("libjpeg-turbo/[>3.1.2]", options={"shared": False})
         self.requires("libpng/[>1.6.50]", options={"shared": False})
         self.requires("lz4/[>1.9.0]", options={"shared": False})
+        self.requires("lzma/[>=26.05]")
         self.requires("nlohmann_json/[>3.10.4]")
         self.requires("onedpl/2022.3.0")
         self.requires("onetbb/2023.1.0", options={"shared": False, "tbbmalloc": True, "tbbproxy": True})
         self.requires("openexr/[>3.4.5]", options={"shared": False})
         self.requires("portable-file-dialogs/[>=0.1.0]")
+        self.requires("renderdoc/[>=1.46]")
         self.requires("simdjson/[>1.0.0]", options={"shared": False})
         self.requires("zlib/[>=1.3.2]", options={"shared": False})
 
@@ -46,13 +49,13 @@ class NablaConan(ConanFile):
         self.requires("imgui/1.91.8-devsh.1")
 
         # vulkan libs all have related dependencies
-        self.requires("vulkan-headers/1.4.357.0")
-        self.requires("volk/1.4.357.0-devsh.1")
-        self.requires("glslang/1.4.357.0", options={"shared": False})
+        self.requires("vulkan-headers/1.4.363.0")
+        self.requires("volk/1.4.363.0-devsh.1")
+        self.requires("glslang/1.4.363.0-devsh.1", options={"shared": False})
         self.requires("shaderc/2026.4", options={"shared": False})
-        self.requires("spirv-tools/1.4.357.0", options={"shared": False})
-        self.requires("spirv-headers/1.4.357.0")
-        self.requires("spirv-cross/1.4.357.0", options={"shared": False, "glsl": True, "reflect": True})
+        self.requires("spirv-tools/1.4.363.0-devsh.1", options={"shared": False})
+        self.requires("spirv-headers/1.4.363.0-devsh.1")
+        self.requires("spirv-cross/1.4.363.0", options={"shared": False, "glsl": True, "reflect": True})
 
     def configure(self):
         # force libtiff to build against libjpeg-turbo instead of standard libjpeg (as a dependency of openexr)
