@@ -14,10 +14,6 @@
 [submodule "examples_tests"]
 	path = examples_tests
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
-[submodule "3rdparty/dxc/dxc"]
-	path = 3rdparty/dxc/dxc
-	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git
-	branch = unroll-devshFixes
 [submodule "tests"]
 	path = tests
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
@@ -35,9 +31,6 @@
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-CI.git
 	branch = ditt
 	update = none
-[submodule "3rdparty/Vulkan-Tools"]
-	path = 3rdparty/Vulkan-Tools
-	url = git@github.com:Devsh-Graphics-Programming/Vulkan-Tools.git
 [submodule "cmake/nam"]
 	path = cmake/nam
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Asset-Module.git
