@@ -19,7 +19,7 @@
 #include <wrl.h>
 #include <combaseapi.h>
 #include <sstream>
-#include <dxc/dxcapi.h>
+#include <dxcapi.h>
 #include "nbl/asset/utils/waveContext.h"
 
 using namespace nbl;

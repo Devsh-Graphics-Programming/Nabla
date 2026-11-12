@@ -50,12 +50,14 @@ class NablaConan(ConanFile):
 
         # vulkan libs all have related dependencies
         self.requires("vulkan-headers/1.4.363.0")
+        self.requires("vulkan-tools/1.4.363.0-devsh.2")
         self.requires("volk/1.4.363.0-devsh.1")
         self.requires("glslang/1.4.363.0-devsh.1", options={"shared": False})
         self.requires("shaderc/2026.4", options={"shared": False})
         self.requires("spirv-tools/1.4.363.0-devsh.1", options={"shared": False})
         self.requires("spirv-headers/1.4.363.0-devsh.1")
         self.requires("spirv-cross/1.4.363.0", options={"shared": False, "glsl": True, "reflect": True})
+        self.requires("dxc/1.9.2609-devsh.3")
 
     def configure(self):
         # force libtiff to build against libjpeg-turbo instead of standard libjpeg (as a dependency of openexr)

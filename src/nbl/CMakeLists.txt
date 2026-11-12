@@ -529,12 +529,6 @@ target_link_libraries(Nabla PRIVATE shaderc::shaderc)
 # spirv tools
 find_package(SPIRV-Tools CONFIG REQUIRED)
 target_link_libraries(Nabla PRIVATE spirv-tools::spirv-tools)
-# SPIRV-Tools-opt
-target_include_directories(Nabla BEFORE 
-	PRIVATE "${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/include"
-	# PRIVATE $<TARGET_PROPERTY:SPIRV-Tools-static,INCLUDE_DIRECTORIES>
-	# PRIVATE $<TARGET_PROPERTY:SPIRV-Headers,INCLUDE_DIRECTORIES>
-)
 
 # spirv headers
 find_package(SPIRV-Headers CONFIG REQUIRED)
@@ -594,27 +588,14 @@ if(_NBL_COMPILE_WITH_GLI_)
 	target_link_libraries(Nabla PRIVATE gli)
 endif()
 
-# DXC (TODO: nah, lets remove/disable it)
-if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
-	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
-endif()
-
-# TODO: remove and replace with target in tree
-add_custom_target(dxcompiler 
-	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -j${_NBL_JOBS_AMOUNT_}
-	BYPRODUCTS "${DXC_LIB}" "${DXC_DLL}"
-	VERBATIM
-	COMMAND_EXPAND_LISTS
+find_package(dxc REQUIRED CONFIG)
+set_target_properties(dxc::dxcompiler PROPERTIES
+	MAP_IMPORTED_CONFIG_DEBUG Release
+	MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
 )
+target_link_libraries(Nabla PRIVATE dxc::dxcompiler)
 
-add_dependencies(Nabla dxcompiler)
-add_dependencies(3rdparty dxcompiler)
-
-if(NBL_STATIC_BUILD)
-	target_link_libraries(Nabla INTERFACE "${DXC_LIB}")
-else()
-	target_link_libraries(Nabla PRIVATE "${DXC_LIB}")
-endif()
+set(DXC_DLL "$<TARGET_FILE:dxc::dxcompiler>")
 	
 # Linux Display Systems
 if (UNIX AND NOT ANDROID AND NOT APPLE)
@@ -731,11 +712,8 @@ list(APPEND INTERFACE_BUILD_DEFINITIONS
 target_link_libraries(Nabla PUBLIC $<BUILD_INTERFACE:gtml>)
 
 # vulkaninfo
-if (NBL_STATIC_BUILD)
-	target_link_libraries(Nabla PUBLIC $<BUILD_INTERFACE:vulkaninfo>)
-else()
-	target_link_libraries(Nabla PRIVATE $<BUILD_INTERFACE:vulkaninfo>)
-endif()
+find_package(VulkanTools REQUIRED CONFIG)
+target_link_libraries(Nabla PRIVATE vulkan-tools::vulkaninfo)
 
 # NGFX
 if(TARGET ngfx)
