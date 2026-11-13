@@ -16,16 +16,13 @@ option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdparty's configuration reg
 # cmake-git-version-tracking
 # note that checking if a repository is dirty may cost build time (especially a lot if like us you have a lot of submodules) - by default we run with all checks but if you want to increase build time iterations I recommend to exclude this check
 option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will increase build time iterations at the expense of the meta information loss" OFF)
-add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
+find_package(git-version-tracking CONFIG REQUIRED)
 NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
-NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
+NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${dxc_INCLUDE_DIR}")
 nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/nabla_git_info.json")
 nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/dxc_git_info.json")
 
 NBL_GENERATE_GIT_TRACKING_META()
-
-# # NGFX
-# include(ngfx/ngfx.cmake)
 
 # Final gather
 set(NBL_3RDPARTY_TARGETS

@@ -566,6 +566,9 @@ target_link_libraries(Nabla PRIVATE PNG::PNG)
 find_package(gtl CONFIG REQUIRED)
 target_link_libraries(Nabla PRIVATE gtl::gtl)
 
+# jitify
+find_package(jitify CONFIG REQUIRED)
+target_link_libraries(Nabla PRIVATE jitify::jitify)
 
 # OpenEXR
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
