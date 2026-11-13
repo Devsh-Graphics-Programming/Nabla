@@ -19,7 +19,8 @@
 #include <wrl.h>
 #include <combaseapi.h>
 #include <sstream>
-#include <dxc/dxcapi.h>
+#include <dxcapi.h>
+#include "nbl/asset/utils/waveContext.h"
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -353,8 +354,6 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
 
     return result;
 }
-
-#include "nbl/asset/utils/waveContext.h"
 
 namespace nbl::wave
 {

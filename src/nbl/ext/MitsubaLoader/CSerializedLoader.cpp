@@ -10,8 +10,8 @@
 
 // need Zlib to get this loader
 #ifdef _NBL_COMPILE_WITH_ZLIB_
-#include "zlib/zlib.h"
-#include "zlib/zconf.h"
+#include "zlib.h"
+#include "zconf.h"
 
 
 namespace nbl::ext::MitsubaLoader

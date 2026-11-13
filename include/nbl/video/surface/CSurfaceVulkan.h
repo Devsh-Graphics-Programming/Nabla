@@ -9,7 +9,7 @@
 #include "nbl/video/surface/ISurface.h"
 #include "nbl/video/CVulkanConnection.h"
 
-#include <volk/volk.h>
+#include <volk.h>
 
 namespace nbl::video
 {

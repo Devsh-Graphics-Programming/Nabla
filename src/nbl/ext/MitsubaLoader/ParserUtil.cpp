@@ -17,7 +17,7 @@
 #include "nbl/ext/MitsubaLoader/CElementEmitter.h"
 #include "nbl/ext/MitsubaLoader/CElementEmissionProfile.h"
 
-#include "expat/lib/expat.h"
+#include "expat.h"
 
 #include <memory>
 

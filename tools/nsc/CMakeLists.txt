@@ -233,8 +233,16 @@ set_target_properties(${EXECUTABLE_NAME} PROPERTIES
 
 enable_testing()
 
-add_dependencies(${EXECUTABLE_NAME} argparse)
-target_include_directories(${EXECUTABLE_NAME} PRIVATE $<TARGET_PROPERTY:argparse,INTERFACE_INCLUDE_DIRECTORIES>)
+find_package(argparse CONFIG REQUIRED)
+find_package(blake3 CONFIG REQUIRED)
+find_package(Boost CONFIG REQUIRED)
+find_package(gtl CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
+find_package(Imath CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(renderdoc REQUIRED CONFIG)
+add_dependencies(${EXECUTABLE_NAME} argparse::argparse BLAKE3::blake3 boost::boost glm::glm gtl::gtl Imath::Imath nlohmann_json::nlohmann_json renderdoc::renderdoc_app)
+target_include_directories(${EXECUTABLE_NAME} PRIVATE ${argparse_INCLUDE_DIR} ${blake3_INCLUDE_DIR} ${Boost_INCLUDE_DIR} ${gtl_INCLUDE_DIR} ${glm_INCLUDE_DIR} ${Imath_INCLUDE_DIR} ${nlohmann_json_INCLUDE_DIR} ${renderdoc_INCLUDE_DIR})
 
 set(GODBOLT_BINARY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/compiler-explorer")
 set(GODBOLT_BINARY_PRETEST_DIRECTORY "${GODBOLT_BINARY_DIRECTORY}/pre-test")
