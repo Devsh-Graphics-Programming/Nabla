@@ -638,6 +638,9 @@ target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 find_package(renderdoc REQUIRED CONFIG)
 target_link_libraries(Nabla PRIVATE renderdoc::renderdoc_app)
 
+# nsight graphics api
+include(${CMAKE_SOURCE_DIR}/cmake/ngfx.cmake)
+
 if (NBL_BUILD_MITSUBA_LOADER)
 	find_package(expat CONFIG REQUIRED)
 	target_link_libraries(Nabla PRIVATE expat::expat)

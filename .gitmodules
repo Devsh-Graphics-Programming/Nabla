@@ -5,12 +5,6 @@
 	path = 3rdparty/glTFSampleModels
 	url = git@github.com:Devsh-Graphics-Programming/glTF-Sample-Models.git
 	update = none
-[submodule "3rdparty/pstl/oneTBB"]
-	path = 3rdparty/pstl/oneTBB
-	url = git@github.com:Devsh-Graphics-Programming/oneTBB.git
-[submodule "3rdparty/pstl/oneDPL/oneDPL"]
-	path = 3rdparty/pstl/oneDPL/oneDPL
-	url = git@github.com:Devsh-Graphics-Programming/oneDPL.git
 [submodule "examples_tests"]
 	path = examples_tests
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git

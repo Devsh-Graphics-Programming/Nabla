@@ -24,8 +24,8 @@ nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/dxc_git_info.
 
 NBL_GENERATE_GIT_TRACKING_META()
 
-# NGFX
-include(ngfx/ngfx.cmake)
+# # NGFX
+# include(ngfx/ngfx.cmake)
 
 # Final gather
 set(NBL_3RDPARTY_TARGETS
