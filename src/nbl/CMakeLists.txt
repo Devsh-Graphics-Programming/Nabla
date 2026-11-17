@@ -465,6 +465,20 @@ if(NOT NBL_STATIC_BUILD)
 endif()
 
 ## Set up 3rdparty deps
+
+# cmake-git-version-tracking
+# note that checking if a repository is dirty may cost build time (especially a lot if like us you have a lot of submodules) - by default we run with all checks but if you want to increase build time iterations I recommend to exclude this check
+option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will increase build time iterations at the expense of the meta information loss" OFF)
+find_package(git-version-tracking CONFIG REQUIRED)
+NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
+NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${dxc_INCLUDE_DIR}")
+nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/nabla_git_info.json")
+nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/dxc_git_info.json")
+
+NBL_GENERATE_GIT_TRACKING_META()
+
+nbl_install_file(${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/git_info.h)
+
 # Parallel Hashmap
 list(APPEND PUBLIC_BUILD_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
 # TCPP
