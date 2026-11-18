@@ -95,6 +95,9 @@ jobs:
       mount: ${{ github.workspace }}\Nabla
       binary: ${{ github.workspace }}\Nabla\build-ct
       install: build-ct\install
+      NBL_CI_MODE: ON
+      NBL_CI_BUILD_DIRECTORY: ${{ github.workspace }}\Nabla\build-ct
+      NINJA_STATUS: "[%r jobs, %f/%t edges, %oe/s, elapsed %ws]: "
 
     strategy:
       fail-fast: false
