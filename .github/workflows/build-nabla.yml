@@ -90,9 +90,6 @@ jobs:
     name: Nabla (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
     needs: [prepare-host-rg, prepare-host-cuda]
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
 
     env:
       image: ghcr.io/devsh-graphics-programming/docker-nanoserver-msvc-winsdk
@@ -118,6 +115,7 @@ jobs:
 
     steps:
       - name: Environment Setup
+        shell: pwsh
         run: |
             Add-MpPreference -ExclusionPath "${{ github.workspace }}"
             Add-MpPreference -ExclusionExtension "*.*"
@@ -177,6 +175,7 @@ jobs:
           path: conan-config
 
       - name: Check public access
+        shell: bash
         run: |
           python -m pip install conan==2.32.0
           curl --fail --silent --show-error --max-time 30 https://conan.devsh.eu/healthz
@@ -224,6 +223,7 @@ jobs:
       #       ${{ env.entry }} ${{ env.cmd }} C:\unpack.ps1
 
       - name: Configure Project with CMake
+        shell: bash
         run: |
           mkdir profiling
           ${{ env.entry }} ${{ env.cmd }} -Command cmake `
@@ -235,6 +235,7 @@ jobs:
 
       - name: Build & Install Nabla
         id: build-nabla
+        shell: bash
         run: |
           ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
             --preset ci-build-dynamic-${{ matrix.vendor }} `
@@ -315,6 +316,7 @@ jobs:
 
       - name: Install NSC runtime bundle
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
+        shell: bash
         run: |
           ${{ env.entry }} ${{ env.cmd }} -Command New-Item -ItemType Directory -Force -Path ${{ github.workspace }}\Nabla\build-ct\nsc-package | Out-Null
 
@@ -347,6 +349,7 @@ jobs:
       - name: Prepare NSC runtime channel layout
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
         working-directory: ${{ github.workspace }}
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build-ct/nsc-release | Out-Null
 
