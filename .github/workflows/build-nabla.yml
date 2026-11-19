@@ -55,6 +55,9 @@ jobs:
   prepare-host-cuda:
     name: Prepare host CUDA
     runs-on: windows-2025
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout CUDA CI helper
@@ -92,9 +95,12 @@ jobs:
       image: ghcr.io/devsh-graphics-programming/docker-nanoserver-msvc-winsdk
       entry: pwsh.exe
       cmd: -NoLogo -NoProfile -ExecutionPolicy Bypass
-      mount: C:\mount\nabla
-      binary: C:\mount\nabla\build-ct
+      mount: ${{ github.workspace }}\Nabla
+      binary: ${{ github.workspace }}\Nabla\build-ct
       install: build-ct\install
+      NBL_CI_MODE: ON
+      NBL_CI_BUILD_DIRECTORY: ${{ github.workspace }}\Nabla\build-ct
+      NINJA_STATUS: "[%r jobs, %f/%t edges, %oe/s, elapsed %ws]: "
 
     strategy:
       fail-fast: false
@@ -105,58 +111,19 @@ jobs:
         vendor: [msvc]
         config: [Release, Debug, RelWithDebInfo]
         tag: ['17.13.6']
-        os: [windows-2022]
+        os: [windows-2025]
 
     steps:
       - name: Environment Setup
+        shell: pwsh
         run: |
             Add-MpPreference -ExclusionPath "${{ github.workspace }}"
             Add-MpPreference -ExclusionExtension "*.*"
-            Add-MpPreference -ExclusionProcess "docker.exe"
-            Add-MpPreference -ExclusionProcess "dockerd.exe"
             Set-MpPreference -RemediationScheduleDay 8
             Set-MpPreference -DisableRealtimeMonitoring $true
             Set-MpPreference -DisableRemovableDriveScanning $true
             Set-MpPreference -DisableArchiveScanning $true
             Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
-
-            # workaround for Docker issue in windows runner
-            # see <https://github.com/actions/runner-images/issues/13729#issuecomment-4183956802>
-            $dockerState = Get-Service -Name "docker"
-            if ($dockerState.Status -ne "Running") {
-              Start-Service -Name "docker"
-            }
-
-            $maxAttempts = 12
-            $delaySeconds = 5
-            $dockerReady = $false
-
-            for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-              $networkNames = docker network ls --format '{{.Name}}'
-              if ($LASTEXITCODE -eq 0) {
-                if (-not ($networkNames | Where-Object { $_ -eq 'docker_default' })) {
-                  docker network create --driver nat docker_default
-                  if ($LASTEXITCODE -eq 0) {
-                    $dockerReady = $true
-                    break
-                  }
-                }
-                else {
-                  $dockerReady = $true
-                  break
-                }
-              }
-
-              if ($attempt -lt $maxAttempts) {
-                Write-Host "Docker not ready yet (attempt $attempt/$maxAttempts), retry in ${delaySeconds}s..."
-                Start-Sleep -Seconds $delaySeconds
-              }
-            }
-
-            if (-not $dockerReady) {
-              Write-Error "Docker was not ready after $($maxAttempts*$delaySeconds)s total wait"
-              exit 1
-            }
 
       - name: Set prefix
         id: set-prefix
@@ -201,6 +168,22 @@ jobs:
         with:
           submodules: 'recursive'
 
+      - name: Checkout conan configs
+        uses: actions/checkout@v6
+        with:
+          repository: Devsh-Graphics-Programming/conan-config
+          path: conan-config
+
+      - name: Check public access
+        shell: bash
+        run: |
+          python -m pip install conan==2.32.0
+          curl --fail --silent --show-error --max-time 30 https://conan.devsh.eu/healthz
+          conan remote add devsh https://conan.devsh.eu
+          conan list '*' -r=devsh
+          conan profile detect
+          conan config install ./conan-config/config
+
       - name: CUDA Toolkit paths
         id: cuda
         run: python .github/scripts/ci_cuda_toolkit.py outputs
@@ -234,70 +217,32 @@ jobs:
       - name: Verify CUDA Toolkit
         run: python .github/scripts/ci_cuda_toolkit.py verify
 
-      - name: Pull Image
-        run: |
-          $image = "${{ env.image }}:${{ matrix.tag }}"
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
-            docker pull $image
-            if ($LASTEXITCODE -eq 0) {
-              exit 0
-            }
-            Write-Warning "docker pull failed for $image on attempt $attempt."
-            Start-Sleep -Seconds (15 * $attempt)
-          }
-          exit $LASTEXITCODE
+      # - name: Container – Unpack Packages
+      #   run: |
+      #     docker exec orphan `
+      #       ${{ env.entry }} ${{ env.cmd }} C:\unpack.ps1
 
-      - name: Run Container
-        run: |
-          $ctx = docker context show
-          $dockerHost = (docker context inspect $ctx | ConvertFrom-Json).Endpoints.docker.Host
-          $pipeName = [regex]::Match($dockerHost, '/pipe/(?<n>.+)$').Groups['n'].Value
-          $pipeHost = "\\.\pipe\$pipeName"
-          
-          docker run `
-            --entrypoint ${{ env.entry }} -di --isolation process `
-            --env-file .\docker\ci-windows.env `
-            --env-file .\docker\ninja.env `
-            --env "NSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}" `
-            --env "CUDA_PATH=${{ env.CUDA_CONTAINER_ROOT }}" `
-            --name orphan --network docker_default `
-            -v "${{ github.workspace }}:${{ env.mount }}" `
-            -v "${{ steps.cuda.outputs.cache_root }}:${{ env.CUDA_CONTAINER_ROOT }}" `
-            -v "${pipeHost}:\\.\pipe\dockerd" -e "DOCKER_HOST=npipe:////./pipe/dockerd" `
-            -w "${{ env.mount }}" `
-            "${{ env.image }}:${{ matrix.tag }}" `
-            ${{ env.cmd }}
-
-      - name: Inspect Container
-        run: |
-          docker inspect orphan
-
-      - name: Container – Unpack Packages
-        run: |
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} C:\unpack.ps1
-
-      - name: Container – Configure Project with CMake
+      - name: Configure Project with CMake
+        shell: pwsh
         run: |
           mkdir profiling
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake `
-              --preset ci-configure-dynamic-${{ matrix.vendor }} `
-              -DCMAKE_INSTALL_PREFIX:PATH=C:/mount/nabla/build-ct/install `
-              -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ env.CUDA_CONTAINER_ROOT }} `
-              --profiling-output=profiling/cmake-profiling.json `
-              --profiling-format=google-trace
+          ${{ env.entry }} ${{ env.cmd }} -Command cmake `
+            --preset ci-configure-dynamic-${{ matrix.vendor }} `
+            -DCMAKE_INSTALL_PREFIX:PATH=${{ github.workspace }}/Nabla/build-ct/install `
+            -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ env.CUDA_CONTAINER_ROOT }} `
+            --profiling-output=profiling/cmake-profiling.json `
+            --profiling-format=google-trace
 
-      - name: Container – Build & Install Nabla
+      - name: Build & Install Nabla
         id: build-nabla
+        shell: pwsh
         run: |
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
-              --preset ci-build-dynamic-${{ matrix.vendor }} `
-              --target install `
-              --config ${{ matrix.config }}
+          ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
+            --preset ci-build-dynamic-${{ matrix.vendor }} `
+            --target install `
+            --config ${{ matrix.config }}
 
-      - name: Container – Build & Install Examples
+      - name: Build & Install Examples
         id: build-examples
         continue-on-error: true
         shell: pwsh
@@ -308,18 +253,16 @@ jobs:
           $buildLog = Join-Path $statusDir "build-examples.log"
           $installLog = Join-Path $statusDir "install-examples.log"
 
-          & docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
-              --preset ci-build-dynamic-${{ matrix.vendor }} `
-              -t examples_tests\all --config ${{ matrix.config }} `
-              -- -k 0 2>&1 | Tee-Object -FilePath $buildLog
+          & ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
+            --preset ci-build-dynamic-${{ matrix.vendor }} `
+            -t examples_tests\all --config ${{ matrix.config }} `
+            -- -k 0 2>&1 | Tee-Object -FilePath $buildLog
           $buildExitCode = $LASTEXITCODE
 
           if ($buildExitCode -eq 0) {
-            & docker exec orphan `
-              ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-                ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
-                --prefix ${{ env.install }} 2>&1 | Tee-Object -FilePath $installLog
+            & ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+              ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
+              --prefix ${{ env.install }} 2>&1 | Tee-Object -FilePath $installLog
             $installExitCode = $LASTEXITCODE
           } else {
             "Skipped because the Examples build failed." | Set-Content -Path $installLog -Encoding ascii
@@ -365,52 +308,48 @@ jobs:
           path: ${{ runner.temp }}/examples-status
           if-no-files-found: error
 
-      - name: Container – Save NSC Image
-        run: |
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command docker `
-              save ${{ steps.set-prefix.outputs.nscTargetTaggedImage }} | zstd -T0 -3 -f -o ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
+      # - name: Container – Save NSC Image
+      #   run: |
+      #     docker exec orphan `
+      #       ${{ env.entry }} ${{ env.cmd }} -Command docker `
+      #         save ${{ steps.set-prefix.outputs.nscTargetTaggedImage }} | zstd -T0 -3 -f -o ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
 
-      - name: Container – Install NSC runtime bundle
+      - name: Install NSC runtime bundle
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
+        shell: pwsh
         run: |
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command New-Item -ItemType Directory -Force -Path C:\mount\nabla\build-ct\nsc-package | Out-Null
+          ${{ env.entry }} ${{ env.cmd }} -Command New-Item -ItemType Directory -Force -Path ${{ github.workspace }}\Nabla\build-ct\nsc-package | Out-Null
 
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-              ${{ env.binary }} `
-              --config ${{ matrix.config }} `
-              --prefix C:/mount/nabla/build-ct/nsc-package `
-              --component PackageConfig
+          ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+            ${{ env.binary }} `
+            --config ${{ matrix.config }} `
+            --prefix ${{ github.workspace }}/Nabla/build-ct/nsc-package `
+            --component PackageConfig
 
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-              ${{ env.binary }} `
-              --config ${{ matrix.config }} `
-              --prefix C:/mount/nabla/build-ct/nsc-package `
-              --component Runtimes
+          ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+            ${{ env.binary }} `
+            --config ${{ matrix.config }} `
+            --prefix ${{ github.workspace }}/Nabla/build-ct/nsc-package `
+            --component Runtimes
 
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-              ${{ env.binary }} `
-              --config ${{ matrix.config }} `
-              --prefix C:/mount/nabla/build-ct/nsc-package `
-              --component NSCExecutables
+          ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+            ${{ env.binary }} `
+            --config ${{ matrix.config }} `
+            --prefix ${{ github.workspace }}/Nabla/build-ct/nsc-package `
+            --component NSCExecutables
 
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-              ${{ env.binary }} `
-              --config ${{ matrix.config }} `
-              --prefix C:/mount/nabla/build-ct/nsc-package `
-              --component NSCConfig
+          ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+            ${{ env.binary }} `
+            --config ${{ matrix.config }} `
+            --prefix ${{ github.workspace }}/Nabla/build-ct/nsc-package `
+            --component NSCConfig
 
-          docker exec -w C:\mount\nabla\build-ct orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command "& '.\shell.cmd' 'C:\mount\nabla\build-ct\nsc-package\exe\tools\nsc\bin\nsc.exe' '--dump-build-info' '--file' 'C:\mount\nabla\build-ct\nsc-package\exe\tools\nsc\bin\build-info.json'"
+          ${{ env.entry }} ${{ env.cmd }} -Command "& '.\shell.cmd' '${{ github.workspace }}\Nabla\build-ct\nsc-package\exe\tools\nsc\bin\nsc.exe' '--dump-build-info' '--file' 'C:\mount\nabla\build-ct\nsc-package\exe\tools\nsc\bin\build-info.json'"
 
       - name: Prepare NSC runtime channel layout
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
         working-directory: ${{ github.workspace }}
+        shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build-ct/nsc-release | Out-Null
 
@@ -461,12 +400,12 @@ jobs:
             $archiveStream.Dispose()
           }
 
-      - name: Upload NSC Godbolt Image artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image
-          path: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
-          compression-level: 0
+      # - name: Upload NSC Godbolt Image artifact
+      #   uses: actions/upload-artifact@v7
+      #   with:
+      #     name: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image
+      #     path: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
+      #     compression-level: 0
 
       - name: Upload NSC runtime bundle artifact
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
@@ -647,50 +586,50 @@ jobs:
           keep_files: true
           commit_message: "[CI] badges update"
 
-  deploy-production:
-    name: Deploy Godbolt production image
-    if: ${{ always() && github.ref == 'refs/heads/master' }}
-    needs: build-windows
-    runs-on: windows-2022
+  # deploy-production:
+  #   name: Deploy Godbolt production image
+  #   if: ${{ always() && github.ref == 'refs/heads/master' }}
+  #   needs: build-windows
+  #   runs-on: windows-2022
 
-    steps:
-      - name: Invoke Web Request
-        run: |
-          function Invoke-UpdateImages {
-              param(
-                  [string]$Token,
-                  [string]$Url = 'https://godbolt.devsh.eu/api/update-images'
-              )
+  #   steps:
+  #     - name: Invoke Web Request
+  #       run: |
+  #         function Invoke-UpdateImages {
+  #             param(
+  #                 [string]$Token,
+  #                 [string]$Url = 'https://godbolt.devsh.eu/api/update-images'
+  #             )
           
-              $resp = Invoke-WebRequest -Method Post `
-                                        -Uri $Url `
-                                        -Headers @{ 'X-API-Token' = $Token } `
-                                        -SkipHttpErrorCheck
+  #             $resp = Invoke-WebRequest -Method Post `
+  #                                       -Uri $Url `
+  #                                       -Headers @{ 'X-API-Token' = $Token } `
+  #                                       -SkipHttpErrorCheck
           
-              $httpCode = $resp.StatusCode
-              $body = $resp.Content | ConvertFrom-Json
+  #             $httpCode = $resp.StatusCode
+  #             $body = $resp.Content | ConvertFrom-Json
           
-              Write-Host "HTTP code : $httpCode"
-              Write-Host "status    : $($body.status)"
-              Write-Host "message   : $($body.message)"
+  #             Write-Host "HTTP code : $httpCode"
+  #             Write-Host "status    : $($body.status)"
+  #             Write-Host "message   : $($body.message)"
           
-              if ($httpCode -ne 200) {
-                  throw "Request failed"
-              }
-          }
+  #             if ($httpCode -ne 200) {
+  #                 throw "Request failed"
+  #             }
+  #         }
           
-          $token = '${{ secrets.CE_IMAGE_UPDATE_TOKEN }}'
-          Invoke-UpdateImages -Token $token
+  #         $token = '${{ secrets.CE_IMAGE_UPDATE_TOKEN }}'
+  #         Invoke-UpdateImages -Token $token
 
   smoke-tests:
     name: Nabla / Smoke (${{ matrix.os }}, ${{ matrix.vendor }}-latest, ${{ matrix.config }})
     needs: build-windows
-    runs-on: windows-2022
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         config: [Release, Debug, RelWithDebInfo]
-        os: [windows-2022]
+        os: [windows-2025]
         vendor: [msvc]
     steps:
       - name: Checkout smoke
