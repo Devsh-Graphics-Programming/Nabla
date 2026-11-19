@@ -55,6 +55,9 @@ jobs:
   prepare-host-cuda:
     name: Prepare host CUDA
     runs-on: windows-2025
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout CUDA CI helper
@@ -87,6 +90,9 @@ jobs:
     name: Nabla (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
     needs: [prepare-host-rg, prepare-host-cuda]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
 
     env:
       image: ghcr.io/devsh-graphics-programming/docker-nanoserver-msvc-winsdk
