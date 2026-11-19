@@ -223,7 +223,7 @@ jobs:
       #       ${{ env.entry }} ${{ env.cmd }} C:\unpack.ps1
 
       - name: Configure Project with CMake
-        shell: bash
+        shell: pwsh
         run: |
           mkdir profiling
           ${{ env.entry }} ${{ env.cmd }} -Command cmake `
@@ -235,7 +235,7 @@ jobs:
 
       - name: Build & Install Nabla
         id: build-nabla
-        shell: bash
+        shell: pwsh
         run: |
           ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
             --preset ci-build-dynamic-${{ matrix.vendor }} `
@@ -316,7 +316,7 @@ jobs:
 
       - name: Install NSC runtime bundle
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
-        shell: bash
+        shell: pwsh
         run: |
           ${{ env.entry }} ${{ env.cmd }} -Command New-Item -ItemType Directory -Force -Path ${{ github.workspace }}\Nabla\build-ct\nsc-package | Out-Null
 
