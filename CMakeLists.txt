@@ -7,7 +7,7 @@ if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
 	set(CMAKE_POLICY_VERSION_MINIMUM 3.31 CACHE STRING "Minimum policy version for third-party projects")
 endif()
 
-set(CONAN_INSTALL_BUILD_CONFIGURATIONS "Debug;Release;RelWithDebInfo" CACHE STRING "" FORCE)
+set(CONAN_INSTALL_BUILD_CONFIGURATIONS "Debug;Release" CACHE STRING "" FORCE)
 set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/conan_provider.cmake")
 
 # TODO: Yas - once we deploy 4.x we will fire `cmake_policy(VERSION <min>[...<max>])` instead of manually picking policies
@@ -261,16 +261,11 @@ if (NBL_ENABLE_DOCKER_INTEGRATION)
 	message(STATUS "Default docker network: \"${DNT_NETWORK_NAME}\"")
 endif()
 
-set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
-set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
-
 set(NBL_MEDIA_DIRECTORY "${PROJECT_SOURCE_DIR}/examples_tests/media")
 get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE)
 
 include(submodules/update)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
-
-add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 add_subdirectory(src/nbl)
 add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework
