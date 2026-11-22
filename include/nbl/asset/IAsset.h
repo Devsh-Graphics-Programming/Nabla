@@ -5,6 +5,8 @@
 #define _NBL_ASSET_I_ASSET_H_INCLUDED_
 
 #include "nbl/core/decl/smart_refctd_ptr.h"
+// this header specializes `system::impl::to_string_helper` for `IAsset::E_TYPE` below
+#include "nbl/system/to_string.h"
 
 #include <string>
 

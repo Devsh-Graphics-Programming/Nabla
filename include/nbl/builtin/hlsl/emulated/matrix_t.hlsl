@@ -166,7 +166,7 @@ NBL_PARTIAL_REQ_TOP(MATRIX_COMPONENT_IS_EMULATED)
 struct MatrixComponentGetterHelper<MatrixType NBL_PARTIAL_REQ_BOT(MATRIX_COMPONENT_IS_EMULATED) >
 {
     using ComponentType = typename nbl::hlsl::matrix_traits<MatrixType>::scalar_type;
-    static ComponentType __call(NBL_REF_ARG(MatrixType) mat, uint16_t row, uint16_t column)
+    static ComponentType __call(NBL_CONST_REF_ARG(MatrixType) mat, uint16_t row, uint16_t column)
     {
         return mat.rows[row].getComponent(column);
     }

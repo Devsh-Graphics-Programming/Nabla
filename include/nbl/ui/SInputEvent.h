@@ -21,21 +21,21 @@ struct SMouseEvent : SEventBase
     inline SMouseEvent(std::chrono::microseconds ts) : SEventBase(ts) {}
     enum E_EVENT_TYPE : uint8_t
     {
-        EET_UNITIALIZED = 0,
+        EET_UNINITIALIZED = 0,
         EET_CLICK = 1,
         EET_SCROLL = 2,
         EET_MOVEMENT = 4
-    } type = EET_UNITIALIZED;
+    } type = EET_UNINITIALIZED;
     struct SClickEvent
     {
         int16_t clickPosX, clickPosY;
         ui::E_MOUSE_BUTTON mouseButton;
         enum E_ACTION : uint8_t
         {
-            EA_UNITIALIZED = 0,
+            EA_UNINITIALIZED = 0,
             EA_PRESSED = 1,
             EA_RELEASED = 2
-        } action = EA_UNITIALIZED;
+        } action = EA_UNINITIALIZED;
     };
     struct SScrollEvent
     {
@@ -61,10 +61,10 @@ struct SKeyboardEvent : SEventBase
     inline SKeyboardEvent(std::chrono::microseconds ts) : SEventBase(ts) { }
     enum E_KEY_ACTION : uint8_t
     {
-        ECA_UNITIALIZED = 0,
+        ECA_UNINITIALIZED = 0,
         ECA_PRESSED = 1,
         ECA_RELEASED = 2
-    } action = ECA_UNITIALIZED;
+    } action = ECA_UNINITIALIZED;
     ui::E_KEY_CODE keyCode = ui::EKC_NONE;
     IWindow* window = nullptr;
 };

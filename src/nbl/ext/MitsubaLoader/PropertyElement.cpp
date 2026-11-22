@@ -207,7 +207,7 @@ std::optional<SNamedPropertyElement> CPropertyElementManager::createPropertyData
 					return {};
 				}
 				using namespace nbl::hlsl::math;
-				const auto rotation = quaternion<float>::create(axis, hlsl::radians(atof(desiredAttributes[0])));
+				const auto rotation = quaternion<float>::createFromAxisAngle(axis, hlsl::radians(atof(desiredAttributes[0])));
 				result.mvalue = linalg::promote_affine<4,4>(hlsl::_static_cast<hlsl::float32_t3x3>(rotation));
 			}
 			break;

@@ -1,5 +1,5 @@
-#ifndef _NBL_BUILTIN_HLSL_TESTING_MAX_ERROR_INCLUDED_
-#define _NBL_BUILTIN_HLSL_TESTING_MAX_ERROR_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_APPROX_MAX_ERROR_INCLUDED_
+#define _NBL_BUILTIN_HLSL_APPROX_MAX_ERROR_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
 #include <nbl/builtin/hlsl/concepts/core.hlsl>
@@ -11,7 +11,7 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace testing
+namespace approx
 {
 
 struct SMaxError

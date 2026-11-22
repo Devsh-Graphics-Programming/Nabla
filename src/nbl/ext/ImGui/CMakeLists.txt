@@ -21,7 +21,9 @@ nbl_create_ext_library_project(
     ""
 )
 
-target_link_libraries(${LIB_NAME} PUBLIC imtestengine)
+target_link_libraries(${LIB_NAME} PUBLIC imtestengine imguizmo)
+
+add_library(Nabla::ext::ImGUI ALIAS ${LIB_NAME})
 
 # this should be standard for all extensions
 set(_ARCHIVE_ENTRY_KEY_ "ImGui/builtin/hlsl") # then each one has unique archive key

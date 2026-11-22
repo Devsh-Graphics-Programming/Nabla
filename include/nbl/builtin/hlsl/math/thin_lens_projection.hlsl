@@ -18,7 +18,7 @@ inline matrix<FloatingPoint, 4, 4> rhPerspectiveFovMatrix(FloatingPoint fieldOfV
 {
 	const FloatingPoint h = core::reciprocal<FloatingPoint>(tan(fieldOfViewRadians * 0.5f));
 	_NBL_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
-	const float w = h / aspectRatio;
+	const FloatingPoint w = h / aspectRatio;
 
 	_NBL_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
@@ -35,7 +35,7 @@ inline matrix<FloatingPoint, 4, 4> lhPerspectiveFovMatrix(FloatingPoint fieldOfV
 {
 	const FloatingPoint h = core::reciprocal<FloatingPoint>(tan(fieldOfViewRadians * 0.5f));
 	_NBL_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
-	const float w = h / aspectRatio;
+	const FloatingPoint w = h / aspectRatio;
 
 	_NBL_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 

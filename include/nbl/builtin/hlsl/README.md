@@ -78,7 +78,7 @@ library header. Those hold only what the standard header provides.
 | `type_traits.hlsl` | `<type_traits>` | Type trait structs and aliases. |
 | `utility.hlsl` | `<utility>` | Standard utilities (currently `declval`). |
 | `tgmath.hlsl` | `<tgmath>`/`<cmath>` | Type-generic math functions. |
-| `ieee754.hlsl` | | IEEE-754 float layout traits and bit helpers. |
+| `ieee754.hlsl` | | IEEE-754 float layout traits and bit helpers (including ULP distance). |
 | `mpl.hlsl` | | Template metaprogramming helpers (compile-time, boost::mpl style). |
 | `enums.hlsl` | | Engine enums shared host and device (e.g. `ShaderStage`). |
 | `format.hlsl` | | Texel block format enum and format pack/unpack (includes `format/`). |
@@ -99,6 +99,7 @@ library header. Those hold only what the standard header provides.
 
 | Folder | Contents and what belongs here |
 | --- | --- |
+| `approx/` | Approximate float comparison (ULP, absolute+relative), vector checks (perpendicular, orientation, squared length) and max-error tracking. |
 | `barycentric/` | Barycentric coordinate utilities. |
 | `bda/` | Buffer Device Address: typed pointers, references, and accessors. |
 | `blit/` | Image blit and normalization compute shaders and their parameters. |
@@ -111,7 +112,6 @@ library header. Those hold only what the standard header provides.
 | `fft/` | FFT building blocks. See [`fft/README.md`](fft/README.md). |
 | `format/` | Pixel/texel format pack and unpack (octahedral, shared exponent). |
 | `glsl_compat/` | GLSL builtin equivalents (core, subgroup ops). |
-| `ieee754/` | IEEE-754 implementation details. |
 | `ies/` | IES light profile sampling and textures. |
 | `math/` | Math routines: geometry, linalg, quaternions, equations, quadrature, and more. |
 | `matrix_utils/` | Matrix traits, compile-time and runtime. |
@@ -127,9 +127,9 @@ library header. Those hold only what the standard header provides.
 | `spirv_intrinsics/` | Raw SPIR-V intrinsic declarations. |
 | `subgroup/` | Subgroup-level collectives (ballot, arithmetic, basic, fft). |
 | `subgroup2/` | Newer subgroup collective API. |
-| `testing/` | Comparison helpers for tests (approx compare, max error). |
 | `text_rendering/` | Text rendering (MSDF). |
 | `tgmath/` | `tgmath` implementation details (isnan, output structs). |
+| `utils/` | Small generic helpers (bitfield, elementwise All/Any/None testers for scalars, vectors and matrices). |
 | `vector_utils/` | Vector traits. |
 | `visualization/` | Visualization helpers (turbo colormap). |
 | `workgroup/` | Workgroup-level collectives (arithmetic, ballot, scan, shuffle, fft). |
