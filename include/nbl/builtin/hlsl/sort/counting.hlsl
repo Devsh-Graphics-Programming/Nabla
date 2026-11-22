@@ -91,7 +91,7 @@ struct counting
         const bool is_last_wg_invocation = tid == (GroupSize-_static_cast<uint16_t>(1));
         const static uint16_t RoundedKeyBucketCount = (KeyBucketCount-_static_cast<uint16_t>(1))/GroupSize+_static_cast<uint16_t>(1);
 
-        for (int i = 1; i < RoundedKeyBucketCount; i++)
+        for (uint16_t i = 1; i < RoundedKeyBucketCount; i++)
         {
             uint32_t keyBucketStart = GroupSize * i;
             uint32_t vid = tid + keyBucketStart;

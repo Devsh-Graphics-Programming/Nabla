@@ -92,7 +92,7 @@ uint16_t ballotCountedBitDWORD(NBL_REF_ARG(BallotAccessor) ballotAccessor)
         const uint16_t Remainder = ItemCount&_static_cast<uint16_t>(31);
         if (Remainder!=0 && index==DWORDCount-1)
             bitfield &= (0x1<<Remainder)-1;
-        return uint16_t(countbits(bitfield));
+        return _static_cast<uint16_t>(countbits(bitfield));
     }
     return 0;
 }

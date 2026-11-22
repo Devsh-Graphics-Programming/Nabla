@@ -545,11 +545,14 @@ struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	{
 // currently throws a boost preprocess error, see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/932
 // #ifdef __HLSL_VERSION
+		#pragma warning(suppress: 4068)
 		#pragma dxc diagnostic push
+		#pragma warning(suppress: 4068)
 		#pragma dxc diagnostic ignored "-Wliteral-range"
 // #endif
 		const T thresholds[4] = { 0, 5e4, 1e36, 1e305 };	// threshold values gotten from testing when the function returns nan/inf
 // #ifdef __HLSL_VERSION
+		#pragma warning(suppress: 4068)
 		#pragma dxc diagnostic pop
 // #endif
 		if (x > thresholds[mpl::find_lsb_v<sizeof(T)>])
@@ -595,11 +598,14 @@ struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	{
 // currently throws a boost preprocess error, see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/932
 // #ifdef __HLSL_VERSION
+		#pragma warning(suppress: 4068)
 		#pragma dxc diagnostic push
+		#pragma warning(suppress: 4068)
 		#pragma dxc diagnostic ignored "-Wliteral-range"
 // #endif
 		const T thresholds[4] = { 0, 2e4, 1e6, 1e15 };	// threshold values gotten from testing when the function returns nan/inf/1
 // #ifdef __HLSL_VERSION
+		#pragma warning(suppress: 4068)
 		#pragma dxc diagnostic pop
 // #endif
 		if (v1+v2 > thresholds[mpl::find_lsb_v<sizeof(T)>])

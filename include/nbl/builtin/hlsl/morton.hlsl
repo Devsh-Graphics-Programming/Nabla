@@ -620,9 +620,9 @@ struct arithmetic_right_shift_operator<morton::code<true, Bits, D, _uint64_t> >
         // To avoid branching, we left-shift each coordinate to put the MSB (of the encoded Morton) at the position of the MSB (of the `scalar_t` used for the decoded coordinate),
         // then right-shift again to get correct sign on each coordinate
         // The number of bits we shift by to put MSB of Morton at MSB of `scalar_t` is the difference between the bitwidth of `scalar_t` and Bits
-        const scalar_t ShiftFactor = scalar_t(8 * sizeof(scalar_t) - Bits);
+        const scalar_t ShiftFactor = _static_cast<scalar_t>(8 * sizeof(scalar_t) - Bits);
         cartesian <<= ShiftFactor;
-        cartesian >>= ShiftFactor + scalar_t(bits);
+        cartesian >>= ShiftFactor + _static_cast<scalar_t>(bits);
         return type_t::create(cartesian);
     }
 };

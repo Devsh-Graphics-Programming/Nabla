@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/math/functions.hlsl>
 #include <nbl/builtin/hlsl/sampling/basic.hlsl>
 #include <nbl/builtin/hlsl/path_tracing/concepts.hlsl>
+#include <nbl/builtin/hlsl/type_traits.hlsl>
 
 namespace nbl
 {

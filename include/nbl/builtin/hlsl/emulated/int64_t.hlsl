@@ -259,8 +259,11 @@ struct arithmetic_right_shift_operator<emulated_int64_t>
     {
         const bool bigShift = bits >= ComponentBitWidth; // Shift that completely rewrites MSB
         const uint32_t shift = bigShift ? bits - ComponentBitWidth : ComponentBitWidth - bits;
-        const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(uint32_t(int32_t(operand.__getMSB()) >> shift), int32_t(operand.__getMSB()) < 0 ? ~uint32_t(0) : uint32_t(0))
-                                                                        : vector<uint32_t, 2>((operand.__getMSB() << shift) | (operand.__getLSB() >> bits), uint32_t(int32_t(operand.__getMSB()) >> bits)));
+        const int32_t msbSigned = _static_cast<int32_t>(operand.__getMSB());
+        const int32_t shiftSigned = _static_cast<int32_t>(shift);
+        const int32_t bitsSigned = _static_cast<int32_t>(bits);
+        const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(_static_cast<uint32_t>(msbSigned >> shiftSigned), msbSigned < 0 ? ~uint32_t(0) : uint32_t(0))
+                                                                        : vector<uint32_t, 2>((operand.__getMSB() << shift) | (operand.__getLSB() >> bits), _static_cast<uint32_t>(msbSigned >> bitsSigned)));
         return select<type_t, bool>(bool(bits), shifted, operand);
     }
 
@@ -382,27 +385,21 @@ NBL_CONSTEXPR_INLINE_NSPC_SCOPE_VAR emulated_int64_t minus_assign<emulated_int64
 } //namespace nbl
 } //namespace hlsl
 
-// Declare them as signed/unsigned versions of each other
-
-#ifndef __HLSL_VERSION
-#define NBL_ADD_STD std::
-#else 
-#define NBL_ADD_STD nbl::hlsl:: 
-#endif
+// Declare them as signed/unsigned versions of each other.
+// Specialize Nabla's traits; std::make_unsigned/make_signed do not permit
+// user specializations (N5014 [meta.rqmts]/4).
 
 template<>
-struct NBL_ADD_STD make_unsigned<nbl::hlsl::emulated_uint64_t> : type_identity<nbl::hlsl::emulated_uint64_t> {};
+struct nbl::hlsl::make_unsigned<nbl::hlsl::emulated_uint64_t> : type_identity<nbl::hlsl::emulated_uint64_t> {};
 
 template<>
-struct NBL_ADD_STD make_unsigned<nbl::hlsl::emulated_int64_t> : type_identity<nbl::hlsl::emulated_uint64_t> {};
+struct nbl::hlsl::make_unsigned<nbl::hlsl::emulated_int64_t> : type_identity<nbl::hlsl::emulated_uint64_t> {};
 
 template<>
-struct NBL_ADD_STD make_signed<nbl::hlsl::emulated_uint64_t> : type_identity<nbl::hlsl::emulated_int64_t> {};
+struct nbl::hlsl::make_signed<nbl::hlsl::emulated_uint64_t> : type_identity<nbl::hlsl::emulated_int64_t> {};
 
 template<>
-struct NBL_ADD_STD make_signed<nbl::hlsl::emulated_int64_t> : type_identity<nbl::hlsl::emulated_int64_t> {};
-
-#undef NBL_ADD_STD
+struct nbl::hlsl::make_signed<nbl::hlsl::emulated_int64_t> : type_identity<nbl::hlsl::emulated_int64_t> {};
 
 
 

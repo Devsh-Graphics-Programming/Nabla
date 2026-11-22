@@ -184,12 +184,15 @@ struct static_cast_helper<
             mantissaShifts[i] = min(clampedSharedExponentDecBias+uint16_t(-limits_t::min_exponent)-exponentsDecBias[i],uint16_t(numeric_limits<decode_t>::digits));
         
         // finally lets re-bias our exponent (it will always be positive), note the -1 because IEEE754 floats reserve the lowest exponent values for denorm
-        const uint16_t sharedExponentEncBias = int16_t(clampedSharedExponentDecBias+int16_t(-limits_t::min_exponent))-uint16_t(1-numeric_limits<decode_t>::min_exponent);
+        const int16_t biasOffset = _static_cast<int16_t>(-limits_t::min_exponent);
+        const int16_t encBiasSigned = _static_cast<int16_t>(clampedSharedExponentDecBias) + biasOffset;
+        const int16_t finalBias = _static_cast<int16_t>(1 - numeric_limits<decode_t>::min_exponent);
+        const uint16_t sharedExponentEncBias = _static_cast<uint16_t>(encBiasSigned - finalBias);
 
         //
         T retval;
         retval.storage = storage_t(sharedExponentEncBias)<<(limits_t::digits*3);
-        const decode_bits_t dec_MantissaMask = (decode_bits_t(1)<<dec_MantissaStoredBits)-1;
+        const decode_bits_t dec_MantissaMask = (decode_bits_t(1)<<dec_MantissaStoredBits)-1u;
         for (uint16_t i=0; i<_Components; i++)
         {
             decode_bits_t origBitPattern = bit_cast<decode_bits_t>(val[i])&dec_MantissaMask;
@@ -201,7 +204,7 @@ struct static_cast_helper<
         if (limits_t::is_signed)
         {
             // doing ops on smaller integers is faster
-            decode_bits_t SignMask = 0x1<<(sizeof(decode_t)*8-1);
+            decode_bits_t SignMask = 0x1u<<(sizeof(decode_t)*8-1);
             decode_bits_t signs = bit_cast<decode_bits_t>(val[0])&SignMask;
             for (uint16_t i=1; i<_Components; i++)
                 signs |= (bit_cast<decode_bits_t>(val[i])&SignMask)>>i;

@@ -546,7 +546,7 @@ struct static_cast_helper<vector<ToComponentType, N>, emulated_vector_t<FromComp
         
         OutputVecType output;
         [[unroll]]
-        for (int i = 0; i < N; ++i)
+        for (uint32_t i = 0; i < N; ++i)
             setter(output, i, _static_cast<ToComponentType>(getter(vec, i)));
 
         return output;
@@ -564,7 +564,7 @@ struct static_cast_helper<emulated_vector_t##N <ToComponentType>, emulated_vecto
         array_set<OutputVecType, ToComponentType> setter;\
         OutputVecType output;\
         [[unroll]]\
-        for (int i = 0; i < N; ++i)\
+        for (uint32_t i = 0; i < N; ++i)\
             setter(output, i, _static_cast<ToComponentType>(getter(vec, i)));\
         return output;\
     }\

@@ -68,12 +68,12 @@ struct __ptr
     __ptr operator+(int64_t i)
     {
         i *= sizeof(T);
-        return __ptr::create(spirv::bitcast<uint64_t>(addr)+i);
+        return __ptr::create(spirv::bitcast<uint64_t>(addr)+_static_cast<uint64_t>(i));
     }
     __ptr operator-(int64_t i)
     {
         i *= sizeof(T);
-        return __ptr::create(spirv::bitcast<uint64_t>(addr)-i);
+        return __ptr::create(spirv::bitcast<uint64_t>(addr)-_static_cast<uint64_t>(i));
     }
 };
 

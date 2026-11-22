@@ -616,10 +616,10 @@ template<class T> using remove_extent = std::remove_extent<T>;
 template<class T> using remove_all_extents = std::remove_all_extents<T>;
 
 template<class T>
-using make_signed = std::make_signed<T>;
+struct make_signed : std::make_signed<T> {};
 
 template<class T>
-using make_unsigned = std::make_unsigned<T>;
+struct make_unsigned : std::make_unsigned<T> {};
 
 #endif
 

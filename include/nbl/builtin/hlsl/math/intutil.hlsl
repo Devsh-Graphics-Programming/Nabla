@@ -25,13 +25,13 @@ NBL_CONSTEXPR_FORCED_INLINE_FUNC bool isPoT(Integer value)
 template<typename Integer NBL_FUNC_REQUIRES(is_integral_v<Integer>)
 NBL_CONSTEXPR_FORCED_INLINE_FUNC Integer roundUpToPoT(Integer value)
 {
-    return Integer(0x1u) << Integer(1 + hlsl::findMSB<Integer>(value - Integer(1))); // this wont result in constexpr because findMSB is not one
+    return Integer(0x1u) << _static_cast<Integer>(1 + hlsl::findMSB<Integer>(value - Integer(1))); // this wont result in constexpr because findMSB is not one
 }
 
 template<typename Integer NBL_FUNC_REQUIRES(is_integral_v<Integer>)
 NBL_CONSTEXPR_FORCED_INLINE_FUNC Integer roundDownToPoT(Integer value)
 {
-    return Integer(0x1u) << hlsl::findMSB<Integer>(value);
+    return Integer(0x1u) << _static_cast<Integer>(hlsl::findMSB<Integer>(value));
 }
 
 template<typename Integer NBL_FUNC_REQUIRES(is_integral_v<Integer>)

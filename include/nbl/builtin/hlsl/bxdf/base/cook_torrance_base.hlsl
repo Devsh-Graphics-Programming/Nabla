@@ -43,7 +43,7 @@ struct quant_query_helper<N, F, false>
     template<class I, class C>
     static quant_query_type __call(NBL_CONST_REF_ARG(N) ndf, NBL_CONST_REF_ARG(F) fresnel, NBL_CONST_REF_ARG(I) interaction, NBL_CONST_REF_ARG(C) cache)
     {
-        typename N::scalar_type dummy;
+        typename N::scalar_type dummy = typename N::scalar_type(0);
         return ndf.template createQuantQuery<I,C>(interaction, cache, dummy);
     }
 };

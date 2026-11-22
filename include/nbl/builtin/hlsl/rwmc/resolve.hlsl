@@ -101,7 +101,7 @@ struct SResolver
 			if (notLastCascade)
 			{
 				reciprocalBaseI *= params.reciprocalBase;
-				next = __sampleCascade(acc, coord, int16_t(i + 1), reciprocalBaseI);
+				next = __sampleCascade(acc, coord, _static_cast<uint16_t>(i + 1), reciprocalBaseI);
 			}
 
 			scalar_t reliability = 1.f;

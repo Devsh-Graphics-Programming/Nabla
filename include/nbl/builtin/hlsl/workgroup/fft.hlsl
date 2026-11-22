@@ -65,7 +65,7 @@ inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint
     // Round maxWorkgroupSize down to PoT
     const uint32_t actualMaxWorkgroupSize = hlsl::roundDownToPoT(maxWorkgroupSize);
     // This is the logic found in hlsl::roundUpToPoT to get the log2
-    const uint16_t workgroupSizeLog2 = _static_cast<uint16_t>(1u + findMSB(_static_cast<uint32_t>(min(FFTLength / 2, actualMaxWorkgroupSize) - 1u)));
+    const uint16_t workgroupSizeLog2 = _static_cast<uint16_t>(1u + _static_cast<uint32_t>(findMSB(_static_cast<uint32_t>(min(FFTLength / 2, actualMaxWorkgroupSize) - 1u))));
     
     // Parameters are valid if the workgroup size is at most half of the FFT Length and at least as big as the smallest subgroup that can be launched
     if ((FFTLength >> workgroupSizeLog2) <= 1 || minSubgroupSize > (1u << workgroupSizeLog2))
