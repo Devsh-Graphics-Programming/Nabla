@@ -88,18 +88,18 @@ inline uint64_t reinterpretAsFloat64BitPattern<uint64_t>(uint64_t val)
     if (val == 0ull)
         return val;
 
-    const int exp = findMSB(val);
+    const int16_t exp = _static_cast<int16_t>(findMSB(val));
     uint64_t mantissa;
 
-    const int shiftCnt = 52 - exp;
+    const int16_t shiftCnt = int16_t(52) - exp;
     if (shiftCnt >= 0)
     {
-        mantissa = val << _static_cast<uint64_t>(shiftCnt);
+        mantissa = val << _static_cast<uint16_t>(shiftCnt);
     }
     else
     {
         // Integer conversions use the same round-toward-zero mode as arithmetic.
-        mantissa = val >> _static_cast<uint64_t>(-shiftCnt);
+        mantissa = val >> _static_cast<uint16_t>(-shiftCnt);
     }
     mantissa &= ieee754::traits<float64_t>::mantissaMask;
     const uint64_t biasedExp = _static_cast<uint64_t>(ieee754::traits<float64_t>::exponentBias + exp) << ieee754::traits<float64_t>::mantissaBitCnt;
