@@ -167,6 +167,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: 'recursive'
+          path: Nabla
 
       - name: Checkout conan configs
         uses: actions/checkout@v6
@@ -174,7 +175,7 @@ jobs:
           repository: Devsh-Graphics-Programming/conan-config
           path: conan-config
 
-      - name: Check public access
+      - name: Install conan
         shell: bash
         run: |
           python -m pip install conan==2.32.0
@@ -183,6 +184,15 @@ jobs:
           conan list '*' -r=devsh
           conan profile detect
           conan config install ./conan-config/config
+
+      - name: Download VulkanSDK
+        uses: Devsh-Graphics-Programming/install-vulkan-sdk-action@v1.4.0-devsh.1
+        with:
+            install_runtime: true
+            cache: true
+            stripdown: true
+            install_lavapipe: true
+            github_token: ${{ github.token }}
 
       - name: CUDA Toolkit paths
         id: cuda
@@ -229,7 +239,7 @@ jobs:
           ${{ env.entry }} ${{ env.cmd }} -Command cmake `
             --preset ci-configure-dynamic-${{ matrix.vendor }} `
             -DCMAKE_INSTALL_PREFIX:PATH=${{ github.workspace }}/Nabla/build-ct/install `
-            -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ env.CUDA_CONTAINER_ROOT }} `
+            -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ steps.cuda.outputs.cache_root }} `
             --profiling-output=profiling/cmake-profiling.json `
             --profiling-format=google-trace
 
