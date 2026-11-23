@@ -88,11 +88,13 @@ struct Scan
         const uint16_t invocIx = workgroup::SubgroupContiguousIndex();
         if (invocIx == 0u)
         {
-            const uint32_t id = workgroupCounter.atomicAdd(0u, 1u);
+            // const uint32_t id = workgroupCounter.atomicAdd(0u, 1u);
+            const uint32_t id = spirv::atomicIAdd<uint32_t>(workgroupCounter.ptr.template deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsUniformMemoryMask, 1u);
             scratchAccessor.template set<uint32_t, uint32_t>(0u, id);
             sIsLocked = true;
         }
-        scratchAccessor.workgroupExecutionAndMemoryBarrier();
+        // scratchAccessor.workgroupExecutionAndMemoryBarrier();
+        spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 
         uint16_t workgroupId;
         scratchAccessor.template get<uint32_t, uint32_t>(0u, workgroupId);
@@ -115,7 +117,8 @@ struct Scan
                 workgroup2::exclusive_scan<Config,BinOp,device_capabilities>::template __call<wg_data_proxy_t, ScratchAccessor>(wgDataAccessor, scratchAccessor);
             else
                 workgroup2::inclusive_scan<Config,BinOp,device_capabilities>::template __call<wg_data_proxy_t, ScratchAccessor>(wgDataAccessor, scratchAccessor);
-            scratchAccessor.workgroupExecutionAndMemoryBarrier();
+            // scratchAccessor.workgroupExecutionAndMemoryBarrier();
+            spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 
             if (invocIx == lastInvocIx)
             {
@@ -124,7 +127,8 @@ struct Scan
                     currGroupReduction = binop(currGroupReduction, lastElem);
                 scratchAccessor.template set<scalar_t, uint32_t>(0u, currGroupReduction);
             }
-            scratchAccessor.workgroupExecutionAndMemoryBarrier();
+            // scratchAccessor.workgroupExecutionAndMemoryBarrier();
+            spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 
             scratchAccessor.template get<scalar_t, uint32_t>(0u, currGroupReduction);
         }
@@ -132,7 +136,9 @@ struct Scan
         if (invocIx == 0u)
         {
             const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, workgroupId > 0u) | currGroupReduction << Flag_Shift;
-            workgroupReduction.atomicStore(workgroupId, storeVal);
+            // workgroupReduction.atomicStore(workgroupId, storeVal);
+            bda::__ptr<scalar_t> target = workgroupReduction.ptr + workgroupId;
+            spirv::atomicStore(target.template deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask | spv::MemorySemanticsUniformMemoryMask, storeVal);
         }
 
         if (workgroupId > 0u)
@@ -161,7 +167,9 @@ struct Scan
                             if ((flagPayload & Flag_Mask) == Flag_Inclusive)
                             {
                                 const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
-                                workgroupReduction.atomicStore(workgroupId, storeVal);
+                                // workgroupReduction.atomicStore(workgroupId, storeVal);
+                                bda::__ptr<scalar_t> target = workgroupReduction.ptr + workgroupId;
+                                spirv::atomicStore(target.template deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask | spv::MemorySemanticsUniformMemoryMask, storeVal);
                                 scratchAccessor.template set<scalar_t, uint32_t>(0u, prevReduction);
                                 sIsLocked = false;
                                 break;
@@ -177,7 +185,8 @@ struct Scan
                     if (spinCount == MaxSpinCount)
                         scratchAccessor.template set<scalar_t, uint32_t>(0u, lookbackIx);
                 }
-                scratchAccessor.workgroupExecutionAndMemoryBarrier();
+                // scratchAccessor.workgroupExecutionAndMemoryBarrier();
+                spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 
                 locked = sIsLocked;
                 // Fallback path: we spun to MaxSpinCount, but no previous workgroup had their global reduction ready (Flag_Inclusive).
@@ -195,26 +204,32 @@ struct Scan
                     if (invocIx == 0u)
                     {
                         const scalar_t storeVal = hlsl::mix(Flag_Inclusive, Flag_Reduction, fallbackGroupId > 0u) | (fallbackReduction << Flag_Shift);
-                        const scalar_t fallbackPayload = workgroupReduction.atomicMax(fallbackGroupId, storeVal);
+                        // const scalar_t fallbackPayload = workgroupReduction.atomicMax(fallbackGroupId, storeVal);
+                        bda::__ptr<scalar_t> fallbackTarget = workgroupReduction.ptr + fallbackGroupId;
+                        const scalar_t fallbackPayload = spirv::atomicUMax<scalar_t>(fallbackTarget.template deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsUniformMemoryMask, storeVal);
 
                         prevReduction = binop(prevReduction, hlsl::mix(fallbackReduction, fallbackPayload >> Flag_Shift, fallbackPayload > scalar_t(0.0)));
                         if (fallbackGroupId == 0u || (fallbackPayload & Flag_Mask) == Flag_Inclusive)
                         {
                             const scalar_t storeVal = Flag_Inclusive | (binop(prevReduction, currGroupReduction) << Flag_Shift);
-                            workgroupReduction.atomicStore(workgroupId, storeVal);
+                            // workgroupReduction.atomicStore(workgroupId, storeVal);
+                            bda::__ptr<scalar_t> target = workgroupReduction.ptr + workgroupId;
+                            spirv::atomicStore(target.template deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask | spv::MemorySemanticsUniformMemoryMask, storeVal);
                             scratchAccessor.template set<scalar_t, uint32_t>(0u, prevReduction);
                             sIsLocked = false;
                         }
                         else
                             lookbackIx--;
                     }
-                    scratchAccessor.workgroupExecutionAndMemoryBarrier();
+                    // scratchAccessor.workgroupExecutionAndMemoryBarrier();
+                    spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
 
                     locked = sIsLocked;
                 }
             }
         }
-        scratchAccessor.workgroupExecutionAndMemoryBarrier();
+        // scratchAccessor.workgroupExecutionAndMemoryBarrier();
+        spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask | spv::MemorySemanticsWorkgroupMemoryMask);
 
         dataAccessor.initAtWorkgroupID(workgroupId);
 
