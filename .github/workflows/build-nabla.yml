@@ -167,7 +167,6 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: 'recursive'
-          path: Nabla
 
       - name: Checkout conan configs
         uses: actions/checkout@v6
