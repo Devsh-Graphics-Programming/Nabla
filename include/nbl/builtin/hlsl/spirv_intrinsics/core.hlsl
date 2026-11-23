@@ -60,6 +60,14 @@ namespace hlsl
 
 #endif
 
+// core since SPIR-V 1.0, implies Int64
+#define __NBL_CAPABILITY_Int64Atomics [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
+// no core SPIR-V version, always need their extension
+#define __NBL_CAPABILITY_AtomicFloat32AddEXT [[vk::ext_capability(spv::CapabilityAtomicFloat32AddEXT)]] [[vk::ext_extension("SPV_EXT_shader_atomic_float_add")]]
+#define __NBL_CAPABILITY_AtomicFloat64AddEXT [[vk::ext_capability(spv::CapabilityAtomicFloat64AddEXT)]] [[vk::ext_extension("SPV_EXT_shader_atomic_float_add")]]
+#define __NBL_CAPABILITY_AtomicFloat32MinMaxEXT [[vk::ext_capability(spv::CapabilityAtomicFloat32MinMaxEXT)]] [[vk::ext_extension("SPV_EXT_shader_atomic_float_min_max")]]
+#define __NBL_CAPABILITY_AtomicFloat64MinMaxEXT [[vk::ext_capability(spv::CapabilityAtomicFloat64MinMaxEXT)]] [[vk::ext_extension("SPV_EXT_shader_atomic_float_min_max")]]
+
 namespace spirv
 {
 //! General
@@ -82,6 +90,8 @@ static float32_t4 Position;
 [[vk::ext_builtin_input(spv::BuiltInNumWorkgroups)]]
 static const uint32_t3 NumWorkGroups;
 // TODO: Doesn't work, find out why and file issue on DXC!
+// Reply: not a DXC bug, SPIR-V requires `WorkgroupSize` to decorate a constant, never an input variable
+// (spirv-val: "BuiltIn decoration on target <id> must be a constant for WorkgroupSize"), see `glsl::gl_WorkGroupSize`
 //[[vk::ext_builtin_input(spv::BuiltInWorkgroupSize)]]
 //static const uint32_t3 WorkgroupSize;
 [[vk::ext_builtin_input(spv::BuiltInWorkgroupId)]]
@@ -99,6 +109,15 @@ using pointer_t = vk::SpirvOpaqueType<spv::OpTypePointer,vk::Literal<vk::integra
 
 template<typename T>
 using bda_pointer_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = vk::SpirvType<spv::OpTypePointer, sizeof(uint64_t),alignment_of_v<uint64_t>, vk::Literal<vk::integral_constant<uint32_t, spv::StorageClassPhysicalStorageBuffer> >, T>;
+
+// Capabilities per operand type
+//
+// Some instructions need a capability only for some operand types: 64-bit integer atomics need `Int64Atomics`,
+// float atomics need `AtomicFloat32AddEXT`, `AtomicFloat64MinMaxEXT` and so on. `vk::ext_capability` only takes a
+// literal, so a declaration either always declares its capability or never does. That's why one opcode can map to
+// several functions here: one per type group, each constrained (`enable_if_t`) to that group and carrying that
+// group's `__NBL_CAPABILITY_*`. A module then only declares the capabilities of the overloads it instantiates.
+// Types with no Vulkan feature behind them (8/16-bit integer atomics) have no overload and fail to compile.
 
 // Reference form and pointer form
 //
@@ -160,142 +179,480 @@ template<typename T, typename Ptr_U>
 [[vk::ext_instruction(spv::OpCopyLogical)]]
 enable_if_t<is_pointer_v<Ptr_U>/* && !is_same_v<T,U>*/,T> copyLogical(Ptr_U v);
 
-// Here's the thing with atomics, it's not only the data type that dictates whether you can do an atomic or not.
-// It's the storage class that has the most effect (shared vs storage vs image) and we can't check that easily
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
-template<typename T> // integers operate on 2s complement so same op for signed and unsigned
-[[vk::ext_instruction(spv::OpAtomicIAdd)]]
-enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
-template<typename T, typename Ptr_T>
-[[vk::ext_instruction(spv::OpAtomicIAdd)]]
-enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
-template<typename T> // integers operate on 2s complement so same op for signed and unsigned
-[[vk::ext_capability(spv::CapabilityInt64Atomics)]]
-[[vk::ext_instruction(spv::OpAtomicIAdd)]]
-enable_if_t<is_same_v<T,uint64_t> || is_same_v<T,int64_t>, T> atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
-template<typename T, typename Ptr_T>
-[[vk::ext_capability(spv::CapabilityInt64Atomics)]]
-[[vk::ext_instruction(spv::OpAtomicIAdd)]]
-enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint64_t> || is_same_v<T,int64_t>), T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
-template<typename T> // integers operate on 2s complement so same op for signed and unsigned
-[[vk::ext_instruction(spv::OpAtomicISub)]]
-enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicISub([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
-template<typename T, typename Ptr_T>
-[[vk::ext_instruction(spv::OpAtomicISub)]]
-enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
-template<typename T> // integers operate on 2s complement so same op for signed and unsigned
-[[vk::ext_capability(spv::CapabilityInt64Atomics)]]
-[[vk::ext_instruction(spv::OpAtomicISub)]]
-enable_if_t<is_same_v<T,uint64_t> || is_same_v<T,int64_t>, T> atomicISub([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
-template<typename T, typename Ptr_T>
-[[vk::ext_capability(spv::CapabilityInt64Atomics)]]
-[[vk::ext_instruction(spv::OpAtomicISub)]]
-enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint64_t> || is_same_v<T,int64_t>), T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
+//! Atomics
+// One pair of overloads (reference form, pointer form) per opcode per type group, see the two notes above `is_pointer`.
+// The storage class of `ptr` decides which device feature the atomic needs (`shaderBufferInt64Atomics` vs
+// `shaderSharedInt64Atomics`, `shaderBufferFloat32AtomicAdd` vs `shaderSharedFloat32AtomicAdd`, ...) and neither
+// form can see it, so checking the feature is on the caller.
+// Opcodes are in SPIR-V order.
+namespace impl
+{
+// type groups the atomics are specialized for, grouped by the capability they need
 template<typename T>
-[[vk::ext_instruction(spv::OpAtomicAnd)]]
-enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicAnd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
-template<typename T, typename Ptr_T>
-[[vk::ext_instruction(spv::OpAtomicAnd)]]
-enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicAnd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
+NBL_CONSTEXPR_STATIC_INLINE bool is_atomic_int32_v = is_same_v<T,uint32_t> || is_same_v<T,int32_t>;
+// Int64Atomics
 template<typename T>
-[[vk::ext_instruction(spv::OpAtomicOr)]]
-enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicOr([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
-template<typename T, typename Ptr_T>
-[[vk::ext_instruction(spv::OpAtomicOr)]]
-enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicOr(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
+NBL_CONSTEXPR_STATIC_INLINE bool is_atomic_int64_v = is_same_v<T,uint64_t> || is_same_v<T,int64_t>;
+// no capability for load/store/exchange, the float arithmetic ops have one per width so they take the width directly
 template<typename T>
-[[vk::ext_instruction(spv::OpAtomicXor)]]
-enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicXor([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+NBL_CONSTEXPR_STATIC_INLINE bool is_atomic_float_v = is_same_v<T,float32_t> || is_same_v<T,float64_t>;
+}
 
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+
+// ----------------------------------------- OpAtomicLoad ------------------------------------------
+// integer or float scalars
+// enabled if T is int32_t, uint32_t, float32_t or float64_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicLoad)]]
+enable_if_t<impl::is_atomic_int32_v<T> || impl::is_atomic_float_v<T>, T> atomicLoad([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+// enabled if Ptr_T is a pointer and T is int32_t, uint32_t, float32_t or float64_t, pointer form
 template<typename T, typename Ptr_T>
-[[vk::ext_instruction(spv::OpAtomicXor)]]
-enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicXor(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+[[vk::ext_instruction(spv::OpAtomicLoad)]]
+enable_if_t<is_pointer_v<Ptr_T> && (impl::is_atomic_int32_v<T> || impl::is_atomic_float_v<T>), T> atomicLoad(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics);
 
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
-template<typename Signed>
-[[vk::ext_instruction( spv::OpAtomicSMin )]]
-enable_if_t<is_same_v<Signed,int32_t>, Signed> atomicSMin([[vk::ext_reference]] int32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicLoad)]]
+enable_if_t<impl::is_atomic_int64_v<T>, T> atomicLoad([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics);
 
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
-template<typename Signed, typename Ptr_T>
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicLoad)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, T> atomicLoad(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+
+// ----------------------------------------- OpAtomicStore -----------------------------------------
+// integer or float scalars
+// enabled if T is int32_t, uint32_t, float32_t or float64_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicStore)]]
+enable_if_t<impl::is_atomic_int32_v<T> || impl::is_atomic_float_v<T>, void> atomicStore([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int32_t, uint32_t, float32_t or float64_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicStore)]]
+enable_if_t<is_pointer_v<Ptr_T> && (impl::is_atomic_int32_v<T> || impl::is_atomic_float_v<T>), void> atomicStore(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicStore)]]
+enable_if_t<impl::is_atomic_int64_v<T>, void> atomicStore([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicStore)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, void> atomicStore(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// --------------------------------------- OpAtomicExchange ----------------------------------------
+// integer or float scalars
+// enabled if T is int32_t, uint32_t, float32_t or float64_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicExchange)]]
+enable_if_t<impl::is_atomic_int32_v<T> || impl::is_atomic_float_v<T>, T> atomicExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int32_t, uint32_t, float32_t or float64_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicExchange)]]
+enable_if_t<is_pointer_v<Ptr_T> && (impl::is_atomic_int32_v<T> || impl::is_atomic_float_v<T>), T> atomicExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicExchange)]]
+enable_if_t<impl::is_atomic_int64_v<T>, T> atomicExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicExchange)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, T> atomicExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ------------------------------------ OpAtomicCompareExchange ------------------------------------
+// integer scalars only
+// enabled if T is int32_t or uint32_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
+enable_if_t<impl::is_atomic_int32_v<T>, T> atomicCompareExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
+
+// enabled if Ptr_T is a pointer and T is int32_t or uint32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int32_v<T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
+
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
+enable_if_t<impl::is_atomic_int64_v<T>, T> atomicCompareExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
+
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
+
+
+// -------------------------------------- OpAtomicIIncrement ---------------------------------------
+// integer scalars only, two's complement so one opcode for signed and unsigned
+// enabled if T is int32_t or uint32_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicIIncrement)]]
+enable_if_t<impl::is_atomic_int32_v<T>, T> atomicIIncrement([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+// enabled if Ptr_T is a pointer and T is int32_t or uint32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicIIncrement)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int32_v<T>, T> atomicIIncrement(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicIIncrement)]]
+enable_if_t<impl::is_atomic_int64_v<T>, T> atomicIIncrement([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicIIncrement)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, T> atomicIIncrement(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+
+// -------------------------------------- OpAtomicIDecrement ---------------------------------------
+// integer scalars only, two's complement so one opcode for signed and unsigned
+// enabled if T is int32_t or uint32_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicIDecrement)]]
+enable_if_t<impl::is_atomic_int32_v<T>, T> atomicIDecrement([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+// enabled if Ptr_T is a pointer and T is int32_t or uint32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicIDecrement)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int32_v<T>, T> atomicIDecrement(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicIDecrement)]]
+enable_if_t<impl::is_atomic_int64_v<T>, T> atomicIDecrement([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicIDecrement)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, T> atomicIDecrement(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+
+
+// ----------------------------------------- OpAtomicIAdd ------------------------------------------
+// integer scalars only, two's complement so one opcode for signed and unsigned
+// enabled if T is int32_t or uint32_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicIAdd)]]
+enable_if_t<impl::is_atomic_int32_v<T>, T> atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int32_t or uint32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicIAdd)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int32_v<T>, T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicIAdd)]]
+enable_if_t<impl::is_atomic_int64_v<T>, T> atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicIAdd)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ----------------------------------------- OpAtomicISub ------------------------------------------
+// integer scalars only, two's complement so one opcode for signed and unsigned
+// enabled if T is int32_t or uint32_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicISub)]]
+enable_if_t<impl::is_atomic_int32_v<T>, T> atomicISub([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int32_t or uint32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicISub)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int32_v<T>, T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicISub)]]
+enable_if_t<impl::is_atomic_int64_v<T>, T> atomicISub([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicISub)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ----------------------------------------- OpAtomicSMin ------------------------------------------
+// minimum, signed, SPIR-V takes any integer and reads it as signed, we only accept signed types so the name can't lie
+// enabled if T is int32_t, reference form
+template<typename T>
 [[vk::ext_instruction(spv::OpAtomicSMin)]]
-enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Signed,int32_t>, Signed> atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+enable_if_t<is_same_v<T,int32_t>, T> atomicSMin([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
-template<typename Unsigned>
-[[vk::ext_instruction( spv::OpAtomicUMin )]]
-enable_if_t<is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMin([[vk::ext_reference]] Unsigned ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+// enabled if Ptr_T is a pointer and T is int32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicSMin)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,int32_t>, T> atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
-template<typename Unsigned, typename Ptr_T>
+// enabled if T is int64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicSMin)]]
+enable_if_t<is_same_v<T,int64_t>, T> atomicSMin([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicSMin)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,int64_t>, T> atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ----------------------------------------- OpAtomicUMin ------------------------------------------
+// minimum, unsigned, SPIR-V takes any integer and reads it as unsigned, we only accept unsigned types so the name can't lie
+// enabled if T is uint32_t, reference form
+template<typename T>
 [[vk::ext_instruction(spv::OpAtomicUMin)]]
-enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+enable_if_t<is_same_v<T,uint32_t>, T> atomicUMin([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
-template<typename Signed>
-[[vk::ext_instruction( spv::OpAtomicSMax )]]
-enable_if_t<is_same_v<Signed,int32_t>, Signed> atomicSMax([[vk::ext_reference]] Signed ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+// enabled if Ptr_T is a pointer and T is uint32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicUMin)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,uint32_t>, T> atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
-template<typename Signed, typename Ptr_T>
+// enabled if T is uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicUMin)]]
+enable_if_t<is_same_v<T,uint64_t>, T> atomicUMin([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicUMin)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,uint64_t>, T> atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ----------------------------------------- OpAtomicSMax ------------------------------------------
+// maximum, signed, SPIR-V takes any integer and reads it as signed, we only accept signed types so the name can't lie
+// enabled if T is int32_t, reference form
+template<typename T>
 [[vk::ext_instruction(spv::OpAtomicSMax)]]
-enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Signed,int32_t>, Signed> atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+enable_if_t<is_same_v<T,int32_t>, T> atomicSMax([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
-template<typename Unsigned>
-[[vk::ext_instruction( spv::OpAtomicUMax )]]
-enable_if_t<is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMax([[vk::ext_reference]] uint32_t ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+// enabled if Ptr_T is a pointer and T is int32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicSMax)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,int32_t>, T> atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
-template<typename Unsigned, typename Ptr_T>
+// enabled if T is int64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicSMax)]]
+enable_if_t<is_same_v<T,int64_t>, T> atomicSMax([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicSMax)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,int64_t>, T> atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ----------------------------------------- OpAtomicUMax ------------------------------------------
+// maximum, unsigned, SPIR-V takes any integer and reads it as unsigned, we only accept unsigned types so the name can't lie
+// enabled if T is uint32_t, reference form
+template<typename T>
 [[vk::ext_instruction(spv::OpAtomicUMax)]]
-enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+enable_if_t<is_same_v<T,uint32_t>, T> atomicUMax([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
-template<typename T>
-[[vk::ext_instruction(spv::OpAtomicExchange)]]
-T atomicExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
-
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+// enabled if Ptr_T is a pointer and T is uint32_t, pointer form
 template<typename T, typename Ptr_T>
-[[vk::ext_instruction(spv::OpAtomicExchange)]]
-enable_if_t<is_pointer_v<Ptr_T>, T> atomicExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+[[vk::ext_instruction(spv::OpAtomicUMax)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,uint32_t>, T> atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-// reference form: `ptr` is the variable itself, e.g. a groupshared variable, `buf[i]` or `bufferPtr.Get().member`
+// enabled if T is uint64_t, reference form
 template<typename T>
-[[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
-T atomicCompareExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicUMax)]]
+enable_if_t<is_same_v<T,uint64_t>, T> atomicUMax([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
-// pointer form: `ptr` is a pointer value, e.g. `bdaPtr.deref().__get_spv_ptr()`, a `vk::BufferPointer<T>` or a `pointer_t<spv::StorageClassWorkgroup, T>`
+// enabled if Ptr_T is a pointer and T is uint64_t, pointer form
 template<typename T, typename Ptr_T>
-[[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
-enable_if_t<is_pointer_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicUMax)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,uint64_t>, T> atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
+
+// ------------------------------------------ OpAtomicAnd ------------------------------------------
+// integer scalars only
+// enabled if T is int32_t or uint32_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicAnd)]]
+enable_if_t<impl::is_atomic_int32_v<T>, T> atomicAnd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int32_t or uint32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicAnd)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int32_v<T>, T> atomicAnd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicAnd)]]
+enable_if_t<impl::is_atomic_int64_v<T>, T> atomicAnd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicAnd)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, T> atomicAnd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ------------------------------------------ OpAtomicOr -------------------------------------------
+// integer scalars only
+// enabled if T is int32_t or uint32_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicOr)]]
+enable_if_t<impl::is_atomic_int32_v<T>, T> atomicOr([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int32_t or uint32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicOr)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int32_v<T>, T> atomicOr(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicOr)]]
+enable_if_t<impl::is_atomic_int64_v<T>, T> atomicOr([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicOr)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, T> atomicOr(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ------------------------------------------ OpAtomicXor ------------------------------------------
+// integer scalars only
+// enabled if T is int32_t or uint32_t, reference form
+template<typename T>
+[[vk::ext_instruction(spv::OpAtomicXor)]]
+enable_if_t<impl::is_atomic_int32_v<T>, T> atomicXor([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int32_t or uint32_t, pointer form
+template<typename T, typename Ptr_T>
+[[vk::ext_instruction(spv::OpAtomicXor)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int32_v<T>, T> atomicXor(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if T is int64_t or uint64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicXor)]]
+enable_if_t<impl::is_atomic_int64_v<T>, T> atomicXor([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is int64_t or uint64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_Int64Atomics
+[[vk::ext_instruction(spv::OpAtomicXor)]]
+enable_if_t<is_pointer_v<Ptr_T> && impl::is_atomic_int64_v<T>, T> atomicXor(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ---------------------------------------- OpAtomicFMinEXT ----------------------------------------
+// float scalars only, the capability depends on the width
+// enabled if T is float32_t, reference form
+template<typename T>
+__NBL_CAPABILITY_AtomicFloat32MinMaxEXT
+[[vk::ext_instruction(spv::OpAtomicFMinEXT)]]
+enable_if_t<is_same_v<T,float32_t>, T> atomicFMinEXT([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is float32_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_AtomicFloat32MinMaxEXT
+[[vk::ext_instruction(spv::OpAtomicFMinEXT)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,float32_t>, T> atomicFMinEXT(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if T is float64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_AtomicFloat64MinMaxEXT
+[[vk::ext_instruction(spv::OpAtomicFMinEXT)]]
+enable_if_t<is_same_v<T,float64_t>, T> atomicFMinEXT([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is float64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_AtomicFloat64MinMaxEXT
+[[vk::ext_instruction(spv::OpAtomicFMinEXT)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,float64_t>, T> atomicFMinEXT(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ---------------------------------------- OpAtomicFMaxEXT ----------------------------------------
+// float scalars only, the capability depends on the width
+// enabled if T is float32_t, reference form
+template<typename T>
+__NBL_CAPABILITY_AtomicFloat32MinMaxEXT
+[[vk::ext_instruction(spv::OpAtomicFMaxEXT)]]
+enable_if_t<is_same_v<T,float32_t>, T> atomicFMaxEXT([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is float32_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_AtomicFloat32MinMaxEXT
+[[vk::ext_instruction(spv::OpAtomicFMaxEXT)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,float32_t>, T> atomicFMaxEXT(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if T is float64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_AtomicFloat64MinMaxEXT
+[[vk::ext_instruction(spv::OpAtomicFMaxEXT)]]
+enable_if_t<is_same_v<T,float64_t>, T> atomicFMaxEXT([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is float64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_AtomicFloat64MinMaxEXT
+[[vk::ext_instruction(spv::OpAtomicFMaxEXT)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,float64_t>, T> atomicFMaxEXT(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+
+// ---------------------------------------- OpAtomicFAddEXT ----------------------------------------
+// float scalars only, the capability depends on the width
+// enabled if T is float32_t, reference form
+template<typename T>
+__NBL_CAPABILITY_AtomicFloat32AddEXT
+[[vk::ext_instruction(spv::OpAtomicFAddEXT)]]
+enable_if_t<is_same_v<T,float32_t>, T> atomicFAddEXT([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is float32_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_AtomicFloat32AddEXT
+[[vk::ext_instruction(spv::OpAtomicFAddEXT)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,float32_t>, T> atomicFAddEXT(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if T is float64_t, reference form
+template<typename T>
+__NBL_CAPABILITY_AtomicFloat64AddEXT
+[[vk::ext_instruction(spv::OpAtomicFAddEXT)]]
+enable_if_t<is_same_v<T,float64_t>, T> atomicFAddEXT([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+
+// enabled if Ptr_T is a pointer and T is float64_t, pointer form
+template<typename T, typename Ptr_T>
+__NBL_CAPABILITY_AtomicFloat64AddEXT
+[[vk::ext_instruction(spv::OpAtomicFAddEXT)]]
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<T,float64_t>, T> atomicFAddEXT(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T, uint32_t alignment>
 __NBL_CAPABILITY_PhysicalStorageBufferAddresses

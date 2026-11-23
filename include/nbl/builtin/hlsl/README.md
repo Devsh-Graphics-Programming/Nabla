@@ -32,6 +32,14 @@ For more context, see the DevSH presentations:
 - https://www.youtube.com/watch?v=JCJ35dlZJb4
 - https://www.devsh.eu/presentations
 
+## Guides
+
+Some folders have their own README with a walkthrough:
+
+- [`concepts/README.md`](concepts/README.md): how template constraints are written once and become C++20 `requires` on the host and `enable_if` SFINAE under dxc.
+- [`fft/README.md`](fft/README.md): running the workgroup FFT and what its accessors and parameters are.
+- [`subgroup2/README.md`](subgroup2/README.md): the subgroup2 arithmetic API, `ArithmeticParams`, `ItemsPerInvocation` and the native/emulated paths.
+
 ## Placement rules
 
 Root files that share names with C++ standard library headers are for the
@@ -69,7 +77,7 @@ library header. Those hold only what the standard header provides.
 | `algorithm.hlsl` | `<algorithm>` | `swap` and other standard algorithms. |
 | `bit.hlsl` | `<bit>` | `bit_cast`, `rotl`, `rotr`, `countl_zero`. |
 | `complex.hlsl` | `<complex>` | `complex_t`. |
-| `concepts.hlsl` | `<concepts>` | Entry point for the concepts library (includes `concepts/`). |
+| `concepts.hlsl` | `<concepts>` | Entry point for the concepts library (includes `concepts/`) and the `NBL_*_REQUIRES` constraint macros. See [`concepts/README.md`](concepts/README.md). |
 | `functional.hlsl` | `<functional>` | `reference_wrapper` and function objects. |
 | `limits.hlsl` | `<limits>` | `numeric_limits`. |
 | `memory.hlsl` | `<memory>` | Pointer and reference helpers, e.g. `pointer_to` for BDA refs. |
@@ -105,7 +113,7 @@ library header. Those hold only what the standard header provides.
 | `blit/` | Image blit and normalization compute shaders and their parameters. |
 | `bxdf/` | BxDF models: fresnel, NDF, reflection, transmission. |
 | `colorspace/` | Transfer functions (EOTF/OETF) and CIEXYZ encode/decode. |
-| `concepts/` | Concept definitions (core, vector, matrix, accessors). |
+| `concepts/` | Concept definitions (core, vector, matrix, accessors). See [`concepts/README.md`](concepts/README.md). |
 | `cpp_compat/` | The C++/HLSL compatibility layer: vector, matrix, intrinsics, promote, truncate. |
 | `emulated/` | Software-emulated types (`float64_t`, `int64_t`, emulated vector/matrix) for platforms without native support. |
 | `ext/` | Helpers tied to engine extensions (e.g. FullScreenTriangle). |
@@ -126,7 +134,7 @@ library header. Those hold only what the standard header provides.
 | `sort/` | Sorting primitives (counting sort). |
 | `spirv_intrinsics/` | Raw SPIR-V intrinsic declarations. |
 | `subgroup/` | Subgroup-level collectives (ballot, arithmetic, basic, fft). |
-| `subgroup2/` | Newer subgroup collective API. |
+| `subgroup2/` | Newer subgroup collective API. See [`subgroup2/README.md`](subgroup2/README.md). |
 | `text_rendering/` | Text rendering (MSDF). |
 | `tgmath/` | `tgmath` implementation details (isnan, output structs). |
 | `utils/` | Small generic helpers (bitfield, elementwise All/Any/None testers for scalars, vectors and matrices). |

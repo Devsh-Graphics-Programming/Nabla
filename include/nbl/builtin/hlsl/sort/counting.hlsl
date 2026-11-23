@@ -131,7 +131,7 @@ struct counting
         sdata.workgroupExecutionAndMemoryBarrier();
 
         uint32_t tid = workgroup::SubgroupContiguousIndex();
-        const uint32_t shift = glsl::gl_SubgroupSize() * workGroupIndex;
+        const uint32_t shift = spirv::SubgroupSize * workGroupIndex;
 
         for (uint32_t vtid=tid; vtid<KeyBucketCount; vtid+=GroupSize)
         {

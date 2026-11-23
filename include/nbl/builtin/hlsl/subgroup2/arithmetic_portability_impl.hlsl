@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP2_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP2_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
+// TODO: `glsl::subgroupShuffleUp` and `glsl::subgroupShuffleXor` are only used for their default `spv::ScopeSubgroup`, drop this dependency on the `glsl` namespace once the subgroup utilities move to a better namespace
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_shuffle.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_arithmetic.hlsl"
 
@@ -35,6 +36,9 @@ template<class Params, class BinOp, uint32_t ItemsPerInvocation, bool native>
 struct reduction;
 
 
+// Primary templates, used when ItemsPerInvocation != 1: each invocation holds ItemsPerInvocation consecutive elements in a vector.
+// They combine the invocation's own items serially, so a single `ItemsPerInvocation = 1` subgroup op (native or emulated,
+// specialized below) is all that crosses lanes.
 // BinOp needed to specialize native
 template<class Params, class BinOp, uint32_t ItemsPerInvocation, bool native>
 struct inclusive_scan
@@ -49,14 +53,17 @@ struct inclusive_scan
     {
         binop_t binop;
         type_t retval;
+        // (1) inclusive scan of this invocation's own items
         retval[0] = value[0];
         [unroll]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
             retval[i] = binop(retval[i-1], value[i]);
 
+        // (2) one subgroup exclusive scan of each invocation's total: everything held by the lanes before this one
         exclusive_scan_op_t op;
         scalar_t exclusive = op(retval[ItemsPerInvocation-1]);
 
+        // (3) combine that with every item
         [unroll]
         for (uint32_t i = 0; i < ItemsPerInvocation; i++)
             retval[i] = binop(retval[i], exclusive);
@@ -76,14 +83,17 @@ struct exclusive_scan
     {
         binop_t binop;
         type_t retval;
+        // (1) inclusive scan of this invocation's own items
         retval[0] = value[0];
         [unroll]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
             retval[i] = binop(retval[i-1], value[i]);
 
+        // (2) one subgroup exclusive scan of each invocation's total: everything held by the lanes before this one
         exclusive_scan_op_t op;
         scalar_t exclusive = op(retval[ItemsPerInvocation-1]);
 
+        // (3) shift the items up by one to make them exclusive, combining each with that; item 0 gets it as is
         [unroll]
         for (uint32_t i = ItemsPerInvocation-1; i > 0; i--)
             retval[i] = binop(exclusive,retval[i-1]);
@@ -104,16 +114,21 @@ struct reduction
     {
         binop_t binop;
         op_t op;
+        // (1) reduce this invocation's own items
         scalar_t retval = value[0];
         [unroll]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
             retval = binop(retval, value[i]);
+        // (2) one subgroup reduction of each invocation's total
         return op(retval);
     }
 };
 
 
 // specs for N=1 uses subgroup funcs
+// TODO: drop the weird `glsl::` dependency, call `spirv::group*` directly with `spv::ScopeSubgroup` and the `GroupOperation`, or a utility outside `glsl`.
+// `plus`, `multiplies` and the bitwise ops map 1:1; `minimum`/`maximum` need signed/unsigned/float dispatch (`spirv::groupSMin/UMin/FMin`),
+// either as 3 constrained specializations each (primaries need `NBL_STRUCT_CONSTRAINABLE`) or a shared dispatch helper also used by `glsl::subgroupMin/Max`.
 // specialize native
 #define SPECIALIZE(NAME,BINOP,SUBGROUP_OP) template<class Params, typename T> struct NAME<Params,BINOP<T>,1,true> \
 { \
@@ -148,7 +163,7 @@ struct inclusive_scan_impl
     {
         inclusive_scan_impl<BinOp> retval;
         retval.value = _value;
-        retval.subgroupInvocation = glsl::gl_SubgroupInvocationID();
+        retval.subgroupInvocation = spirv::SubgroupLocalInvocationId;
         return retval;
     }
 
@@ -200,7 +215,7 @@ struct exclusive_scan<Params, BinOp, 1, false>
         // sync up each subgroup invocation so it runs in lockstep
         spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsMaskNone);
 
-        scalar_t left = hlsl::mix(binop_t::identity, glsl::subgroupShuffleUp<scalar_t>(value,1), bool(glsl::gl_SubgroupInvocationID()));
+        scalar_t left = hlsl::mix(binop_t::identity, glsl::subgroupShuffleUp<scalar_t>(value,1), bool(spirv::SubgroupLocalInvocationId));
         return inclusive_scan<Params, BinOp, 1, false>::__call(left);
     }
 };

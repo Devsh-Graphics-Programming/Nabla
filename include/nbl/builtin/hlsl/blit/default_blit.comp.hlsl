@@ -67,7 +67,7 @@ void main()
 	OutImgAccessor outImgA;
 	outImgA.descIx = pc.outputDescIx;
 
-	const uint16_t3 wgID = _static_cast<uint16_t3>(glsl::gl_WorkGroupID());
+	const uint16_t3 wgID = _static_cast<uint16_t3>(spirv::WorkgroupId);
 	const uint16_t3 baseCoord = pc.perWG.getOutputBaseCoord(wgID);
 	// TODO: If and when someone can be bothered, change the blit api to compile a pipeline per image dimension, maybe it will be faster
 	switch (pc.perWG.imageDim)

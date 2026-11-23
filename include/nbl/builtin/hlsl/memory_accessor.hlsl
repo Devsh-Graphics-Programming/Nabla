@@ -4,7 +4,6 @@
 #ifndef _NBL_BUILTIN_HLSL_MEMORY_ACCESSOR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MEMORY_ACCESSOR_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/member_test_macros.hlsl"
 
 // weird namespace placing, see the comment where the macro is defined

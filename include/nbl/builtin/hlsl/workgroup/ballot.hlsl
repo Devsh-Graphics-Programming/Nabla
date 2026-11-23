@@ -8,6 +8,8 @@
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
 
+// TODO: `glsl::subgroupElect` and `glsl::subgroupBallot` are only used for their default `spv::ScopeSubgroup`, drop this dependency on the `glsl` namespace once the subgroup utilities move to a better namespace
+
 namespace nbl 
 {
 namespace hlsl
@@ -43,7 +45,7 @@ struct ballot
         if (glsl::subgroupElect())
         {
             const uint16_t SubgroupSizeLog2 = uint16_t(glsl::gl_SubgroupSizeLog2());
-            const uint16_t subgroupID = uint16_t(glsl::gl_SubgroupID());
+            const uint16_t subgroupID = uint16_t(spirv::SubgroupId);
             const uint16_t shift = (subgroupID<<SubgroupSizeLog2)&uint16_t(0x31u);
             accessor.atomicOr(subgroupID>>(5-SubgroupSizeLog2),subgroupBallot[0]<<shift);
         }
@@ -56,7 +58,7 @@ struct ballot<false>
     static void __call(const uint32_t4 subgroupBallot, const uint16_t subgroupInvocation, NBL_REF_ARG(Accessor) accessor)
     {
         const uint16_t SubgroupSizeLog2 = uint16_t(glsl::gl_SubgroupSizeLog2());
-        const uint16_t subgroupID = uint16_t(glsl::gl_SubgroupID());
+        const uint16_t subgroupID = uint16_t(spirv::SubgroupId);
         const uint16_t destIx = subgroupID<<(SubgroupSizeLog2-5);
 
         const uint16_t UsefulComponents = uint16_t(0x1u)<<(SubgroupSizeLog2-5);
@@ -89,7 +91,7 @@ template<class Accessor>
 void ballot(const bool value, NBL_REF_ARG(Accessor) accessor)
 {
     const uint32_t4 bitfield = glsl::subgroupBallot(value);
-    const uint16_t subgroupInvocation = uint16_t(glsl::gl_SubgroupInvocationID());
+    const uint16_t subgroupInvocation = uint16_t(spirv::SubgroupLocalInvocationId);
 
     if (glsl::gl_SubgroupSizeLog2()<4)
         impl::ballot<true>::template __call<Accessor>(bitfield,subgroupInvocation,accessor);

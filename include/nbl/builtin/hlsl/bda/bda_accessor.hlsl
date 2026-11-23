@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_BDA_ACCESSOR_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BDA_ACCESSOR_INCLUDED_
 
-#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/bda/__ptr.hlsl"
 
 namespace nbl 
@@ -66,7 +66,7 @@ struct BdaAccessor : impl::BdaAccessorBase
     atomicAdd(const uint64_t index, const T value)
     {
         bda::__ptr<T> target = ptr + index;
-        return glsl::atomicAdd(target.template deref().ptr.value, value);
+        return spirv::atomicIAdd<T>(target.template deref().ptr.value, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
     }
 
     template<typename S = T>
@@ -74,7 +74,7 @@ struct BdaAccessor : impl::BdaAccessorBase
     atomicSub(const uint64_t index, const T value)
     {
         bda::__ptr<T> target = ptr + index;
-        return glsl::atomicSub(target.template deref().ptr.value, value);
+        return spirv::atomicISub<T>(target.template deref().ptr.value, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
     }
 
     bda::__ptr<T> ptr;
