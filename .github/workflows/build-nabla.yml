@@ -12,7 +12,6 @@ permissions:
 env:
   CUDA_VERSION: '13.2.1'
   CUDA_CACHE_BASE: 'C:\nabla-ci\cuda'
-  CUDA_CONTAINER_ROOT: 'C:\cuda'
 
 concurrency:
   group: push-lock-${{ github.ref }}
@@ -95,12 +94,14 @@ jobs:
       image: ghcr.io/devsh-graphics-programming/docker-nanoserver-msvc-winsdk
       entry: pwsh.exe
       cmd: -NoLogo -NoProfile -ExecutionPolicy Bypass
-      mount: ${{ github.workspace }}\Nabla
-      binary: ${{ github.workspace }}\Nabla\build-ct
+      mount: ${{ github.workspace }}
+      binary: ${{ github.workspace }}\build-ct
       install: build-ct\install
       NBL_CI_MODE: ON
-      NBL_CI_BUILD_DIRECTORY: ${{ github.workspace }}\Nabla\build-ct
+      NBL_CI_BUILD_DIRECTORY: ${{ github.workspace }}\build-ct
       NINJA_STATUS: "[%r jobs, %f/%t edges, %oe/s, elapsed %ws]: "
+      CL_BIN: C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\18.12.12405\bin\Hostx64\x64
+      WIN_SDK_BIN: C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64
 
     strategy:
       fail-fast: false
@@ -237,8 +238,16 @@ jobs:
           mkdir profiling
           ${{ env.entry }} ${{ env.cmd }} -Command cmake `
             --preset ci-configure-dynamic-${{ matrix.vendor }} `
-            -DCMAKE_INSTALL_PREFIX:PATH=${{ github.workspace }}/Nabla/build-ct/install `
+            -DCMAKE_INSTALL_PREFIX:PATH=${{ github.workspace }}/build-ct/install `
             -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ steps.cuda.outputs.cache_root }} `
+            -DCMAKE_C_COMPILER:PATH=${{ env.CL_BIN }}/cl.exe `
+            -DCMAKE_CXX_COMPILER:PATH=${{ env.CL_BIN }}/cl.exe `
+            -DCMAKE_ASM_COMPILER:PATH=${{ env.CL_BIN }}/cl.exe `
+            -DCMAKE_ASM_MASM_COMPILER:PATH=${{ env.CL_BIN }}/ml64.exe `
+            -DCMAKE_RC_COMPILER:PATH=${{ env.WIN_SDK_BIN }}/rc.exe `
+            -DCMAKE_LINKER:PATH=${{ env.CL_BIN }}/link.exe `
+            -DCMAKE_AR:PATH=${{ env.CL_BIN }}/lib.exe `
+            -DCMAKE_MT:PATH=${{ env.WIN_SDK_BIN }}/mt.exe `
             --profiling-output=profiling/cmake-profiling.json `
             --profiling-format=google-trace
 
@@ -327,33 +336,33 @@ jobs:
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
         shell: pwsh
         run: |
-          ${{ env.entry }} ${{ env.cmd }} -Command New-Item -ItemType Directory -Force -Path ${{ github.workspace }}\Nabla\build-ct\nsc-package | Out-Null
+          ${{ env.entry }} ${{ env.cmd }} -Command New-Item -ItemType Directory -Force -Path ${{ github.workspace }}\build-ct\nsc-package | Out-Null
 
           ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
             ${{ env.binary }} `
             --config ${{ matrix.config }} `
-            --prefix ${{ github.workspace }}/Nabla/build-ct/nsc-package `
+            --prefix ${{ github.workspace }}/build-ct/nsc-package `
             --component PackageConfig
 
           ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
             ${{ env.binary }} `
             --config ${{ matrix.config }} `
-            --prefix ${{ github.workspace }}/Nabla/build-ct/nsc-package `
+            --prefix ${{ github.workspace }}/build-ct/nsc-package `
             --component Runtimes
 
           ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
             ${{ env.binary }} `
             --config ${{ matrix.config }} `
-            --prefix ${{ github.workspace }}/Nabla/build-ct/nsc-package `
+            --prefix ${{ github.workspace }}/build-ct/nsc-package `
             --component NSCExecutables
 
           ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
             ${{ env.binary }} `
             --config ${{ matrix.config }} `
-            --prefix ${{ github.workspace }}/Nabla/build-ct/nsc-package `
+            --prefix ${{ github.workspace }}/build-ct/nsc-package `
             --component NSCConfig
 
-          ${{ env.entry }} ${{ env.cmd }} -Command "& '.\shell.cmd' '${{ github.workspace }}\Nabla\build-ct\nsc-package\exe\tools\nsc\bin\nsc.exe' '--dump-build-info' '--file' 'C:\mount\nabla\build-ct\nsc-package\exe\tools\nsc\bin\build-info.json'"
+          ${{ env.entry }} ${{ env.cmd }} -Command "& '.\shell.cmd' '${{ github.workspace }}\build-ct\nsc-package\exe\tools\nsc\bin\nsc.exe' '--dump-build-info' '--file' '${{ github.workspace }}\build-ct\nsc-package\exe\tools\nsc\bin\build-info.json'"
 
       - name: Prepare NSC runtime channel layout
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
