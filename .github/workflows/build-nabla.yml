@@ -100,8 +100,8 @@ jobs:
       NBL_CI_MODE: ON
       NBL_CI_BUILD_DIRECTORY: ${{ github.workspace }}\build-ct
       NINJA_STATUS: "[%r jobs, %f/%t edges, %oe/s, elapsed %ws]: "
-      CL_BIN: 'C:\Program Files\Microsoft Visual Studio\18\Enterprise\VC\Tools\MSVC\18.12.12405\bin\Hostx64\x64'
-      WIN_SDK_BIN: 'C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64'
+      CL_BIN: 'C:/Program Files/Microsoft Visual Studio/18/Enterprise/VC/Tools/MSVC/18.12.12405/bin/Hostx64/x64'
+      WIN_SDK_BIN: 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64'
 
     strategy:
       fail-fast: false
