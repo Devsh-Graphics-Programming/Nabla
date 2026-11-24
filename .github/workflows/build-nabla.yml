@@ -240,14 +240,14 @@ jobs:
             --preset ci-configure-dynamic-${{ matrix.vendor }} `
             -DCMAKE_INSTALL_PREFIX:PATH=${{ github.workspace }}/build-ct/install `
             -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ steps.cuda.outputs.cache_root }} `
-            "-DCMAKE_C_COMPILER:PATH=${{ env.CL_BIN }}/cl.exe" `
-            "-DCMAKE_CXX_COMPILER:PATH=${{ env.CL_BIN }}/cl.exe" `
-            "-DCMAKE_ASM_COMPILER:PATH=${{ env.CL_BIN }}/cl.exe" `
-            "-DCMAKE_ASM_MASM_COMPILER:PATH=${{ env.CL_BIN }}/ml64.exe" `
-            "-DCMAKE_RC_COMPILER:PATH=${{ env.WIN_SDK_BIN }}/rc.exe" `
-            "-DCMAKE_LINKER:PATH=${{ env.CL_BIN }}/link.exe" `
-            "-DCMAKE_AR:PATH=${{ env.CL_BIN }}/lib.exe" `
-            "-DCMAKE_MT:PATH=${{ env.WIN_SDK_BIN }}/mt.exe" `
+            '-DCMAKE_C_COMPILER:PATH=${{ env.CL_BIN }}/cl.exe' `
+            '-DCMAKE_CXX_COMPILER:PATH=${{ env.CL_BIN }}/cl.exe' `
+            '-DCMAKE_ASM_COMPILER:PATH=${{ env.CL_BIN }}/cl.exe' `
+            '-DCMAKE_ASM_MASM_COMPILER:PATH=${{ env.CL_BIN }}/ml64.exe' `
+            '-DCMAKE_RC_COMPILER:PATH=${{ env.WIN_SDK_BIN }}/rc.exe' `
+            '-DCMAKE_LINKER:PATH=${{ env.CL_BIN }}/link.exe' `
+            '-DCMAKE_AR:PATH=${{ env.CL_BIN }}/lib.exe' `
+            '-DCMAKE_MT:PATH=${{ env.WIN_SDK_BIN }}/mt.exe' `
             --profiling-output=profiling/cmake-profiling.json `
             --profiling-format=google-trace
 
