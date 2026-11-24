@@ -236,7 +236,7 @@ jobs:
         shell: pwsh
         run: |
           mkdir profiling
-          ${{ env.entry }} ${{ env.cmd }} -Command cmake `
+          cmake `
             --preset ci-configure-dynamic-${{ matrix.vendor }} `
             -DCMAKE_INSTALL_PREFIX:PATH=${{ github.workspace }}/build-ct/install `
             -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ steps.cuda.outputs.cache_root }} `
@@ -255,7 +255,7 @@ jobs:
         id: build-nabla
         shell: pwsh
         run: |
-          ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
+          cmake --build `
             --preset ci-build-dynamic-${{ matrix.vendor }} `
             --target install `
             --config ${{ matrix.config }}
@@ -271,14 +271,14 @@ jobs:
           $buildLog = Join-Path $statusDir "build-examples.log"
           $installLog = Join-Path $statusDir "install-examples.log"
 
-          & ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
+          & cmake --build `
             --preset ci-build-dynamic-${{ matrix.vendor }} `
             -t examples_tests\all --config ${{ matrix.config }} `
             -- -k 0 2>&1 | Tee-Object -FilePath $buildLog
           $buildExitCode = $LASTEXITCODE
 
           if ($buildExitCode -eq 0) {
-            & ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+            & cmake --install `
               ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
               --prefix ${{ env.install }} 2>&1 | Tee-Object -FilePath $installLog
             $installExitCode = $LASTEXITCODE
@@ -336,33 +336,33 @@ jobs:
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
         shell: pwsh
         run: |
-          ${{ env.entry }} ${{ env.cmd }} -Command New-Item -ItemType Directory -Force -Path ${{ github.workspace }}\build-ct\nsc-package | Out-Null
+          New-Item -ItemType Directory -Force -Path ${{ github.workspace }}\build-ct\nsc-package | Out-Null
 
-          ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+          cmake --install `
             ${{ env.binary }} `
             --config ${{ matrix.config }} `
             --prefix ${{ github.workspace }}/build-ct/nsc-package `
             --component PackageConfig
 
-          ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+          cmake --install `
             ${{ env.binary }} `
             --config ${{ matrix.config }} `
             --prefix ${{ github.workspace }}/build-ct/nsc-package `
             --component Runtimes
 
-          ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+          cmake --install `
             ${{ env.binary }} `
             --config ${{ matrix.config }} `
             --prefix ${{ github.workspace }}/build-ct/nsc-package `
             --component NSCExecutables
 
-          ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+          cmake --install `
             ${{ env.binary }} `
             --config ${{ matrix.config }} `
             --prefix ${{ github.workspace }}/build-ct/nsc-package `
             --component NSCConfig
 
-          ${{ env.entry }} ${{ env.cmd }} -Command "& '.\shell.cmd' '${{ github.workspace }}\build-ct\nsc-package\exe\tools\nsc\bin\nsc.exe' '--dump-build-info' '--file' '${{ github.workspace }}\build-ct\nsc-package\exe\tools\nsc\bin\build-info.json'"
+          & '.\shell.cmd' '${{ github.workspace }}\build-ct\nsc-package\exe\tools\nsc\bin\nsc.exe' '--dump-build-info' '--file' '${{ github.workspace }}\build-ct\nsc-package\exe\tools\nsc\bin\build-info.json'
 
       - name: Prepare NSC runtime channel layout
         if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
