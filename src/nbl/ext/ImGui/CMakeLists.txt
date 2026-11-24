@@ -49,6 +49,7 @@ target_compile_definitions(${LIB_NAME} PRIVATE _ARCHIVE_ENTRY_KEY_="${_ARCHIVE_E
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	set(_BR_TARGET_ extImguibuiltinResourceData)
+	include("${NBL_ROOT_PATH}/src/nbl/builtin/utils.cmake")
 
 	# TODO: one uber shader and common.hlsl
 	LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "common.hlsl")

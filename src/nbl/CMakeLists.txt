@@ -649,8 +649,6 @@ get_filename_component(_SPIRV_BR_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINAR
 set(SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH "${_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_}/spirv" CACHE INTERNAL "" FORCE)
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
-	include("${NBL_ROOT_PATH}/src/nbl/builtin/utils.cmake")
-
     # SPIRV Header in builtin resources, nbl paths as aliases
     LIST_BUILTIN_RESOURCE(SPIRV_RESOURCES_TO_EMBED "unified1/spirv.h")
     LIST_BUILTIN_RESOURCE(SPIRV_RESOURCES_TO_EMBED "unified1/spirv.hpp")

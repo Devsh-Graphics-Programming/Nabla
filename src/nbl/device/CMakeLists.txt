@@ -62,6 +62,8 @@ add_custom_command(OUTPUT ${NBL_OUTPUT_HEADERS}
 add_custom_target(DeviceHeaders DEPENDS ${NBL_OUTPUT_HEADERS})
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
+	include("${NBL_ROOT_PATH}/src/nbl/builtin/utils.cmake")
+
 	LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_members.hlsl")
 	LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_testers.hlsl")
 	LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_defaults.hlsl")
