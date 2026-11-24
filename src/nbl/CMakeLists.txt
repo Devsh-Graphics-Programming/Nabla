@@ -479,38 +479,28 @@ NBL_GENERATE_GIT_TRACKING_META()
 
 nbl_install_file(${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/git_info.h)
 
-# Parallel Hashmap
-list(APPEND PUBLIC_BUILD_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
-# TCPP
-# list(APPEND PUBLIC_BUILD_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/tcpp)
 # oneDPL (formerly Parallel STL) for clang C++17 parallelism
 if(_NBL_BUILD_DPL_)
 	find_package(ParallelSTL CONFIG REQUIRED)
-	set_target_properties(pstl::ParallelSTL PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 	target_link_libraries(Nabla PRIVATE pstl::ParallelSTL)
 	find_package(TBB CONFIG REQUIRED)
-	set_target_properties(onetbb::onetbb PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 	target_link_libraries(Nabla PRIVATE onetbb::onetbb)
 endif()
 
 # aes
 find_package(aes REQUIRED CONFIG)
-set_target_properties(aes::aes PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE aes::aes)
 
 # argparse
 find_package(argparse CONFIG REQUIRED)
-set_target_properties(argparse::argparse PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE argparse::argparse)
 
 # bzip2
 find_package(BZip2 CONFIG REQUIRED)
-set_target_properties(BZip2::BZip2 PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE BZip2::BZip2)
 
 # boost
 find_package(Boost CONFIG REQUIRED)
-set_target_properties(boost::boost PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE boost::boost)
 
 get_filename_component(_BOOST_PREPROCESSOR_BR_BUNDLE_SEARCH_DIRECTORY_ "${Boost_INCLUDE_DIRS}" ABSOLUTE)
@@ -532,112 +522,90 @@ endif()
 
 # glm
 find_package(glm CONFIG REQUIRED)
-set_target_properties(glm::glm PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE glm::glm)
 
 # zlib
 find_package(ZLIB CONFIG REQUIRED)
-set_target_properties(ZLIB::ZLIB PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE ZLIB::ZLIB)
 
 # blake3
 find_package(blake3 CONFIG REQUIRED)
-set_target_properties(BLAKE3::blake3 PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE BLAKE3::blake3)
 
 # shaderc
 find_package(shaderc CONFIG REQUIRED)
-set_target_properties(shaderc::shaderc PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE shaderc::shaderc)
 
 # spirv tools
 find_package(SPIRV-Tools CONFIG REQUIRED)
-set_target_properties(spirv-tools::spirv-tools PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE spirv-tools::spirv-tools)
 
 # spirv headers
 find_package(SPIRV-Headers CONFIG REQUIRED)
-set_target_properties(SPIRV-Headers::SPIRV-Headers PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE SPIRV-Headers::SPIRV-Headers)
 
 # spirv cross
 find_package(spirv-cross CONFIG REQUIRED)
-set_target_properties(spirv-cross-core PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-set_target_properties(spirv-cross-glsl PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-set_target_properties(spirv-cross-reflect PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE spirv-cross-core spirv-cross-glsl spirv-cross-reflect)
 
 # nlohmann_json
 find_package(nlohmann_json CONFIG REQUIRED)
-set_target_properties(nlohmann_json::nlohmann_json PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE nlohmann_json::nlohmann_json)
 
 # simdjson
 find_package(simdjson CONFIG REQUIRED)
-set_target_properties(simdjson::simdjson PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE simdjson::simdjson)
 
 # lz4
 find_package(lz4 CONFIG REQUIRED)
-set_target_properties(LZ4::lz4_static PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE LZ4::lz4_static)
 
 # lzma
 find_package(lzma REQUIRED CONFIG)
-set_target_properties(lzma::lzma PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE lzma::lzma)
 
 # libjpeg
 find_package(libjpeg-turbo CONFIG REQUIRED)
-set_target_properties(libjpeg-turbo::libjpeg-turbo PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE libjpeg-turbo::libjpeg-turbo)
 
 # libpng
 find_package(PNG CONFIG REQUIRED)
-set_target_properties(PNG::PNG PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE PNG::PNG)
 
 # gtl
 find_package(gtl CONFIG REQUIRED)
-set_target_properties(gtl::gtl PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE gtl::gtl)
 
 # jitify
 find_package(jitify CONFIG REQUIRED)
-set_target_properties(jitify::jitify PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE jitify::jitify)
 
 # OpenEXR
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	find_package(libdeflate CONFIG REQUIRED)
-	set_target_properties(libdeflate::libdeflate_static PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 	target_link_libraries(Nabla PRIVATE libdeflate::libdeflate_static)
 
     find_package(OpenEXR CONFIG REQUIRED)
-	set_target_properties(openexr::openexr PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 	target_link_libraries(Nabla PRIVATE openexr::openexr)
 endif()
 
 # Imath
 find_package(Imath CONFIG REQUIRED)
-set_target_properties(Imath::Imath PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE Imath::Imath)
 
 # GLI
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
 if(_NBL_COMPILE_WITH_GLI_)
 	find_package(gli CONFIG REQUIRED)
-	set_target_properties(gli PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 	target_link_libraries(Nabla PRIVATE gli)
 endif()
 
 # DXC
 find_package(dxc REQUIRED CONFIG)
-set_target_properties(dxc::dxcompiler PROPERTIES
-	MAP_IMPORTED_CONFIG_DEBUG Release
-	MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
-)
+if(NBL_DXC_FORCE_RELEASE)
+    set_target_properties(dxc::dxcompiler PROPERTIES MAP_IMPORTED_CONFIG_DEBUG Release)
+endif()
 target_link_libraries(Nabla PRIVATE dxc::dxcompiler)
 
 set(DXC_DLL "$<TARGET_FILE:dxc::dxcompiler>")
@@ -668,7 +636,6 @@ endif()
 
 # Vulkan
 find_package(VulkanHeaders CONFIG REQUIRED)
-set_target_properties(vulkan-headers::vulkan-headers PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla INTERFACE vulkan-headers::vulkan-headers)
 
 # volk
@@ -676,14 +643,12 @@ if (WIN32)
 	set(VOLK_STATIC_DEFINES VK_USE_PLATFORM_WIN32_KHR)
 endif()
 find_package(volk CONFIG REQUIRED)
-set_target_properties(volk::volk PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PUBLIC volk::volk)
 # volk is part of public interface headers in Nabla
 target_compile_definitions(Nabla PUBLIC $<$<PLATFORM_ID:Windows>:VK_USE_PLATFORM_WIN32_KHR>)
 
 # glslang
 find_package(glslang CONFIG REQUIRED)
-set_target_properties(glslang::glslang PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE glslang::glslang)
 
 list(APPEND PUBLIC_BUILD_INCLUDE_DIRS
@@ -699,7 +664,6 @@ target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 
 # renderdoc api
 find_package(renderdoc REQUIRED CONFIG)
-set_target_properties(renderdoc::renderdoc_app PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE renderdoc::renderdoc_app)
 
 # nsight graphics api
@@ -707,15 +671,10 @@ include(${CMAKE_SOURCE_DIR}/cmake/ngfx.cmake)
 
 if (NBL_BUILD_MITSUBA_LOADER)
 	find_package(expat CONFIG REQUIRED)
-	set_target_properties(expat::expat PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 	target_link_libraries(Nabla PRIVATE expat::expat)
 endif()
 if (NBL_BUILD_IMGUI)
 	find_package(imgui CONFIG REQUIRED)
-	set_target_properties(imgui::imgui PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-	set_target_properties(imgui::implot PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-	set_target_properties(imgui::imtestengine PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-	set_target_properties(imgui::imguizmo PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 	target_link_libraries(Nabla PRIVATE imgui::imgui imgui::implot imgui::imtestengine imgui::imguizmo)
 endif()
 
@@ -785,7 +744,6 @@ target_link_libraries(Nabla PUBLIC $<BUILD_INTERFACE:gtml>)
 
 # vulkaninfo
 find_package(VulkanTools REQUIRED CONFIG)
-set_target_properties(vulkan-tools::vulkaninfo PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(Nabla PRIVATE vulkan-tools::vulkaninfo)
 
 # NGFX

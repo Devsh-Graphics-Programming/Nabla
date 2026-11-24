@@ -28,11 +28,6 @@ find_package(gtl CONFIG REQUIRED)
 find_package(Imath CONFIG REQUIRED)
 find_package(blake3 CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
-set_target_properties(glm::glm PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-set_target_properties(gtl::gtl PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-set_target_properties(Imath::Imath PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-set_target_properties(BLAKE3::blake3 PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
-set_target_properties(boost::boost PROPERTIES MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
 target_link_libraries(${LIB_NAME} PRIVATE glm::glm gtl::gtl Imath::Imath BLAKE3::blake3 boost::boost)
 
 # installed from src/nbl as the "Cameras" component of the Nabla package

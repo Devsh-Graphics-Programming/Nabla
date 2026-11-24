@@ -7,7 +7,28 @@ if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
 	set(CMAKE_POLICY_VERSION_MINIMUM 3.31 CACHE STRING "Minimum policy version for third-party projects")
 endif()
 
-set(CONAN_INSTALL_BUILD_CONFIGURATIONS "Debug;Release" CACHE STRING "" FORCE)
+option(NBL_ENABLE_DEBUG_3RDPARTY "Enables usage of debug build variants of 3rdparty deps" OFF)
+option(NBL_DXC_FORCE_RELEASE "Forces Nabla to always use release build of DXC" OFF)
+
+if(NBL_ENABLE_DEBUG_3RDPARTY)
+    set(CONAN_INSTALL_BUILD_CONFIGURATIONS Release Debug)
+    set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Debug)
+else()
+    set(CONAN_INSTALL_BUILD_CONFIGURATIONS Release)
+    set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release)
+endif()
+
+set(CMAKE_MAP_IMPORTED_CONFIG_RELEASE Release)
+set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
+
+if(NBL_DXC_FORCE_RELEASE)
+    list(APPEND CONAN_INSTALL_ARGS "-s:h=dxc/*:build_type=Release")
+
+    if(MSVC)
+        list(APPEND CONAN_INSTALL_ARGS "-s:h=dxc/*:compiler.runtime_type=Release")
+    endif()
+endif()
+
 set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/conan_provider.cmake")
 
 # TODO: Yas - once we deploy 4.x we will fire `cmake_policy(VERSION <min>[...<max>])` instead of manually picking policies
