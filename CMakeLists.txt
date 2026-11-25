@@ -11,10 +11,10 @@ option(NBL_ENABLE_DEBUG_3RDPARTY "Enables usage of debug build variants of 3rdpa
 option(NBL_DXC_FORCE_RELEASE "Forces Nabla to always use release build of DXC" OFF)
 
 if(NBL_ENABLE_DEBUG_3RDPARTY)
-    set(CONAN_INSTALL_BUILD_CONFIGURATIONS Release Debug)
+    set(CONAN_INSTALL_BUILD_CONFIGURATIONS "Debug;Release" CACHE STRING "" FORCE)
     set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Debug)
 else()
-    set(CONAN_INSTALL_BUILD_CONFIGURATIONS Release)
+    set(CONAN_INSTALL_BUILD_CONFIGURATIONS "Release" CACHE STRING "" FORCE)
     set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release)
 endif()
 

@@ -422,6 +422,22 @@ if(NBL_COMPILE_WITH_CUDA)
 	target_include_directories(Nabla PRIVATE ${CUDAToolkit_INCLUDE_DIRS})
 endif()
 
+# DXC
+find_package(dxc REQUIRED CONFIG)
+if(NBL_DXC_FORCE_RELEASE)
+    set_target_properties(dxc::dxcompiler PROPERTIES MAP_IMPORTED_CONFIG_DEBUG Release)
+endif()
+target_link_libraries(Nabla PRIVATE dxc::dxcompiler)
+
+# set(DXC_DLL $<TARGET_FILE:dxc::dxcompiler>)
+get_target_property(DXC_DLL dxc::dxcompiler IMPORTED_LOCATION)
+if(NOT DXC_DLL)
+    get_target_property(DXC_DLL dxc::dxcompiler IMPORTED_LOCATION_RELEASE)
+endif()
+if(NOT DXC_DLL)
+    get_target_property(DXC_DLL dxc::dxcompiler IMPORTED_LOCATION_DEBUG)
+endif()
+
 set(INTERFACE_BUILD_DEFINITIONS
 	_DXC_DLL_="${DXC_DLL}"
 )
@@ -471,7 +487,7 @@ endif()
 option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will increase build time iterations at the expense of the meta information loss" OFF)
 find_package(git-version-tracking CONFIG REQUIRED)
 NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
-NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${dxc_INCLUDE_DIR}")
+NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "") # TODO: need to find a way to track dxc changes, because now using conan packages
 nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/nabla_git_info.json")
 nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/dxc_git_info.json")
 
@@ -600,15 +616,6 @@ if(_NBL_COMPILE_WITH_GLI_)
 	find_package(gli CONFIG REQUIRED)
 	target_link_libraries(Nabla PRIVATE gli)
 endif()
-
-# DXC
-find_package(dxc REQUIRED CONFIG)
-if(NBL_DXC_FORCE_RELEASE)
-    set_target_properties(dxc::dxcompiler PROPERTIES MAP_IMPORTED_CONFIG_DEBUG Release)
-endif()
-target_link_libraries(Nabla PRIVATE dxc::dxcompiler)
-
-set(DXC_DLL "$<TARGET_FILE:dxc::dxcompiler>")
 
 find_package(SPIRV-Headers REQUIRED CONFIG)
 get_filename_component(_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_ "${SPIRV-Headers_INCLUDE_DIR}" ABSOLUTE)
