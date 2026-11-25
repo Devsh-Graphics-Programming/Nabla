@@ -31,6 +31,14 @@ endif()
 
 set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/conan_provider.cmake")
 
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
+if(NBL_ENABLE_DEBUG_3RDPARTY)
+    string(APPEND CMAKE_MSVC_RUNTIME_LIBRARY "$<$<CONFIG:Debug>:Debug>")
+endif()
+if(NBL_COMPILER_DYNAMIC_RUNTIME)
+    string(APPEND CMAKE_MSVC_RUNTIME_LIBRARY DLL)
+endif()
+
 # TODO: Yas - once we deploy 4.x we will fire `cmake_policy(VERSION <min>[...<max>])` instead of manually picking policies
 # https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html#policy-version
 # also we should update deps which throw warnings about < 3.10 compatibility
