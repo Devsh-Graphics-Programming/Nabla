@@ -258,7 +258,7 @@ jobs:
         id: build-nabla
         shell: pwsh
         run: |
-          '${{ env.MSVC_TOOLSET_DIR }}/Common7/Tools/Launch-VsDevShell.ps1' -Arch x64 -HostArch x64
+          & '${{ env.MSVC_TOOLSET_DIR }}/Common7/Tools/Launch-VsDevShell.ps1' -Arch x64 -HostArch x64
           cmake --build `
             --preset ci-build-dynamic-${{ matrix.vendor }} `
             --target install `
