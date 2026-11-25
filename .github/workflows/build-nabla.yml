@@ -179,7 +179,7 @@ jobs:
       - name: Install conan
         shell: bash
         run: |
-          python -m pip install --target ~/conan conan==2.32.0
+          python -m pip install conan==2.32.0
           curl --fail --silent --show-error --max-time 30 https://conan.devsh.eu/healthz
           conan remote add devsh https://conan.devsh.eu
           conan list '*' -r=devsh
@@ -232,7 +232,7 @@ jobs:
         id: cache-conan-restore
         uses: actions/cache/restore@v5
         with:
-          path: ~/conan
+          path: ~/.conan2
           key: conan-windows-msvc
 
       - name: Configure Project with CMake
@@ -251,7 +251,7 @@ jobs:
         id: cache-conan-save
         uses: actions/cache/save@v5
         with:
-          path: ~/conan
+          path: ~/.conan2
           key: conan-windows-msvc
 
       - name: Build & Install Nabla
