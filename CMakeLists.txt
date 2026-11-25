@@ -39,6 +39,8 @@ if(NBL_COMPILER_DYNAMIC_RUNTIME)
     string(APPEND CMAKE_MSVC_RUNTIME_LIBRARY DLL)
 endif()
 
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)
+
 # TODO: Yas - once we deploy 4.x we will fire `cmake_policy(VERSION <min>[...<max>])` instead of manually picking policies
 # https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html#policy-version
 # also we should update deps which throw warnings about < 3.10 compatibility
@@ -84,7 +86,9 @@ option(NBL_COMPILER_DYNAMIC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
 option(NBL_DEBUG_RTC_ENABLED "Enable Runtime Checks for Debug builds" OFF)
 
-set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT $<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>) # ignored on non xMSVC-ABI targets
+if(MSVC)
+    add_link_options("$<$<CONFIG:Release>:/DEBUG:FULL;/OPT:REF;/OPT:ICF>")
+endif()
 
 if(NBL_STATIC_BUILD)
 	message(STATUS "Static Nabla build enabled!")
