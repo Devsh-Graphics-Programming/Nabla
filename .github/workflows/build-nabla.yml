@@ -179,7 +179,7 @@ jobs:
       - name: Install conan
         shell: bash
         run: |
-          python -m pip install conan==2.32.0
+          python -m pip install --target ~/conan conan==2.32.0
           curl --fail --silent --show-error --max-time 30 https://conan.devsh.eu/healthz
           conan remote add devsh https://conan.devsh.eu
           conan list '*' -r=devsh
@@ -228,10 +228,12 @@ jobs:
       - name: Verify CUDA Toolkit
         run: python .github/scripts/ci_cuda_toolkit.py verify
 
-      # - name: Container – Unpack Packages
-      #   run: |
-      #     docker exec orphan `
-      #       ${{ env.entry }} ${{ env.cmd }} C:\unpack.ps1
+      - name: Restore cached conan
+        id: cache-conan-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: ~/conan
+          key: conan-windows-msvc
 
       - name: Configure Project with CMake
         shell: pwsh
@@ -245,11 +247,18 @@ jobs:
             --profiling-output=profiling/cmake-profiling.json `
             --profiling-format=google-trace
 
+      - name: Save conan
+        id: cache-conan-save
+        uses: actions/cache/save@v5
+        with:
+          path: ~/conan
+          key: conan-windows-msvc
+
       - name: Build & Install Nabla
         id: build-nabla
         shell: pwsh
         run: |
-          & '${{ env.MSVC_TOOLSET_DIR }}/Common7/Tools/Launch-VsDevShell.ps1' -Arch x64 -HostArch x64
+          '${{ env.MSVC_TOOLSET_DIR }}/Common7/Tools/Launch-VsDevShell.ps1' -Arch x64 -HostArch x64
           cmake --build `
             --preset ci-build-dynamic-${{ matrix.vendor }} `
             --target install `
