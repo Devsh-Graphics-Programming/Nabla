@@ -254,13 +254,6 @@ jobs:
           path: ~/.conan2
           key: conan-windows-msvc
 
-      # - name: Configure Windows Pagefile
-      #   uses: al-cheb/configure-pagefile-action@v1.5
-      #   with:
-      #     minimum-size: 16GB
-      #     maximum-size: 32GB
-      #     disk-root: "C:"
-
       - name: Build & Install Nabla
         id: build-nabla
         shell: pwsh

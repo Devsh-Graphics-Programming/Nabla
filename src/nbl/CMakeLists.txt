@@ -617,6 +617,7 @@ if(_NBL_COMPILE_WITH_GLI_)
 	target_link_libraries(Nabla PRIVATE gli)
 endif()
 
+# spirv-headers
 find_package(SPIRV-Headers REQUIRED CONFIG)
 get_filename_component(_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_ "${SPIRV-Headers_INCLUDE_DIR}" ABSOLUTE)
 get_filename_component(_SPIRV_BR_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/src" ABSOLUTE)
@@ -713,8 +714,8 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	
 	set(NBL_INTERNAL_BUILTIN_TARGETS
 		nblBuiltinResourceData 
-		spirvBuiltinResourceData 
-		boostBuiltinResourceData 
+		spirvBuiltinResourceData
+		boostBuiltinResourceData
 		deviceGenBuiltinResourceData
 	)
 	
@@ -859,32 +860,10 @@ target_compile_definitions(Nabla INTERFACE
 
 if(NBL_STATIC_BUILD)
 	# install dependencies, they are required only for static Nabla builds
-	# nbl_install_lib(glslang)
 	nbl_install_lib(GenericCodeGen)
 	nbl_install_lib(MachineIndependent)
-	# nbl_install_lib(jpeg-static)
-	# if (_NBL_COMPILE_WITH_OPEN_EXR_)
-	# 	nbl_install_lib(OpenEXR)
-	# else()
-	# 	nbl_install_lib(OpenEXRCore)
-	# 	nbl_install_lib(OpenEXRUtil)
-	# endif()
-	# nbl_install_lib(png_static)
-	# nbl_install_lib(shaderc)
-	# nbl_install_lib(shaderc_util)
 	nbl_install_lib(SPIRV)
-	# nbl_install_lib(SPIRV-Tools-static) # TODO: make this function/macro work with alias target
-	# nbl_install_lib(SPIRV-Tools-opt)
 	nbl_install_lib(OSDependent)
-	# nbl_install_lib(zlibstatic)
-	# nbl_install_lib(simdjson)
-	# nbl_install_lib(volk)
-	
-	# if(_NBL_BUILD_DPL_)
-	# 	nbl_install_program(tbb)
-	# 	nbl_install_program(tbbmalloc)
-	# 	nbl_install_program(tbbmalloc_proxy)
-	# endif()
 else()
 	nbl_install_program_spec(Nabla "nbl")
 endif()

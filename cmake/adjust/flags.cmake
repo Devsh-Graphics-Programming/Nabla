@@ -3,11 +3,6 @@ include_guard(GLOBAL)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
-if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	message(WARNING "\"${CMAKE_CURRENT_LIST_FILE}\" included without defined \"_NBL_JOBS_AMOUNT_\", setting it to \"1\"")
-	set(_NBL_JOBS_AMOUNT_ 1)
-endif()
-
 define_property(TARGET PROPERTY NBL_CONFIGURATION_MAP
   BRIEF_DOCS "Stores configuration map for a target, it will evaluate to the configuration it's mapped to"
 )

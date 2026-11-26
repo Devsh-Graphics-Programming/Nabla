@@ -192,7 +192,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		if(NBL_STATIC_BUILD AND _LIB_TYPE_ STREQUAL SHARED)
 			message(FATAL_ERROR "Nabla must be built as dynamic library in order to combine this tool with SHARED setup!")
 		endif()
-		
+
 		if(NOT _NBL_INTERNAL_BR_CREATION_)
 			target_link_libraries(${_TARGET_NAME_} PUBLIC Nabla)
 		endif()
@@ -203,10 +203,14 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 			message(FATAL_ERROR "_NABLA_INCLUDE_DIRECTORIES_ has been not found. You are required to define _NABLA_INCLUDE_DIRECTORIES_ containing at least include search directory path to BuildConfigOptions.h")
 		endif()
 	endif()
+
+	if (NOT _NABLA_INCLUDE_DIRECTORIES_)
+		set(_NABLA_INCLUDE_DIRECTORIES_ "")
+	endif()
 	
 	target_include_directories(${_TARGET_NAME_} PUBLIC 
 		${_OUTPUT_INCLUDE_DIRECTORIES_}
-		"${_NABLA_INCLUDE_DIRECTORIES_}"
+		${_NABLA_INCLUDE_DIRECTORIES_}
 	)
 	set_target_properties(${_TARGET_NAME_} PROPERTIES CXX_STANDARD 20)
 	
