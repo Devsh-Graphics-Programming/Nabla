@@ -11,7 +11,7 @@
 			"hidden": true,
 			"cacheVariables": {
 				"CMAKE_SUPPRESS_REGENERATION": "ON",
-				"NBL_EMBED_BUILTIN_RESOURCES": "ON",
+				"NBL_EMBED_BUILTIN_RESOURCES": "OFF",
 				"NBL_NSC_MODE": "SOURCE",
 				"NBL_UPDATE_GIT_SUBMODULE": "OFF",
 				"NBL_COMPILE_WITH_CUDA": "ON",
