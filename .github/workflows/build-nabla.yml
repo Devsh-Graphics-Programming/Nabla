@@ -254,19 +254,19 @@ jobs:
           path: ~/.conan2
           key: conan-windows-msvc
 
-      - name: Configure Windows Pagefile
-        uses: al-cheb/configure-pagefile-action@v1.5
-        with:
-          minimum-size: 16GB
-          maximum-size: 32GB
-          disk-root: "C:"
+      # - name: Configure Windows Pagefile
+      #   uses: al-cheb/configure-pagefile-action@v1.5
+      #   with:
+      #     minimum-size: 16GB
+      #     maximum-size: 32GB
+      #     disk-root: "C:"
 
       - name: Build & Install Nabla
         id: build-nabla
         shell: pwsh
         run: |
           & '${{ env.MSVC_TOOLSET_DIR }}/Common7/Tools/Launch-VsDevShell.ps1' -Arch x64 -HostArch x64
-          cmake --build -j 1 `
+          cmake --build -j 4 `
             --preset ci-build-dynamic-${{ matrix.vendor }} `
             --target install `
             --config ${{ matrix.config }}
@@ -282,7 +282,7 @@ jobs:
           $buildLog = Join-Path $statusDir "build-examples.log"
           $installLog = Join-Path $statusDir "install-examples.log"
 
-          & cmake --build -j 1 `
+          & cmake --build -j 4 `
             --preset ci-build-dynamic-${{ matrix.vendor }} `
             -t examples_tests\all --config ${{ matrix.config }} `
             -- -k 0 2>&1 | Tee-Object -FilePath $buildLog
