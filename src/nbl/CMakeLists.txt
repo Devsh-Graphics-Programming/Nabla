@@ -488,12 +488,12 @@ option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will inc
 find_package(git-version-tracking CONFIG REQUIRED)
 NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
 NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "") # TODO: need to find a way to track dxc changes, because now using conan packages
-nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/nabla_git_info.json")
-nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/dxc_git_info.json")
+nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/nabla_git_info.json")
+nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/dxc_git_info.json")
 
 NBL_GENERATE_GIT_TRACKING_META()
 
-nbl_install_file(${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/git_info.h)
+nbl_install_file(${CMAKE_CURRENT_BINARY_DIR}/git_info.h)
 
 # oneDPL (formerly Parallel STL) for clang C++17 parallelism
 if(_NBL_BUILD_DPL_)
