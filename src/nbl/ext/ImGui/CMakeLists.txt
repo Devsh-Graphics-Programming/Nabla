@@ -29,7 +29,8 @@ find_package(gtl CONFIG REQUIRED)
 find_package(Imath CONFIG REQUIRED)
 find_package(blake3 CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
-target_link_libraries(${LIB_NAME} PRIVATE glm::glm gtl::gtl Imath::Imath BLAKE3::blake3 boost::boost)
+find_package(renderdoc REQUIRED CONFIG)
+target_link_libraries(${LIB_NAME} PRIVATE glm::glm gtl::gtl Imath::Imath BLAKE3::blake3 boost::boost renderdoc::renderdoc_app)
 
 add_library(Nabla::ext::ImGUI ALIAS ${LIB_NAME})
 
