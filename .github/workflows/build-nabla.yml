@@ -1,193 +1,54 @@
 name: Build
-
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  actions: read
-
-env:
-  CUDA_VERSION: '13.2.1'
-  CUDA_CACHE_BASE: 'C:\nabla-ci\cuda'
-
+on: [push, pull_request, workflow_dispatch]
+permissions: {contents: read, actions: read}
 concurrency:
-  group: push-lock-${{ github.ref }}
+  group: build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  prepare-host-rg:
-    name: Prepare host ripgrep
-    runs-on: windows-2022
-
-    steps:
-      - name: Restore ripgrep host tool
-        id: cache-rg
-        uses: actions/cache@v5
-        with:
-          path: ${{ runner.temp }}\ripgrep-14.1.1-x86_64-pc-windows-msvc
-          key: ripgrep-14.1.1-x86_64-pc-windows-msvc
-
-      - name: Install ripgrep host tool
-        if: steps.cache-rg.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          $rgVersion = '14.1.1'
-          $archive = Join-Path $env:RUNNER_TEMP "ripgrep-$rgVersion-x86_64-pc-windows-msvc.zip"
-          $extractRoot = $env:RUNNER_TEMP
-          Invoke-WebRequest `
-            -Uri "https://github.com/BurntSushi/ripgrep/releases/download/$rgVersion/ripgrep-$rgVersion-x86_64-pc-windows-msvc.zip" `
-            -OutFile $archive
-          Expand-Archive -Path $archive -DestinationPath $extractRoot -Force
-
-      - name: Verify ripgrep host tool
-        shell: pwsh
-        run: |
-          $rgExe = Join-Path $env:RUNNER_TEMP 'ripgrep-14.1.1-x86_64-pc-windows-msvc\rg.exe'
-          if (-not (Test-Path $rgExe)) {
-            throw "ripgrep was not installed on host."
-          }
-          & $rgExe --version
-
-  prepare-host-cuda:
-    name: Prepare host CUDA
-    runs-on: windows-2025
-    defaults:
-      run:
-        shell: bash
-
-    steps:
-      - name: Checkout CUDA CI helper
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          sparse-checkout: |
-            .github/scripts
-
-      - name: CUDA Toolkit paths
-        id: cuda
-        run: python .github/scripts/ci_cuda_toolkit.py outputs
-
-      - name: Restore CUDA Toolkit
-        id: cache-cuda
-        uses: actions/cache@v5
-        with:
-          path: ${{ steps.cuda.outputs.cache_root }}
-          key: ${{ steps.cuda.outputs.cache_key }}
-          restore-keys: ${{ steps.cuda.outputs.cache_restore_key }}
-
-      - name: Install CUDA Toolkit
-        if: steps.cache-cuda.outputs.cache-hit != 'true'
-        run: python .github/scripts/ci_cuda_toolkit.py install
-
-      - name: Verify CUDA Toolkit
-        run: python .github/scripts/ci_cuda_toolkit.py verify
-
-  build-windows:
-    name: Nabla (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
-    needs: [prepare-host-rg, prepare-host-cuda]
+  build:
+    name: Nabla (${{ matrix.os }}, ${{ matrix.config.name }})
     runs-on: ${{ matrix.os }}
+    defaults: {run: {shell: "${{ matrix.shell }}"}}
 
     env:
-      image: ghcr.io/devsh-graphics-programming/docker-nanoserver-msvc-winsdk
-      entry: pwsh.exe
-      cmd: -NoLogo -NoProfile -ExecutionPolicy Bypass
-      mount: ${{ github.workspace }}
-      binary: ${{ github.workspace }}\build-ct
-      install: build-ct\install
-      NBL_CI_MODE: ON
-      NBL_CI_BUILD_DIRECTORY: ${{ github.workspace }}\build-ct
-      NINJA_STATUS: "[%r jobs, %f/%t edges, %oe/s, elapsed %ws]: "
-      MSVC_TOOLSET_DIR: 'C:/Program Files/Microsoft Visual Studio/18/Enterprise'
-      CL_BIN: 'C:/Program Files/Microsoft Visual Studio/18/Enterprise/VC/Tools/MSVC/18.12.12405/bin/Hostx64/x64'
-      WIN_SDK_BIN: 'C:/Program Files (x86)/Windows Kits/10/bin/10.0.26100.0/x64'
+      NBL_CI_MODE: "ON"
+      NBL_CI_BUILD_DIRECTORY: ${{ github.workspace }}/build-ct
+      CONAN_HOME: ${{ github.workspace }}/.conan2
+      CONAN_NON_INTERACTIVE: "1"
+      CUDA_VERSION: "13.2.1"
+      CUDA_CACHE_BASE: ${{ github.workspace }}/.cuda
 
     strategy:
       fail-fast: false
       matrix:
-        # vendor: [msvc, clangcl]
-        # TODO: Yas please fix ClangCL, we have a few new compile errors
-        # build full Nabla preset, run-compiler-explorer is pulled in via ALL when Docker integration is enabled
-        vendor: [msvc]
-        config: [Release, Debug, RelWithDebInfo]
-        tag: ['17.13.6']
         os: [windows-2025]
+        config: [{name: Debug, deps: Debug}, {name: Release, deps: Release}, {name: RelWithDebInfo, deps: Release}]
+        include:
+          - os: windows-2025
+            shell: pwsh
+            vendor: msvc
+            host_profile: windows-msvc195-x64-md
+            build_profile: windows-msvc195-x64-md
 
     steps:
-      - name: Environment Setup
-        shell: pwsh
-        run: |
-            Add-MpPreference -ExclusionPath "${{ github.workspace }}"
-            Add-MpPreference -ExclusionExtension "*.*"
-            Set-MpPreference -RemediationScheduleDay 8
-            Set-MpPreference -DisableRealtimeMonitoring $true
-            Set-MpPreference -DisableRemovableDriveScanning $true
-            Set-MpPreference -DisableArchiveScanning $true
-            Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
+      - uses: actions/checkout@v6
+        with: {submodules: recursive}
 
-      - name: Set prefix
-        id: set-prefix
-        shell: pwsh
-        run: |
-          $prefix = "run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}"
-          $owner = "${{ github.repository_owner }}"
-          $package = "nabla-shader-compiler-godbolt"
-          $tag = "build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}"
-          $nscTargetTaggedImage = "ghcr.io/${owner}/${package}:${tag}".ToLower()
-          $nscTargetTaggedImageLatest = "ghcr.io/${owner}/${package}:latest".ToLower()
-          $nscChannel = "nsc-windows-x64-release"
-          $nscArtifactName = "${nscChannel}-payload"
-          $nscManifestArtifactName = "${nscChannel}-manifests"
-          $shouldPrepareNsc = (
-            "${{ matrix.vendor }}" -eq "msvc" -and
-            "${{ matrix.config }}" -eq "Release"
-          )
+      - uses: actions/checkout@v6
+        with: {repository: Devsh-Graphics-Programming/conan-config, path: conan-config}
 
-          $shouldPushImage = (
-            "${{ github.ref }}" -eq "refs/heads/master" -and
-            "${{ matrix.vendor }}" -eq "msvc" -and
-            "${{ matrix.config }}" -eq "Release"
-          )
-          $shouldPublishNscRelease = $shouldPushImage
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12", cache: pip, cache-dependency-path: .github/workflows/build-nabla.yml}
 
-          Write-Host "::notice::Should push image? $shouldPushImage"
-          Write-Host "::notice::Should prepare NSC artifacts? $shouldPrepareNsc"
-          
-          "prefix=$prefix" >> $env:GITHUB_OUTPUT
-          "nscTargetTaggedImage=$nscTargetTaggedImage" >> $env:GITHUB_OUTPUT
-          "nscTargetTaggedImageLatest=$nscTargetTaggedImageLatest" >> $env:GITHUB_OUTPUT
-          "nscChannel=$nscChannel" >> $env:GITHUB_OUTPUT
-          "nscArtifactName=$nscArtifactName" >> $env:GITHUB_OUTPUT
-          "nscManifestArtifactName=$nscManifestArtifactName" >> $env:GITHUB_OUTPUT
-          "shouldPrepareNsc=$shouldPrepareNsc" >> $env:GITHUB_OUTPUT
-          "shouldPushImage=$shouldPushImage" >> $env:GITHUB_OUTPUT
-          "shouldPublishNscRelease=$shouldPublishNscRelease" >> $env:GITHUB_OUTPUT
+      - run: python -m pip install conan==2.34.0
+      - run: conan config install ./conan-config/config
 
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          submodules: 'recursive'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with: {arch: x64}
 
-      - name: Checkout conan configs
-        uses: actions/checkout@v6
-        with:
-          repository: Devsh-Graphics-Programming/conan-config
-          path: conan-config
-
-      - name: Install conan
-        shell: bash
-        run: |
-          python -m pip install conan==2.32.0
-          curl --fail --silent --show-error --max-time 30 https://conan.devsh.eu/healthz
-          conan remote add devsh https://conan.devsh.eu
-          conan list '*' -r=devsh
-          conan profile detect
-          conan config install ./conan-config/config
-
-      - name: Download VulkanSDK
-        uses: Devsh-Graphics-Programming/install-vulkan-sdk-action@v1.4.0-devsh.1
+      - uses: Devsh-Graphics-Programming/install-vulkan-sdk-action@v1.4.0-devsh.1
         with:
             install_runtime: true
             cache: true
@@ -195,529 +56,95 @@ jobs:
             install_lavapipe: true
             github_token: ${{ github.token }}
 
-      - name: CUDA Toolkit paths
-        id: cuda
+      - id: cuda
         run: python .github/scripts/ci_cuda_toolkit.py outputs
 
-      - name: Restore ripgrep host tool
-        id: cache-rg
-        uses: actions/cache@v5
-        with:
-          path: ${{ runner.temp }}\ripgrep-14.1.1-x86_64-pc-windows-msvc
-          key: ripgrep-14.1.1-x86_64-pc-windows-msvc
-
-      - name: Add ripgrep to PATH
-        shell: pwsh
-        run: |
-          $rgDir = Join-Path $env:RUNNER_TEMP 'ripgrep-14.1.1-x86_64-pc-windows-msvc'
-          $rgExe = Join-Path $rgDir 'rg.exe'
-          if (-not (Test-Path $rgExe)) {
-            throw "ripgrep was not installed on host."
-          }
-          $rgDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          & $rgExe --version
-
-      - name: Restore CUDA Toolkit
-        id: cache-cuda
-        uses: actions/cache@v5
+      - uses: actions/cache@v5
+        id: cuda-cache
         with:
           path: ${{ steps.cuda.outputs.cache_root }}
           key: ${{ steps.cuda.outputs.cache_key }}
           restore-keys: ${{ steps.cuda.outputs.cache_restore_key }}
 
-      - name: Verify CUDA Toolkit
-        run: python .github/scripts/ci_cuda_toolkit.py verify
+      - if: steps.cuda-cache.outputs.cache-hit != 'true'
+        run: python .github/scripts/ci_cuda_toolkit.py install
+      - run: python .github/scripts/ci_cuda_toolkit.py verify
 
-      - name: Restore cached conan
+      - uses: actions/cache/restore@v5
         id: cache-conan-restore
-        uses: actions/cache/restore@v5
         with:
           path: ~/.conan2
           key: conan-windows-msvc
 
-      - name: Configure Project with CMake
-        shell: pwsh
+      - name: Configure
         run: |
-          mkdir profiling
-          & '${{ env.MSVC_TOOLSET_DIR }}/Common7/Tools/Launch-VsDevShell.ps1' -Arch x64 -HostArch x64
-          cmake `
-            --preset ci-configure-dynamic-${{ matrix.vendor }} `
-            -DCMAKE_INSTALL_PREFIX:PATH=${{ github.workspace }}/build-ct/install `
-            -DNBL_CUDA_TOOLKIT_ROOT:PATH=${{ steps.cuda.outputs.cache_root }} `
-            --profiling-output=profiling/cmake-profiling.json `
-            --profiling-format=google-trace
+          New-Item -ItemType Directory -Force profiling | Out-Null
+          cmake --preset ci-configure-dynamic-${{ matrix.vendor }} -DCMAKE_INSTALL_PREFIX:PATH="${{ github.workspace }}/build-ct/install" -DNBL_ENABLE_DOCKER_INTEGRATION=OFF -DCONAN_HOST_PROFILE=${{ matrix.host_profile }} -DCONAN_BUILD_PROFILE=${{ matrix.build_profile }} -DCONAN_INSTALL_ARGS=--build=never -DCONAN_INSTALL_BUILD_CONFIGURATIONS=${{ matrix.config.deps }} -DCMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO=Release -DNBL_CUDA_TOOLKIT_ROOT:PATH="${{ steps.cuda.outputs.cache_root }}" --profiling-output=profiling/cmake-profiling.json --profiling-format=google-trace
 
-      - name: Save conan
+      - uses: actions/cache/save@v5
         id: cache-conan-save
-        uses: actions/cache/save@v5
         with:
           path: ~/.conan2
           key: conan-windows-msvc
 
-      - name: Build & Install Nabla
-        id: build-nabla
-        shell: pwsh
+      - name: Build and install
+        run: cmake --build --preset ci-build-dynamic-${{ matrix.vendor }} --target install --config ${{ matrix.config.name }}
+
+      - run: tar -cf nabla-install.tar build-ct/install && tar -cf nabla-profiling.tar profiling
+
+      - uses: actions/upload-artifact@v7
+        with: {name: "nabla-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.config.name }}-install", path: nabla-install.tar, compression-level: 0}
+      - uses: actions/upload-artifact@v7
+        with: {name: "nabla-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.config.name }}-profiling", path: nabla-profiling.tar}
+
+      - uses: actions/cache@v5
+        if: runner.os == 'Windows'
+        id: rg-cache
+        with: {path: "${{ runner.temp }}/ripgrep-14.1.1-x86_64-pc-windows-msvc", key: ripgrep-14.1.1-x86_64-pc-windows-msvc}
+
+      - if: runner.os == 'Windows' && steps.rg-cache.outputs.cache-hit != 'true'
         run: |
-          & '${{ env.MSVC_TOOLSET_DIR }}/Common7/Tools/Launch-VsDevShell.ps1' -Arch x64 -HostArch x64
-          cmake --build -j 4 `
-            --preset ci-build-dynamic-${{ matrix.vendor }} `
-            --target install `
-            --config ${{ matrix.config }}
+          Invoke-WebRequest https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-pc-windows-msvc.zip -OutFile "$env:RUNNER_TEMP/rg.zip"
+          Expand-Archive "$env:RUNNER_TEMP/rg.zip" $env:RUNNER_TEMP -Force
 
-      - name: Build & Install Examples
-        id: build-examples
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $statusDir = Join-Path $env:RUNNER_TEMP "examples-status"
-          New-Item -ItemType Directory -Force -Path $statusDir | Out-Null
-
-          $buildLog = Join-Path $statusDir "build-examples.log"
-          $installLog = Join-Path $statusDir "install-examples.log"
-
-          & cmake --build -j 4 `
-            --preset ci-build-dynamic-${{ matrix.vendor }} `
-            -t examples_tests\all --config ${{ matrix.config }} `
-            -- -k 0 2>&1 | Tee-Object -FilePath $buildLog
-          $buildExitCode = $LASTEXITCODE
-
-          if ($buildExitCode -eq 0) {
-            & cmake --install `
-              ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
-              --prefix ${{ env.install }} 2>&1 | Tee-Object -FilePath $installLog
-            $installExitCode = $LASTEXITCODE
-          } else {
-            "Skipped because the Examples build failed." | Set-Content -Path $installLog -Encoding ascii
-            $installExitCode = 1
-          }
-
-          if ($buildExitCode -ne 0) {
-            exit $buildExitCode
-          }
-
-          if ($installExitCode -ne 0) {
-            exit $installExitCode
-          }
-
-      - name: Record Examples result
-        if: ${{ always() }}
-        shell: pwsh
-        run: |
-          $examplesResult = if (
-            "${{ steps.build-nabla.outcome }}" -eq "success" -and
-            "${{ steps.build-examples.outcome }}" -eq "success"
-          ) {
-            "success"
-          } else {
-            "failure"
-          }
-          $statusDir = Join-Path $env:RUNNER_TEMP "examples-status"
-          New-Item -ItemType Directory -Force -Path $statusDir | Out-Null
-          $statusFile = Join-Path $statusDir "status.txt"
-          $detailsFile = Join-Path $statusDir "details.txt"
-          $examplesResult | Set-Content -Path $statusFile -Encoding ascii -NoNewline
-          @(
-            "build-nabla=${{ steps.build-nabla.outcome }}"
-            "build-examples=${{ steps.build-examples.outcome }}"
-            "result=$examplesResult"
-          ) | Set-Content -Path $detailsFile -Encoding ascii
-
-      - name: Upload Examples result
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: examples-status-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}
-          path: ${{ runner.temp }}/examples-status
-          if-no-files-found: error
-
-      # - name: Container – Save NSC Image
-      #   run: |
-      #     docker exec orphan `
-      #       ${{ env.entry }} ${{ env.cmd }} -Command docker `
-      #         save ${{ steps.set-prefix.outputs.nscTargetTaggedImage }} | zstd -T0 -3 -f -o ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
+      - if: runner.os == 'Windows'
+        run: '"$env:RUNNER_TEMP/ripgrep-14.1.1-x86_64-pc-windows-msvc" >> $env:GITHUB_PATH'
+      - name: Package sources
+        shell: bash
+        run: MSYS_NO_PATHCONV=1 rg --files -uu -0 --path-separator=/ -g '*.{c,cc,cpp,cxx,h,hh,hpp,hxx,inc,inl,ipp,tpp,ixx}' -g '!.git/**' -g '!.conan2/**' -g '!.cuda/**' -g '!examples_tests/media/**' . | tar --null -T - -cf nabla-source.tar
+      - uses: actions/upload-artifact@v7
+        with: {name: "nabla-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.config.name }}-source", path: nabla-source.tar}
 
       - name: Install NSC runtime bundle
-        if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
-        shell: pwsh
+        if: runner.os == 'Windows' && matrix.config.name == 'Release'
         run: |
-          New-Item -ItemType Directory -Force -Path ${{ github.workspace }}\build-ct\nsc-package | Out-Null
+          $PSNativeCommandUseErrorActionPreference = $true
+          @('PackageConfig', 'Runtimes', 'NSCExecutables', 'NSCConfig') | ForEach-Object { cmake --install build-ct --config Release --prefix build-ct/nsc-package --component $_ }
+          & ./build-ct/nsc-package/exe/tools/nsc/bin/nsc.exe --dump-build-info --file build-ct/nsc-package/exe/tools/nsc/bin/build-info.json
 
-          cmake --install `
-            ${{ env.binary }} `
-            --config ${{ matrix.config }} `
-            --prefix ${{ github.workspace }}/build-ct/nsc-package `
-            --component PackageConfig
+      - name: Prepare NSC channel
+        if: runner.os == 'Windows' && matrix.config.name == 'Release'
+        run: cmake -D SOURCE_ROOT=build-ct/nsc-package -D PAYLOAD_ROOT=build-ct/nsc-release/payload -D MANIFEST_ROOT=build-ct/nsc-release/manifests -D CHANNEL=nsc-windows-x64-release -D MANIFESTS_ZIP=build-ct/nsc-release/nsc-windows-x64-release-manifests.zip -D PRUNE=ON -P cmake/nam/cmake/NablaAssetManifestsPrepareRelease.cmake
 
-          cmake --install `
-            ${{ env.binary }} `
-            --config ${{ matrix.config }} `
-            --prefix ${{ github.workspace }}/build-ct/nsc-package `
-            --component Runtimes
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'Windows' && matrix.config.name == 'Release'
+        with: {name: nsc-windows-x64-release-payload, path: build-ct/nsc-release/payload, if-no-files-found: error}
 
-          cmake --install `
-            ${{ env.binary }} `
-            --config ${{ matrix.config }} `
-            --prefix ${{ github.workspace }}/build-ct/nsc-package `
-            --component NSCExecutables
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'Windows' && matrix.config.name == 'Release'
+        with: {name: nsc-windows-x64-release-manifests, path: build-ct/nsc-release/nsc-windows-x64-release-manifests.zip, if-no-files-found: error}
 
-          cmake --install `
-            ${{ env.binary }} `
-            --config ${{ matrix.config }} `
-            --prefix ${{ github.workspace }}/build-ct/nsc-package `
-            --component NSCConfig
+      - name: Build examples
+        run: cmake --build --preset ci-build-dynamic-${{ matrix.vendor }} --target examples_tests/all --config ${{ matrix.config.name }} -- -k 0
 
-          & '.\shell.cmd' '${{ github.workspace }}\build-ct\nsc-package\exe\tools\nsc\bin\nsc.exe' '--dump-build-info' '--file' '${{ github.workspace }}\build-ct\nsc-package\exe\tools\nsc\bin\build-info.json'
+      - name: Install examples
+        run: cmake --install build-ct/examples_tests --prefix build-ct/install --config ${{ matrix.config.name }}
 
-      - name: Prepare NSC runtime channel layout
-        if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
-        working-directory: ${{ github.workspace }}
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path build-ct/nsc-release | Out-Null
+      - run: tar -xf nabla-install.tar -C smoke
+      - run: cmake -D FLOW=MINIMALISTIC -D CONFIG=${{ matrix.config.name }} -P smoke/RunSmokeFlow.cmake
+      - run: cmake -D FLOW=CONFIGURE_ONLY -D CONFIG=${{ matrix.config.name }} -P smoke/RunSmokeFlow.cmake
+      - run: cmake -D FLOW=BUILD_ONLY -D CONFIG=${{ matrix.config.name }} -P smoke/RunSmokeFlow.cmake
 
-          cmake `
-            -D SOURCE_ROOT=build-ct/nsc-package `
-            -D PAYLOAD_ROOT=build-ct/nsc-release/payload `
-            -D MANIFEST_ROOT=build-ct/nsc-release/manifests `
-            -D CHANNEL=${{ steps.set-prefix.outputs.nscChannel }} `
-            -D MANIFESTS_ZIP=build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-manifests.zip `
-            -D PRUNE=ON `
-            -P cmake/nam/cmake/NablaAssetManifestsPrepareRelease.cmake
-
-      - name: Package left workflow artifacts
-        run: |
-          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-profiling.tar" profiling
-          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-install.tar" ${{ env.install }}
-          $sourceTar = "${{ steps.set-prefix.outputs.prefix }}-source.tar"
-          $sourceFiles = @(
-            rg --files -uu . `
-              -g '*.c' -g '*.cc' -g '*.cpp' -g '*.cxx' `
-              -g '*.h' -g '*.hh' -g '*.hpp' -g '*.hxx' `
-              -g '*.inc' -g '*.inl' -g '*.ipp' -g '*.tpp' -g '*.ixx' `
-              -g '!examples_tests/media/**' -g '!.git/**'
-          ) | Sort-Object -Unique
-
-          if ($sourceFiles.Count -eq 0) {
-            throw "No source-like files found for source artifact packaging."
-          }
-
-          $archiveStream = [System.IO.File]::Open($sourceTar, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
-          try {
-            $tarWriter = [System.Formats.Tar.TarWriter]::new($archiveStream, [System.Formats.Tar.TarEntryFormat]::Pax, $false)
-            try {
-              foreach ($sourceFile in $sourceFiles) {
-                $entryName = $sourceFile -replace '\\', '/'
-                if ($entryName.StartsWith('./')) {
-                  $entryName = $entryName.Substring(2)
-                }
-                $sourcePath = (Resolve-Path -LiteralPath $sourceFile).Path
-                $tarWriter.WriteEntry($sourcePath, $entryName)
-              }
-            }
-            finally {
-              $tarWriter.Dispose()
-            }
-          }
-          finally {
-            $archiveStream.Dispose()
-          }
-
-      # - name: Upload NSC Godbolt Image artifact
-      #   uses: actions/upload-artifact@v7
-      #   with:
-      #     name: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image
-      #     path: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
-      #     compression-level: 0
-
-      - name: Upload NSC runtime bundle artifact
-        if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.set-prefix.outputs.nscArtifactName }}
-          path: build-ct/nsc-release/payload
-
-      - name: Upload NSC manifest zip artifact
-        if: steps.set-prefix.outputs.shouldPrepareNsc == 'True'
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.set-prefix.outputs.nscManifestArtifactName }}
-          path: build-ct/nsc-release/${{ steps.set-prefix.outputs.nscChannel }}-manifests.zip
-
-      - name: Upload profiling artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.set-prefix.outputs.prefix }}-profiling
-          path: ${{ steps.set-prefix.outputs.prefix }}-profiling.tar
-
-      - name: Upload install artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.set-prefix.outputs.prefix }}-install
-          path: ${{ steps.set-prefix.outputs.prefix }}-install.tar
-
-      - name: Upload source artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.set-prefix.outputs.prefix }}-source
-          path: ${{ steps.set-prefix.outputs.prefix }}-source.tar
-
-      - name: Login to GHCR
-        if: steps.set-prefix.outputs.shouldPushImage == 'True'
-        run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u $env:GITHUB_ACTOR --password-stdin
-
-      - name: Tag Latest image
-        if: steps.set-prefix.outputs.shouldPushImage == 'True'
-        run: |
-          docker tag ${{ steps.set-prefix.outputs.nscTargetTaggedImage }} ${{ steps.set-prefix.outputs.nscTargetTaggedImageLatest }}
-
-      - name: Push images to GHCR
-        if: steps.set-prefix.outputs.shouldPushImage == 'True'
-        run: |
-          docker push ${{ steps.set-prefix.outputs.nscTargetTaggedImageLatest }}
-
-  examples-status:
-    name: Examples (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
-    needs: build-windows
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        vendor: [msvc]
-        config: [Release, Debug, RelWithDebInfo]
-        tag: ['17.13.6']
-        os: [windows-2022]
-
-    steps:
-      - name: Download Examples result
-        uses: actions/download-artifact@v8
-        with:
-          name: examples-status-${{ matrix.os }}-${{ matrix.vendor }}-${{ matrix.tag }}-${{ matrix.config }}
-          path: examples-status
-
-      - name: Show Examples build log
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          log_file="examples-status/build-examples.log"
-          if [[ ! -f "$log_file" ]]; then
-            echo "Missing build log"
-            exit 1
-          fi
-
-          cat "$log_file"
-
-      - name: Show Examples install log
-        if: ${{ always() }}
-        shell: bash
-        run: |
-          log_file="examples-status/install-examples.log"
-          if [[ ! -f "$log_file" ]]; then
-            echo "Missing install log"
-            exit 1
-          fi
-
-          cat "$log_file"
-
-      - name: Fail if Examples did not succeed
-        shell: bash
-        run: |
-          status_file="examples-status/status.txt"
-          if [[ ! -f "$status_file" ]]; then
-            echo "Missing Examples status artifact"
-            exit 1
-          fi
-
-          result="$(tr -d '\r\n' < "$status_file")"
-          echo "Examples result: $result"
-
-          if [[ -f "examples-status/details.txt" ]]; then
-            echo "Details:"
-            cat "examples-status/details.txt"
-          fi
-
-          if [[ "$result" != "success" ]]; then
-            exit 1
-          fi
-
-  update-badges:
-    name: Update Build & Image Badges
-    if: ${{ always() && github.ref == 'refs/heads/master' }}
-    needs: build-windows
-    runs-on: windows-2022
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Create Build Badge
-        run: |
-          $jobStatus = "${{ needs.build-windows.result }}"
-          $buildMsg = if ($jobStatus -eq "success") { "passing" } else { "failing" }
-          $buildColor = if ($jobStatus -eq "success") { "brightgreen" } else { "red" }
-
-          $buildBadge = @{
-            schemaVersion = 1
-            label = "build"
-            message = $buildMsg
-            color = $buildColor
-          } | ConvertTo-Json -Depth 2
-
-          $buildPath = ".badge-public/nabla"
-          New-Item -ItemType Directory -Path $buildPath -Force | Out-Null
-          $buildBadge | Set-Content -Path "$buildPath/build.json" -Encoding utf8
-
-      - name: Create Image Size Badge
-        run: |
-          $owner = "${{ github.repository_owner }}"
-          $package = "nabla-shader-compiler-godbolt"
-          $image = "ghcr.io/${owner}/${package}:latest".ToLower()
-          $manifest = docker manifest inspect $image | ConvertFrom-Json
-
-          if ($manifest.manifests) {
-            $totalSize = ($manifest.manifests | Measure-Object -Property size -Sum).Sum
-          } elseif ($manifest.layers) {
-            $totalSize = ($manifest.layers | Measure-Object -Property size -Sum).Sum
-          } else {
-            Write-Error "No valid size information found in manifest."
-            exit 1
-          }
-
-          $sizeMB = [Math]::Round($totalSize / 1MB, 2)
-          $size = "$sizeMB MB"
-
-          $imageBadge = @{
-            schemaVersion = 1
-            label = $image
-            message = $size
-            color = "blue"
-          } | ConvertTo-Json -Depth 2
-
-          $imagePath = ".badge-public/packages/nabla-shader-compiler-nsc"
-          New-Item -ItemType Directory -Path $imagePath -Force | Out-Null
-          $imageBadge | Set-Content -Path "$imagePath/image-badge.json" -Encoding utf8
-
-      - name: Deploy Badges
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: badges
-          publish_dir: .badge-public
-          keep_files: true
-          commit_message: "[CI] badges update"
-
-  # deploy-production:
-  #   name: Deploy Godbolt production image
-  #   if: ${{ always() && github.ref == 'refs/heads/master' }}
-  #   needs: build-windows
-  #   runs-on: windows-2022
-
-  #   steps:
-  #     - name: Invoke Web Request
-  #       run: |
-  #         function Invoke-UpdateImages {
-  #             param(
-  #                 [string]$Token,
-  #                 [string]$Url = 'https://godbolt.devsh.eu/api/update-images'
-  #             )
-          
-  #             $resp = Invoke-WebRequest -Method Post `
-  #                                       -Uri $Url `
-  #                                       -Headers @{ 'X-API-Token' = $Token } `
-  #                                       -SkipHttpErrorCheck
-          
-  #             $httpCode = $resp.StatusCode
-  #             $body = $resp.Content | ConvertFrom-Json
-          
-  #             Write-Host "HTTP code : $httpCode"
-  #             Write-Host "status    : $($body.status)"
-  #             Write-Host "message   : $($body.message)"
-          
-  #             if ($httpCode -ne 200) {
-  #                 throw "Request failed"
-  #             }
-  #         }
-          
-  #         $token = '${{ secrets.CE_IMAGE_UPDATE_TOKEN }}'
-  #         Invoke-UpdateImages -Token $token
-
-  smoke-tests:
-    name: Nabla / Smoke (${{ matrix.os }}, ${{ matrix.vendor }}-latest, ${{ matrix.config }})
-    needs: build-windows
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        config: [Release, Debug, RelWithDebInfo]
-        os: [windows-2025]
-        vendor: [msvc]
-    steps:
-      - name: Checkout smoke
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-          sparse-checkout: |
-            .github/scripts
-            smoke
-            src/nbl/ext/CUDAInterop/smoke
-
-      - name: CUDA Toolkit paths
-        id: cuda
-        run: python .github/scripts/ci_cuda_toolkit.py outputs
-
-      - name: Download VulkanSDK
-        uses: Devsh-Graphics-Programming/install-vulkan-sdk-action@v1.4.0-devsh.1
-        with:
-            install_runtime: true
-            cache: true
-            stripdown: true
-            install_lavapipe: true
-            github_token: ${{ github.token }}
-
-      - name: Restore CUDA Toolkit
-        id: cache-cuda
-        uses: actions/cache@v5
-        with:
-          path: ${{ steps.cuda.outputs.cache_root }}
-          key: ${{ steps.cuda.outputs.cache_key }}
-          restore-keys: ${{ steps.cuda.outputs.cache_restore_key }}
-
-      - name: Verify CUDA Toolkit
-        run: python .github/scripts/ci_cuda_toolkit.py verify
-
-      - name: Download Nabla install artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: run-windows-17.13.6-msvc-${{ matrix.config }}-install
-          path: smoke
-
-      - name: Unpack Nabla install artifact
-        run: |
-          $tar = Get-ChildItem smoke -Filter *-install.tar -File | Select-Object -First 1
-          if (-not $tar) { throw "install tar not found in smoke" }
-          tar -xf $tar.FullName -C smoke
-          if (-not (Test-Path "smoke/build-ct/install")) { throw "smoke/build-ct/install not found" }
-          tree.com smoke /F
-
-      - name: Smoke Flow MINIMALISTIC
-        run: cmake -D FLOW=MINIMALISTIC -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake
-
-      - name: Smoke Flow CONFIGURE_ONLY
-        run: cmake -D FLOW=CONFIGURE_ONLY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake
-
-      - name: Smoke Flow BUILD_ONLY
-        run: cmake -D FLOW=BUILD_ONLY -D CONFIG=${{ matrix.config }} -P smoke/RunSmokeFlow.cmake
-
-      - name: Build CUDA interop package smoke
-        shell: pwsh
-        run: |
-          cmake `
-            -S src/nbl/ext/CUDAInterop/smoke `
-            -B smoke/cuda-interop-smoke `
-            -D "CMAKE_PREFIX_PATH=${{ github.workspace }}\smoke\build-ct\install\cmake" `
-            -D "NBL_CUDA_INTEROP_SMOKE_WITH_NATIVE=ON" `
-            -D "Nabla_CUDA_TOOLKIT_ROOT=${{ steps.cuda.outputs.cache_root }}"
-
-          cmake --build smoke/cuda-interop-smoke --config ${{ matrix.config }}
+      - name: Configure CUDA interop smoke
+        run: cmake -S src/nbl/ext/CUDAInterop/smoke -B smoke/cuda-interop-smoke -D "CMAKE_PREFIX_PATH=${{ github.workspace }}/smoke/build-ct/install/cmake" -D NBL_CUDA_INTEROP_SMOKE_WITH_NATIVE=ON -D "Nabla_CUDA_TOOLKIT_ROOT=${{ steps.cuda.outputs.cache_root }}"
+      - run: cmake --build smoke/cuda-interop-smoke --config ${{ matrix.config.name }}
