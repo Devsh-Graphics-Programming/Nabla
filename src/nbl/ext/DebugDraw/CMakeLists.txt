@@ -24,7 +24,8 @@ find_package(gtl CONFIG REQUIRED)
 find_package(Imath CONFIG REQUIRED)
 find_package(blake3 CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED)
-target_link_libraries(${LIB_NAME} PRIVATE glm::glm gtl::gtl Imath::Imath BLAKE3::blake3 boost::boost)
+find_package(renderdoc REQUIRED CONFIG)
+target_link_libraries(${LIB_NAME} PRIVATE glm::glm gtl::gtl Imath::Imath BLAKE3::blake3 boost::boost renderdoc::renderdoc_app)
 
 get_filename_component(_ARCHIVE_ABSOLUTE_ENTRY_PATH_ "${NBL_EXT_INTERNAL_INCLUDE_DIR}" ABSOLUTE)
 
