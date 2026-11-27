@@ -3,11 +3,6 @@ include_guard(GLOBAL)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 
-if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	message(WARNING "\"${CMAKE_CURRENT_LIST_FILE}\" included without defined \"_NBL_JOBS_AMOUNT_\", setting it to \"1\"")
-	set(_NBL_JOBS_AMOUNT_ 1)
-endif()
-
 define_property(TARGET PROPERTY NBL_CONFIGURATION_MAP
   BRIEF_DOCS "Stores configuration map for a target, it will evaluate to the configuration it's mapped to"
 )
@@ -305,10 +300,6 @@ function(nbl_adjust_flags)
 			unset(_D_NBL_LINK_OPTIONS_)
 			
 			set(MAPPED_CONFIG $<TARGET_GENEX_EVAL:${NBL_TARGET_ITEM},$<TARGET_PROPERTY:${NBL_TARGET_ITEM},NBL_CONFIGURATION_MAP>>)
-			
-			set_target_properties(${NBL_TARGET_ITEM} PROPERTIES
-				MSVC_DEBUG_INFORMATION_FORMAT $<$<OR:$<STREQUAL:${MAPPED_CONFIG},DEBUG>,$<STREQUAL:${MAPPED_CONFIG},RELWITHDEBINFO>>:ProgramDatabase> # ignored on non xMSVC-ABI targets
-			)
 
 			math(EXPR _NBL_ARG_I_ "${_NBL_ARG_I_} + 1")
 		endwhile()		

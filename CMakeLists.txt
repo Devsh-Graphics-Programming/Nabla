@@ -7,6 +7,40 @@ if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
 	set(CMAKE_POLICY_VERSION_MINIMUM 3.31 CACHE STRING "Minimum policy version for third-party projects")
 endif()
 
+option(NBL_ENABLE_DEBUG_3RDPARTY "Enables usage of debug build variants of 3rdparty deps" OFF)
+option(NBL_DXC_FORCE_RELEASE "Forces Nabla to always use release build of DXC" OFF)
+
+if(NBL_ENABLE_DEBUG_3RDPARTY)
+    set(CONAN_INSTALL_BUILD_CONFIGURATIONS "Debug;Release" CACHE STRING "" FORCE)
+    set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Debug)
+else()
+    set(CONAN_INSTALL_BUILD_CONFIGURATIONS "Release" CACHE STRING "" FORCE)
+    set(CMAKE_MAP_IMPORTED_CONFIG_DEBUG Release)
+endif()
+
+set(CMAKE_MAP_IMPORTED_CONFIG_RELEASE Release)
+set(CMAKE_MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release)
+
+if(NBL_DXC_FORCE_RELEASE)
+    list(APPEND CONAN_INSTALL_ARGS "-s:h=dxc/*:build_type=Release")
+
+    if(MSVC)
+        list(APPEND CONAN_INSTALL_ARGS "-s:h=dxc/*:compiler.runtime_type=Release")
+    endif()
+endif()
+
+set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/cmake/conan_provider.cmake")
+
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreaded)
+if(NBL_ENABLE_DEBUG_3RDPARTY)
+    string(APPEND CMAKE_MSVC_RUNTIME_LIBRARY "$<$<CONFIG:Debug>:Debug>")
+endif()
+if(NBL_COMPILER_DYNAMIC_RUNTIME)
+    string(APPEND CMAKE_MSVC_RUNTIME_LIBRARY DLL)
+endif()
+
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT ProgramDatabase)
+
 # TODO: Yas - once we deploy 4.x we will fire `cmake_policy(VERSION <min>[...<max>])` instead of manually picking policies
 # https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html#policy-version
 # also we should update deps which throw warnings about < 3.10 compatibility
@@ -52,7 +86,9 @@ option(NBL_COMPILER_DYNAMIC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
 option(NBL_DEBUG_RTC_ENABLED "Enable Runtime Checks for Debug builds" OFF)
 
-set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT $<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>) # ignored on non xMSVC-ABI targets
+if(MSVC)
+    add_link_options("$<$<CONFIG:Release>:/DEBUG:FULL;/OPT:REF;/OPT:ICF>")
+endif()
 
 if(NBL_STATIC_BUILD)
 	message(STATUS "Static Nabla build enabled!")
@@ -85,7 +121,7 @@ get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 get_filename_component(NBL_ROOT_PATH_BINARY "${CMAKE_CURRENT_BINARY_DIR}" ABSOLUTE)
 get_filename_component(NBL_PYTHON_MODULE_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tests" ABSOLUTE)
 set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include/nbl/builtin")
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${NBL_ROOT_PATH}/cmake" CACHE PATH "")
+list(APPEND CMAKE_MODULE_PATH "${NBL_ROOT_PATH}/cmake")
 get_property(NBL_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
 include(common)
@@ -126,49 +162,6 @@ set(LLVM_USE_CRT_RELEASE MT CACHE STRING "Nabla developer note: No idea what sub
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build type: Debug or Release" FORCE)
-endif()
-
-option(NBL_MEMORY_CONSUMPTION_CHECK_SKIP "Turn it ON to bypass memory consumption test given _NBL_JOBS_AMOUNT_. Be aware you are doing it on your own risk of potential build failures!" ON)
-option(NBL_JOBS_OVERRIDE "Override jobs with safe bias if required to respect currently available memory" OFF)
-
-include(ProcessorCount)
-
-if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	if(NOT "$ENV{_NBL_JOBS_AMOUNT_}" STREQUAL "")
-		set(_NBL_JOBS_AMOUNT_ "$ENV{_NBL_JOBS_AMOUNT_}")
-	else()
-		ProcessorCount(_NBL_JOBS_AMOUNT_)
-		if(_NBL_JOBS_AMOUNT_ EQUAL 0)
-			set(_NBL_JOBS_AMOUNT_ 1)
-		endif()
-	endif()
-endif()
-
-cmake_host_system_information(RESULT _NBL_TOTAL_PHYSICAL_MEMORY_ QUERY TOTAL_PHYSICAL_MEMORY) # MB
-cmake_host_system_information(RESULT _NBL_AVAILABLE_PHYSICAL_MEMORY_ QUERY AVAILABLE_PHYSICAL_MEMORY) # MB
-
-if(NBL_JOBS_OVERRIDE)
-	math(EXPR _CI_NBL_JOBS_AMOUNT_ "(${_NBL_AVAILABLE_PHYSICAL_MEMORY_} - 512)/(2*1024)") # override with safe bias, respect memory and don't take more then max processors we have
-	if(_CI_NBL_JOBS_AMOUNT_ LESS _NBL_JOBS_AMOUNT_)
-		message(WARNING "Overriding _NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\" with \"${_CI_NBL_JOBS_AMOUNT_}\"")
-	
-		set(_NBL_JOBS_AMOUNT_ "${_CI_NBL_JOBS_AMOUNT_}")
-	endif()
-endif()
-
-message(STATUS "_NBL_JOBS_AMOUNT_: \"${_NBL_JOBS_AMOUNT_}\"")
-
-math(EXPR _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_ "${_NBL_JOBS_AMOUNT_}*2*1024") # MB
-math(EXPR _NBL_CURRENTLY_USED_PHYSICAL_MEMORY_ "${_NBL_TOTAL_PHYSICAL_MEMORY_}-${_NBL_AVAILABLE_PHYSICAL_MEMORY_}") # MB
-
-if(_NBL_AVAILABLE_PHYSICAL_MEMORY_ LESS_EQUAL _NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_) # TODO: we may also add Release and RWDI checks as well
-	if(NBL_MEMORY_CONSUMPTION_CHECK_SKIP)
-		set(_NBL_CMAKE_STATUS_ WARNING)
-	else()
-		set(_NBL_CMAKE_STATUS_ FATAL_ERROR)
-	endif()
-
-	message(${_NBL_CMAKE_STATUS_} "Memory consumption issue detected! To protect you from compile and linker errors, please read this message.\n\nYour total physical memory is ${_NBL_TOTAL_PHYSICAL_MEMORY_} MBs, your OS is currently using ${_NBL_CURRENTLY_USED_PHYSICAL_MEMORY_} MBs and consumption of your memory with requested ${_NBL_JOBS_AMOUNT_} jobs in Debug configuration may be around ${_NBL_DEBUG_MEMORY_CONSUPTION_WITH_ALL_JOBS_} MBs. Please override '_NBL_JOBS_AMOUNT_' variable by setting it as cache variable and lower the jobs! If you want to continue anyway, please define 'NBL_MEMORY_CONSUMPTION_CHECK_SKIP' but be aware - you are doing it on your own risk of possible build failures.")
 endif()
 
 include(adjust/flags)
@@ -258,16 +251,11 @@ if (NBL_ENABLE_DOCKER_INTEGRATION)
 	message(STATUS "Default docker network: \"${DNT_NETWORK_NAME}\"")
 endif()
 
-set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
-set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
-
 set(NBL_MEDIA_DIRECTORY "${PROJECT_SOURCE_DIR}/examples_tests/media")
 get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE)
 
 include(submodules/update)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
-
-add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 add_subdirectory(src/nbl)
 add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework

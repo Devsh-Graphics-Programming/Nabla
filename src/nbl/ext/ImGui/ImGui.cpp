@@ -941,9 +941,6 @@ UI::UI(SCreationParameters&& creationParams, core::smart_refctd_ptr<video::IGPUG
 	: m_cachedCreationParams(std::move(creationParams)), m_pipeline(std::move(pipeline)), m_fontAtlasTexture(std::move(defaultFont)), m_imFontAtlasBackPointer(imFontAtlas), m_imContextBackPointer(imContext)
 {
 	auto& io = ImGui::GetIO();
-
-	// using AddKeyEvent() - it's new way of handling ImGUI events our backends supports
-	io.BackendUsingLegacyKeyArrays = 0;
 }
 
 UI::~UI()

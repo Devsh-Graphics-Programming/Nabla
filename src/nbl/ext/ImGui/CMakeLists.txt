@@ -21,7 +21,16 @@ nbl_create_ext_library_project(
     ""
 )
 
-target_link_libraries(${LIB_NAME} PUBLIC imtestengine imguizmo)
+find_package(imgui CONFIG REQUIRED)
+target_link_libraries(${LIB_NAME} PUBLIC imgui::imtestengine imgui::imguizmo)
+
+find_package(glm CONFIG REQUIRED)
+find_package(gtl CONFIG REQUIRED)
+find_package(Imath CONFIG REQUIRED)
+find_package(blake3 CONFIG REQUIRED)
+find_package(Boost CONFIG REQUIRED)
+find_package(renderdoc REQUIRED CONFIG)
+target_link_libraries(${LIB_NAME} PRIVATE glm::glm gtl::gtl Imath::Imath BLAKE3::blake3 boost::boost renderdoc::renderdoc_app)
 
 add_library(Nabla::ext::ImGUI ALIAS ${LIB_NAME})
 
@@ -36,6 +45,7 @@ target_compile_definitions(${LIB_NAME} PRIVATE _ARCHIVE_ENTRY_KEY_="${_ARCHIVE_E
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	set(_BR_TARGET_ extImguibuiltinResourceData)
+	include("${NBL_ROOT_PATH}/src/nbl/builtin/utils.cmake")
 
 	# TODO: one uber shader and common.hlsl
 	LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "common.hlsl")

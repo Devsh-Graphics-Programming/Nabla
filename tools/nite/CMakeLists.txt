@@ -1,21 +1,19 @@
-set(NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT "${THIRD_PARTY_SOURCE_DIR}/imgui_test_engine")
-set(NBL_IMGUI_TEST_ENGINE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_engine")
-set(NBL_IMGUI_TEST_SUITE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_suite")
-
 set(NBL_EXTRA_OPTIONS
 	# TODO: add if required
 ) 
 
 set(NBL_EXTRA_LIBS
-	imtestengine
-	"${NBL_EXT_IMGUI_UI_LIB}" # Nabla IMGUI backend
+	Nabla::ext::ImGUI
 )
 
 nbl_create_executable_project("" "${NBL_EXTRA_OPTIONS}" "${NBL_EXTRA_INCLUDES}" "${NBL_EXTRA_LIBS}")
 
-add_dependencies(${EXECUTABLE_NAME} argparse)
+find_package(argparse CONFIG REQUIRED)
+find_package(blake3 CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(gtl CONFIG REQUIRED)
+target_link_libraries(${EXECUTABLE_NAME} PRIVATE argparse::argparse BLAKE3::blake3 nlohmann_json::nlohmann_json gtl::gtl)
 target_include_directories(${EXECUTABLE_NAME} PUBLIC 
-	$<TARGET_PROPERTY:argparse,INTERFACE_INCLUDE_DIRECTORIES>
 	"${NBL_ROOT_PATH}/examples_tests/common/include"
 )
 

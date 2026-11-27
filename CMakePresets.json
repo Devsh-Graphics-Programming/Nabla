@@ -11,7 +11,7 @@
 			"hidden": true,
 			"cacheVariables": {
 				"CMAKE_SUPPRESS_REGENERATION": "ON",
-				"NBL_EMBED_BUILTIN_RESOURCES": "ON",
+				"NBL_EMBED_BUILTIN_RESOURCES": "OFF",
 				"NBL_NSC_MODE": "SOURCE",
 				"NBL_UPDATE_GIT_SUBMODULE": "OFF",
 				"NBL_COMPILE_WITH_CUDA": "ON",
@@ -101,8 +101,8 @@
 			"inherits": "ci-configure-static-windows-base",
 			"generator": "Ninja Multi-Config",
 			"cacheVariables": {
-				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake",
-				"NBL_ENABLE_DOCKER_INTEGRATION": "ON"
+				"CONAN_HOST_PROFILE": "windows-msvc195-ninja-mt",
+				"CONAN_BUILD_PROFILE": "windows-msvc195-ninja-mt"
 			}
 		},
 		{
@@ -110,8 +110,8 @@
 			"inherits": "ci-configure-dynamic-windows-base",
 			"generator": "Ninja Multi-Config",
 			"cacheVariables": {
-				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake",
-				"NBL_ENABLE_DOCKER_INTEGRATION": "ON"
+				"CONAN_HOST_PROFILE": "windows-msvc195-ninja-md",
+				"CONAN_BUILD_PROFILE": "windows-msvc195-ninja-md"
 			}
 		},
 		{

@@ -162,14 +162,6 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		"${NBL_BUILTIN_DATA_ARCHIVE_CPP}"
 	)
 	
-	if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
-		nbl_adjust_flags(TARGET ${_TARGET_NAME_} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
-	elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
-		nbl_adjust_flags(TARGET ${_TARGET_NAME_} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
-	else()
-		nbl_adjust_flags(TARGET ${_TARGET_NAME_} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
-	endif()
-	
 	set(_BR_CONSTEXPR_STEPS_ 696969696969)
 
 	if(MSVC)
@@ -200,7 +192,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		if(NBL_STATIC_BUILD AND _LIB_TYPE_ STREQUAL SHARED)
 			message(FATAL_ERROR "Nabla must be built as dynamic library in order to combine this tool with SHARED setup!")
 		endif()
-		
+
 		if(NOT _NBL_INTERNAL_BR_CREATION_)
 			target_link_libraries(${_TARGET_NAME_} PUBLIC Nabla)
 		endif()
@@ -211,14 +203,16 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 			message(FATAL_ERROR "_NABLA_INCLUDE_DIRECTORIES_ has been not found. You are required to define _NABLA_INCLUDE_DIRECTORIES_ containing at least include search directory path to BuildConfigOptions.h")
 		endif()
 	endif()
+
+	if (NOT _NABLA_INCLUDE_DIRECTORIES_)
+		set(_NABLA_INCLUDE_DIRECTORIES_ "")
+	endif()
 	
 	target_include_directories(${_TARGET_NAME_} PUBLIC 
 		${_OUTPUT_INCLUDE_DIRECTORIES_}
-		"${_NABLA_INCLUDE_DIRECTORIES_}"
+		${_NABLA_INCLUDE_DIRECTORIES_}
 	)
 	set_target_properties(${_TARGET_NAME_} PROPERTIES CXX_STANDARD 20)
-
-	set_property(TARGET ${_TARGET_NAME_} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:DLL>")
 	
 	set(NBL_BUILTIN_RESOURCES ${NBL_BUILTIN_RESOURCES}) # turn builtin resources paths list into variable
 	

@@ -53,14 +53,14 @@ struct CumulativeProbabilitySampler
 	}
 
 	// BasicSampler interface
-	codomain_type generate(const domain_type u) NBL_CONST_MEMBER_FUNC
+	codomain_type generate(const domain_type u)
 	{
 		// upper_bound returns first index where cumProb > u
 		return hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u);
 	}
 
 	// TractableSampler interface
-	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache) NBL_CONST_MEMBER_FUNC
+	codomain_type generate(const domain_type u, NBL_REF_ARG(cache_type) cache)
 	{
 		// #define NBL_CUMPROB_YOLO_READS
 #ifdef NBL_CUMPROB_YOLO_READS
@@ -92,7 +92,7 @@ struct CumulativeProbabilitySampler
 		} comp;
 		comp.oneBefore = density_type(0.0);
 		comp.upperBound = density_type(1.0);
-		const codomain_type result = hlsl::upper_bound(cumProbAccessor, 0u, storedCount, u, comp);
+		const codomain_type result = hlsl::upper_bound<CumProbAccessor,CdfComparator>(cumProbAccessor, 0u, storedCount, u, comp);
 		cache.oneBefore = comp.oneBefore;
 		cache.upperBound = comp.upperBound;
 #endif
